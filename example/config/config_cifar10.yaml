@@ -7,6 +7,7 @@ imb_factor: 0.01
 rand_number: 0
 workers: 4
 # model backbone
+# backbone: 'resnet32'
 backbone: 'resnet32'
 # model classifier
 classifier: 'dot_product_classifier'
@@ -43,3 +44,9 @@ eff_beta: 1
 over: True
 imb_start: 5
 cifar_root : './data'
+# sampling method WeightedRandomBatchSampler, WeightedFixedBatchSampler, Random, StratifiedSampler
+sampling : "Random"
+#hyperparameter for balance sampling
+n_batches : 128
+alpha : 0.7
+kind : 'fixed'

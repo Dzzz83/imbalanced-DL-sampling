@@ -7,6 +7,8 @@ from imbalanceddl.strategy import LDAMDRWTrainer
 from imbalanceddl.strategy import ReweightCBTrainer
 from imbalanceddl.strategy import M2mTrainer
 from imbalanceddl.strategy import DeepSMOTETrainer
+from imbalanceddl.strategy import StratifiedTrainer
+from imbalanceddl.strategy import OptinumStratifiedTrainer
 
 
 def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
@@ -65,6 +67,17 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
     elif strategy == 'Reweight_CB':
         print("=> Reweight_CB Trainer !")
         trainer = ReweightCBTrainer(cfg,
+                                    imbalance_dataset,
+                                    model=model,
+                                    strategy=strategy)
+    elif strategy == 'Stratified':
+        print("=> Stratified Trainer !")
+        trainer = StratifiedTrainer(cfg,
+                                    imbalance_dataset,
+                                    model=model)
+    elif strategy == 'Optinum_Stratified':
+        print("=> Optinum Stratified Trainer !")
+        trainer = OptinumStratifiedTrainer(cfg,
                                     imbalance_dataset,
                                     model=model,
                                     strategy=strategy)

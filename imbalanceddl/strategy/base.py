@@ -5,6 +5,14 @@ from tensorboardX import SummaryWriter
 from sklearn.metrics import confusion_matrix
 from imbalanceddl.utils.metrics import shot_acc
 import numpy as np
+# from imbalanceddl.utils.stratifiedSampler import StratifiedSampler
+from  imbalanceddl.utils.backup_sampler import StratifiedSampler
+from imbalanceddl.utils.sampler2 import BalancedSampler
+from imbalanceddl.utils.bsampler import WeightedFixedBatchSampler
+from imbalanceddl.utils.bsampler import SamplerFactory
+from collections import Counter
+import torch
+
 
 
 class BaseTrainer(metaclass=abc.ABCMeta):
@@ -49,19 +57,156 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         Note that we are training in imbalanced dataset, and evaluating in
         balanced dataset.
         """
+        # 12.12
+        # if self.cfg.stragegy == "Mixup_DRW" :
+        # Use StratifiedSampler for the train DataLoader
         self.train_dataset, self.val_dataset = dataset.train_val_sets
-        self.train_loader = torch.utils.data.DataLoader(
-            self.train_dataset,
-            batch_size=self.cfg.batch_size,
-            shuffle=True,
-            num_workers=self.cfg.workers,
-            pin_memory=True)
+        
+        if self.cfg.sampling == "WeightedRandomBatchSampler":
+            print("Using WeightedRandomBatchSampler.")
+            class_idxs = self.train_dataset.get_class_idxs2()
+            sampler_factory = SamplerFactory()
+            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.n_batches, self.cfg.alpha, "random")
+            self.train_loader = torch.utils.data.DataLoader(
+                self.train_dataset,
+                batch_sampler=sampler)
+        elif self.cfg.sampling == "WeightedFixedBatchSampler":
+            print("Using WeightedFixedBatchSampler.")
+            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.n_batches, self.cfg.alpha, "fixed")
+            self.train_loader = torch.utils.data.DataLoader(
+                self.train_dataset,
+                batch_sampler=sampler)
+
+        elif self.cfg.sampling == "Random":
+            print("Using Random Sampler.")
+            self.train_loader = torch.utils.data.DataLoader(
+                self.train_dataset,
+                batch_size=self.cfg.batch_size,
+                shuffle=True, 
+                num_workers=self.cfg.workers,
+                pin_memory=True
+            )
+
+        elif self.cfg.sampling == "StratifiedSampler":
+            print("Using StratifiedSampler.")
+            sampler = StratifiedSampler(
+                labels=self.train_dataset.targets,
+                num_samples=len(self.train_dataset),
+                batch_size=self.cfg.batch_size
+            )
+            self.train_loader = torch.utils.data.DataLoader(
+                self.train_dataset,
+                batch_sampler=sampler,
+                num_workers=self.cfg.workers,
+                pin_memory=True
+            )
+
+        else:
+            raise ValueError(f"Unsupported sampling method: {self.cfg.sampling}")
+
+        # Print class-wise sample counts (for debugging)
+        class_counts = Counter()
+        for _, batch_labels in self.train_loader:
+            class_counts.update(batch_labels.tolist())
+        print("Class-wise sample counts:")
+        for class_label, count in sorted(class_counts.items()):
+            print(f"Class {class_label}: {count}")
+
+        # Validation loader remains the same
         self.val_loader = torch.utils.data.DataLoader(
             self.val_dataset,
             batch_size=100,
             shuffle=False,
             num_workers=self.cfg.workers,
-            pin_memory=True)
+            pin_memory=True
+        )
+        # print("Stratified Sampler Accessed.")
+        # # sampler = StratifiedSampler(
+        # #     labels=self.train_dataset.targets,
+        # #     num_samples=len(self.train_dataset),
+        # #     # num_samples_per_class=self.num_samples_per_class,
+        # #     batch_size=self.cfg.batch_size, 
+        # #     # alpha=self.alpha
+        # # )
+        # # STRATIFIED - CODE VER 2
+        # # sampler = StratifiedSampler(
+        # #     self.train_dataset,
+        # #     # labels=self.train_dataset.targets,  # Use targets from the dataset
+        # #     num_samples=len(self.train_dataset),  # Total number of samples
+        # #     num_samples_per_class=self.train_dataset.get_cls_num_list(),  # Class distribution
+        # #     batch_size=self.cfg.batch_size,
+        # #     alpha=0.5
+        # # )
+        # # BALANCED DATASET
+        # batch_size = 128
+        # n_batches = 128
+        # alpha = 0.7
+        # kind = 'fixed'
+        # class_idxs = self.train_dataset.get_class_idxs2()
+        # sampler_factory = SamplerFactory()
+        # sampler = sampler_factory.get(class_idxs, batch_size, n_batches, alpha, kind)
+
+        # # sampler = WeightedFixedBatchSampler(
+        # #     weights=self.train_dataset.get_sample_weights(),
+        # #     num_samples_per_class=self.train_dataset.get_cls_num_list(),
+        # #     num_classes=10,
+        # #     M=6,
+        # #     batch_size=self.cfg.batch_size,
+        # #     replacement=True,
+        # # )
+        
+        # # sampler = BalancedSampler(
+        # #     weights=self.train_dataset.get_sample_weights(),
+        # #     num_samples_per_class=self.train_dataset.get_cls_num_list(),
+        # #     num_classes=10,
+        # #     M=4,
+        # #     batch_size=32,
+        # #     replacement=True
+        # # )
+        # # self.train_loader = torch.utils.data.DataLoader(
+        # #     self.train_dataset,
+        # #     batch_size=self.cfg.batch_size,
+        # #     sampler=sampler, 
+        # #     num_workers=0,
+        # #     pin_memory=True
+        # # )
+        # # stratified_sampler = StratifiedSampler(
+        # #      labels=self.train_dataset.targets,  
+        # #     num_samples=len(self.train_dataset),
+        # # )
+        # self.train_loader = torch.utils.data.DataLoader(
+        #     self.train_dataset,
+        #     batch_sampler=sampler
+        # )
+        # # Dictionary to store counts of each class
+        # class_counts = Counter()
+
+        # # Iterate through the DataLoader
+        # for batch_data, batch_labels in self.train_loader:
+        #     # Update class counts with the labels from the batch
+        #     class_counts.update(batch_labels.tolist())
+
+        # # Print the number of samples for each class
+        # print("Class-wise sample counts:")
+        # for class_label, count in sorted(class_counts.items()):
+        #     print(f"Class {class_label}: {count}")
+        #     # break  # Show only the first batch
+        # # Iterate through the DataLoader and print sampled data
+        # # else:
+        # #     self.train_dataset, self.val_dataset = dataset.train_val_sets
+        # #     self.train_loader = torch.utils.data.DataLoader(
+        # #         self.train_dataset,
+        # #         batch_size=self.cfg.batch_size,
+        # #         shuffle=True,
+        # #         num_workers=self.cfg.workers,
+        # #         pin_memory=True)
+        # self.val_loader = torch.utils.data.DataLoader(
+        #     self.val_dataset,
+        #     batch_size=100,
+        #     shuffle=False,
+        #     num_workers=self.cfg.workers,
+        #     pin_memory=True)
+    
 
     def _prepare_logger(self):
         """Logger for records
