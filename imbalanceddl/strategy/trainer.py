@@ -8,6 +8,8 @@ from .base import BaseTrainer
 from imbalanceddl.utils.m2m_utils import Logger
 from torchmetrics import F1Score
 from torchmetrics.functional import precision_recall
+import wandb
+import wandb.apis.public as public
 
 class Trainer(BaseTrainer):
     def __init__(self, *args, **kwargs):
@@ -44,6 +46,29 @@ class Trainer(BaseTrainer):
                 'epoch', 'train loss', 'gen loss', 'train acc', 'gen_acc', 'prob_orig', 'prob_targ',
                 'test loss', 'major test acc', 'neutral test acc', 'minor test acc', 'test acc', 'f1 score'
             ]
+        # Initialize wandb
+        wandb.login(key="4470a28f7a04bfaa5bc4b051109efbb60c12dcb6")
+        wandb.init(
+            project="imbalanced_training",  # Replace with your project name
+            config={
+                "dataset": self.cfg.dataset,
+                "imb_type": self.cfg.imb_type,
+                "imb_factor": self.cfg.imb_factor,
+                "backbone": self.cfg.backbone,
+                "classifier": self.cfg.classifier,
+                "optimizer": self.cfg.optimizer,
+                "learning_rate": self.cfg.learning_rate,
+                "momentum": self.cfg.momentum,
+                "weight_decay": self.cfg.weight_decay,
+                "batch_size": self.cfg.batch_size,
+                "epochs": self.cfg.epochs,
+                "sampling_method": self.cfg.sampling,
+                "alpha": self.cfg.alpha,
+                "n_batches": self.cfg.n_batches,
+            },
+            name=f"{self.cfg.dataset}_{self.cfg.backbone}_{self.cfg.sampling}",
+        )
+
 
     def get_criterion(self):
         return NotImplemented

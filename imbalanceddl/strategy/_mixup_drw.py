@@ -5,6 +5,8 @@ from .trainer import Trainer
 
 from imbalanceddl.utils.utils import AverageMeter
 from imbalanceddl.utils.metrics import accuracy
+import wandb.apis.public as public
+import wandb
 
 
 def mixup_data(x, y, alpha=1.0):
@@ -125,6 +127,13 @@ class MixupTrainer(Trainer):
                 print(output)
                 self.log_training.write(output + '\n')
                 self.log_training.flush()
+        wandb.log({
+        "epoch": self.epoch,
+        "epoch_train_loss": losses.avg,
+        "epoch_train_acc@1": top1.avg,
+        "epoch_train_acc@5": top5.avg,
+        "lr": self.optimizer.param_groups[-1]['lr'] * 0.1
+        })
 
         self.compute_metrics_and_record(all_preds,
                                         all_targets,
