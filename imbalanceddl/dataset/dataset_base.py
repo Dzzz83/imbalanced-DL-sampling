@@ -1,5 +1,5 @@
 import numpy as np
-
+import torch
 class BaseDataset:
     """Base Dataset (Mixin)
 
@@ -54,3 +54,96 @@ class BaseDataset:
         for i in range(self.cls_num):
             cls_num_list.append(self.num_per_cls_dict[i])
         return cls_num_list
+    
+    def get_weights(self) -> np.ndarray:
+        """
+        Compute weights for each class inversely proportional to the number of samples,
+        with safeguards to avoid zero or extreme values.
+
+        Returns
+        -------
+        np.ndarray:
+            An array where each element is the weight of a class.
+        """
+        # Step 1: Get the total number of samples
+        total_samples = sum(self.num_per_cls_dict.values())
+
+        # Step 2: Compute weight for each class
+        epsilon = 1e-8  # Small value to avoid division by zero
+        class_weights = np.array([
+            total_samples / (len(self.num_per_cls_dict) * max(count, epsilon))
+            for count in self.num_per_cls_dict.values()
+        ], dtype=np.float32)
+
+        # Step 3: Clip weights to a minimum threshold to avoid zero
+        min_weight = 1e-6  # Replace with your desired minimum weight
+        class_weights = np.clip(class_weights, min_weight, None)
+
+        return class_weights
+
+    def get_sample_weights(self):
+        """
+        Generate weights for each sample based on the class it belongs to,
+        with safeguards to avoid zero or extreme values.
+
+        Returns
+        -------
+        list of float:
+            A list where each element is the weight of a sample.
+        """
+        # Step 1: Get class weights
+        class_weights = self.get_weights()
+
+        # Step 2: Get the class of each sample
+        targets_np = np.array(self.targets, dtype=np.int64)
+
+        # Step 3: Assign weights for each sample based on its class
+        sample_weights = [class_weights[class_idx] for class_idx in targets_np]
+
+        return sample_weights
+
+    
+    def get_class_idxs(self):
+            """
+            Generate class indices (class_idxs) for the dataset.
+
+            Returns
+            -------
+            class_idxs : list of lists
+                Each sublist contains the indices of samples for a particular class.
+            """
+            targets_np = np.array(self.targets, dtype=np.int64)
+            classes = np.unique(targets_np)
+            class_idxs = [np.where(targets_np == the_class)[0].tolist() for the_class in classes]
+            return class_idxs
+    def get_class_idxs2(self):
+        """
+        Generate class indices (class_idxs) for the dataset.
+
+        Returns
+        -------
+        class_idxs : list of lists
+            Each sublist contains the indices of samples for a particular class.
+        """
+        # Ensure self.targets is a 1D list or array of integers
+        if not isinstance(self.targets, (list, np.ndarray)):
+            raise ValueError("Expected self.targets to be a list or numpy array.")
+
+        # Convert self.targets to a numpy array
+        targets_np = np.array(self.targets, dtype=np.int64)
+
+        # Validate that targets_np contains valid integer class labels
+        if not np.issubdtype(targets_np.dtype, np.integer):
+            raise ValueError("Targets must contain integer class labels.")
+
+        # Find unique classes and generate indices for each class
+        classes = np.unique(targets_np)
+        class_idxs = [np.where(targets_np == the_class)[0].tolist() for the_class in classes]
+
+        # Validate that class_idxs is a list of lists and contains indices
+        if not all(isinstance(idxs, list) for idxs in class_idxs):
+            raise ValueError("Generated class_idxs is not a list of lists.")
+        if not all(all(isinstance(idx, int) for idx in idxs) for idxs in class_idxs):
+            raise ValueError("Class indices must be integers.")
+
+        return class_idxs
