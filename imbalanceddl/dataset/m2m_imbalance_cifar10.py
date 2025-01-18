@@ -8,6 +8,7 @@ import torch.backends.cudnn as cudnn
 from .dataset_base import BaseDataset
 from .m2m_dataset_base import M2mBaseDataset
 from imbalanceddl.utils.config import get_args
+# from imbalanceddl.utils.stratifiedSampler import StratifiedSampler
 
 
 cfg = get_args()
@@ -44,9 +45,30 @@ class M2M_CIFAR10_LT(datasets.CIFAR10, BaseDataset, M2mBaseDataset):
             print("=> Generating Imbalanced CIFAR10 with Type: {} | Ratio: {}".format(imb_type, imb_factor))
 
 # In this implementation, we dont do normalization because M2m will normalize when adding noise into image.
-def cifar10_train_val_oversamples(cifar_root, batch_size=128):
+# def cifar10_train_val_oversamples(cifar_root, batch_size=128):
 
-    # No Normalization
+#     # No Normalization
+#     transform_train = transforms.Compose([
+#                 transforms.RandomCrop(32, padding=4),
+#                 transforms.RandomHorizontalFlip(),
+#                 transforms.ToTensor(),
+#             ])
+#     transform_test = transforms.Compose([
+#             transforms.ToTensor(),
+#         ])
+
+#     train_cifar10_lt = M2M_CIFAR10_LT(root=cifar_root, train=True, download=True, transform=transform_train, is_imbalance_data = True)
+#     val_cifar10_lt = datasets.CIFAR10(root=cifar_root, train=False, download=True, transform=transform_test)
+#     train_in_oversamples_idx = M2mBaseDataset.get_oversampled_data(train_cifar10_lt, train_cifar10_lt.img_num_list)
+
+#     train_in_loader = DataLoader(train_cifar10_lt, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
+#     val_in_loader = DataLoader(val_cifar10_lt, batch_size=100, shuffle=False, num_workers=8, pin_memory=True)
+
+#     # Oversamples data is using for M2m method after epoch 160
+#     train_oversamples = DataLoader(train_cifar10_lt, batch_size=batch_size, sampler=WeightedRandomSampler(train_in_oversamples_idx, len(train_in_oversamples_idx)), num_workers=8)
+
+#     return train_in_loader, val_in_loader, train_oversamples
+def cifar10_train_val_oversamples(cifar_root, num_samples_per_class, batch_size, alpha):
     transform_train = transforms.Compose([
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
@@ -55,15 +77,23 @@ def cifar10_train_val_oversamples(cifar_root, batch_size=128):
     transform_test = transforms.Compose([
             transforms.ToTensor(),
         ])
+    
+    print("Batch size", batch_size)
+    print("Alpha_balance", alpha)
 
     train_cifar10_lt = M2M_CIFAR10_LT(root=cifar_root, train=True, download=True, transform=transform_train, is_imbalance_data = True)
     val_cifar10_lt = datasets.CIFAR10(root=cifar_root, train=False, download=True, transform=transform_test)
     train_in_oversamples_idx = M2mBaseDataset.get_oversampled_data(train_cifar10_lt, train_cifar10_lt.img_num_list)
 
-    train_in_loader = DataLoader(train_cifar10_lt, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
-    val_in_loader = DataLoader(val_cifar10_lt, batch_size=100, shuffle=False, num_workers=8, pin_memory=True)
+    train_in_loader = DataLoader(train_cifar10_lt, batch_size=batch_size, shuffle= True, num_workers=4, pin_memory=True)
+    # train_in_loader_custom = DataLoader(train_cifar10_lt, batch_size=batch_size, sampler=CustomizeRandomSampler(data_source = train_in_oversamples_idx, num_samples = len(train_in_oversamples_idx), num_samples_per_class=num_samples_per_class), num_workers=8, pin_memory=True)
+    val_in_loader = DataLoader(val_cifar10_lt, batch_size=100, shuffle=False, num_workers=4, pin_memory=True)
 
     # Oversamples data is using for M2m method after epoch 160
-    train_oversamples = DataLoader(train_cifar10_lt, batch_size=batch_size, sampler=WeightedRandomSampler(train_in_oversamples_idx, len(train_in_oversamples_idx)), num_workers=8)
+    train_oversamples = DataLoader(train_cifar10_lt, batch_size=batch_size, sampler=WeightedRandomSampler(train_in_oversamples_idx, len(train_in_oversamples_idx)), num_workers=4)
+    # Stratified sampling dataset
+    # stratified_sampler = StratifiedSampler(data_source = train_in_oversamples_idx, batch_size = batch_size, num_samples = len(train_in_oversamples_idx), num_samples_per_class=num_samples_per_class, alpha=alpha)
+    # train_stratified_loader = DataLoader(train_cifar10_lt, batch_size=batch_size, sampler=stratified_sampler, num_workers=4)
 
+    # return train_in_loader, train_in_loader_custom,  val_in_loader, train_oversamples
     return train_in_loader, val_in_loader, train_oversamples

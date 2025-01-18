@@ -66,7 +66,10 @@ class Trainer(BaseTrainer):
                 "alpha": self.cfg.alpha,
                 "n_batches": self.cfg.n_batches,
             },
-            name=f"{self.cfg.dataset}_{self.cfg.backbone}_{self.cfg.sampling}",
+            name=f"{self.cfg.dataset}_{self.cfg.backbone}_{self.cfg.sampling}" + 
+                (f"_alpha{self.cfg.alpha}" 
+                if self.cfg.sampling in ["WeightedRandomBatchSampler", "WeightedFixedBatchSampler"] 
+                else "")
         )
 
 
@@ -152,6 +155,11 @@ class Trainer(BaseTrainer):
                 self.train_one_epoch(net, net_seed, optimizer, SUCCESS)
 
     def do_train_val(self):
+        if self.cfg.dataset == 'cifar10':
+            # To avoid it will process all datasets when running M2m method frist time, just import specific dataset.
+            from imbalanceddl.dataset.m2m_imbalance_cifar10 import cifar10_train_val_oversamples
+            train_in_loader, val_in_loader, train_oversamples_loader = cifar10_train_val_oversamples(self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha)
+            self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
         for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
             self.epoch = epoch
 
@@ -161,7 +169,8 @@ class Trainer(BaseTrainer):
             # criterion
             self.get_criterion()
             assert self.criterion is not None, "No criterion !"
-            self.train_one_epoch()
+            # change to train_one_epoch_balance_mixup() to use mixup
+            self.train_one_epoch_balance_mixup()
             acc1 = self.validate()
             # remember best acc@1 and save checkpoint
             is_best = acc1 > self.best_acc1
@@ -186,6 +195,7 @@ class Trainer(BaseTrainer):
                     'best_acc1': self.best_acc1,
                     'optimizer': self.optimizer.state_dict()
                 }, is_best, self.epoch)
+           
 
     def eval_best_model(self):
         assert self.cfg.best_model is not None, "[Warning] Best Model \
@@ -275,6 +285,15 @@ class Trainer(BaseTrainer):
                                   top1=top1,
                                   top5=top5))
                     print(output)
+                    
+            wandb.log({
+            "val_loss": losses.avg,
+            "val_accuracy": top1.avg,
+            "val_f1_score": np.mean(all_f1_scores),
+            "val_precision": np.mean(all_precisions),
+            "val_recall": np.mean(all_recalls),
+            "epoch": self.epoch,
+            })
 
             cls_acc_string = self.compute_metrics_and_record(all_preds,
                                             all_targets,

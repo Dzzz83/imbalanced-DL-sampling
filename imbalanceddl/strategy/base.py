@@ -72,6 +72,8 @@ class BaseTrainer(metaclass=abc.ABCMeta):
                 batch_sampler=sampler)
         elif self.cfg.sampling == "WeightedFixedBatchSampler":
             print("Using WeightedFixedBatchSampler.")
+            class_idxs = self.train_dataset.get_class_idxs2()
+            sampler_factory = SamplerFactory()
             sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.n_batches, self.cfg.alpha, "fixed")
             self.train_loader = torch.utils.data.DataLoader(
                 self.train_dataset,
