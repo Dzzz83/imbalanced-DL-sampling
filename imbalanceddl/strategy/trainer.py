@@ -170,7 +170,7 @@ class Trainer(BaseTrainer):
             self.get_criterion()
             assert self.criterion is not None, "No criterion !"
             # change to train_one_epoch_balance_mixup() to use mixup
-            self.train_one_epoch_balance_mixup()
+            self.train_one_epoch()
             acc1 = self.validate()
             # remember best acc@1 and save checkpoint
             is_best = acc1 > self.best_acc1
