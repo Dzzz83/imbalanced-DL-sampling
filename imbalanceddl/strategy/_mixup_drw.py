@@ -263,11 +263,7 @@ class MixupTrainer(Trainer):
 
             # Two kinds of output
             output_prec, _ = self.model(_input)
-            output_mix, _ = self.model(_input_mix)
-
-            print(f"DEBUG: output_mix device: {output_mix.device}")
-            print(f"DEBUG: target_a device: {target_a.device}")
-            print(f"DEBUG: target_b device: {target_b.device}")  
+            output_mix, _ = self.model(_input_mix)  
 
             # For Loss, we use mixup output
             loss = mixup_criterion(self.criterion, output_mix, target_a,
