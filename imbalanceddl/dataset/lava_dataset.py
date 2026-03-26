@@ -22,42 +22,44 @@ class LavaDataset(Dataset):
         self.method = method
         self.device = device
 
+        train_ds, val_ds = self.base_dataset.train_val_sets
+
         print(f"==> Starting Data Selection via {method}...")
         
         # 1. Get indices to keep
         if method.lower() == 'lava':
             # We pass the underlying training set and labels to LAVA
             indices = get_lava_selection_indices(
-                self.base_dataset.train_dataset, 
+                train_ds, 
                 ratio=self.ratio, 
                 device=self.device
             )
         elif method.lower() == 'random':
             indices = random_selection(
-                self.base_dataset.train_dataset, 
+                train_ds, 
                 ratio=self.ratio
             )
         else:
             raise ValueError(f"Unknown selection method: {method}")
 
         # 2. Create the subset
-        self.subset = Subset(self.base_dataset.train_dataset, indices)
+        self.subset = Subset(train_ds, indices)
         
         # 3. Update internal info for the trainer/model
         self.train_dataset = self.subset
-        self.val_dataset = self.base_dataset.val_dataset
-        self.cls_num_list = self._compute_new_cls_num_list(indices)
+        self.val_dataset = val_ds
+        self.cls_num_list = self._compute_new_cls_num_list(indices, train_ds)
         
         print(f"==> Selection Complete. New training size: {len(self.subset)}")
 
-    def _compute_new_cls_num_list(self, indices):
+    def _compute_new_cls_num_list(self, indices, train_ds):
         """Calculates the new class distribution after selection."""
-        all_labels = np.array(self.base_dataset.train_dataset.targets)
+        all_labels = np.array(train_ds.targets)
         selected_labels = all_labels[indices]
         unique, counts = np.unique(selected_labels, return_counts=True)
         
         # Create a full list including classes that might now have 0 samples
-        new_list = [0] * len(self.base_dataset.cls_num_list)
+        new_list = [0] * len(self.base_dataset.cfg.cls_num_list)
         for cls, count in zip(unique, counts):
             new_list[int(cls)] = int(count)
         return new_list
