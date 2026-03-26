@@ -251,27 +251,27 @@ class Trainer(BaseTrainer):
         # all_recalls = []
 
         with torch.no_grad():
-            for i, (_input, target) in enumerate(self.val_loader):
+            for i, (images, labels) in enumerate(self.val_loader):
                 if self.cfg.gpu is not None:
-                    _input = _input.cuda(self.cfg.gpu, non_blocking=True)
-                    target = target.cuda(self.cfg.gpu, non_blocking=True)
+                    images = images.cuda(self.cfg.gpu, non_blocking=True)
+                    labels = labels.cuda(self.cfg.gpu, non_blocking=True)
 
                 # compute output
-                output, _ = self.model(_input)
+                output, _ = self.model(images)
                 # output = self.model(_input)
-                loss = self.criterion(output, target).mean()
+                loss = self.criterion(output, labels).mean()
 
                 # measure accuracy and record loss
-                acc1, acc5 = accuracy(output, target, topk=(1, 5))
-                losses.update(loss.item(), _input.size(0))
-                top1.update(acc1[0], _input.size(0))
-                top5.update(acc5[0], _input.size(0))
+                acc1, acc5 = accuracy(output, labels, topk=(1, 5))
+                losses.update(loss.item(), images.size(0))
+                top1.update(acc1[0], images.size(0))
+                top5.update(acc5[0], images.size(0))
 
                 _, pred = torch.max(output, 1)
                 # pred = pred.to(self.cfg.gpu)
                 # target = target.to(self.cfg.gpu)
                 all_preds.extend(pred.cpu().numpy())
-                all_targets.extend(target.cpu().numpy())
+                all_targets.extend(labels.cpu().numpy())
 
                 # F1_value = f1(pred, target)
                 # prec_val = multiclass_precision(pred, target, num_classes=self.cfg.num_classes, average='macro')
@@ -284,7 +284,7 @@ class Trainer(BaseTrainer):
                 # all_recalls.append(recall_val.item())
 
                 if i % self.cfg.print_freq == 0:
-                    output = ('Epoch: [{0}][{1}/{2}]\t'
+                    stats_log = ('Epoch: [{0}][{1}/{2}]\t'
                               'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                               'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                               'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
@@ -294,7 +294,7 @@ class Trainer(BaseTrainer):
                                   loss=losses,
                                   top1=top1,
                                   top5=top5))
-                    print(output)
+                    print(stats_log)
 
             all_preds_t = torch.tensor(all_preds)
             all_targets_t = torch.tensor(all_targets)
