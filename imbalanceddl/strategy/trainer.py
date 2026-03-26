@@ -7,7 +7,7 @@ from imbalanceddl.utils.metrics import accuracy
 from .base import BaseTrainer
 from imbalanceddl.utils.m2m_utils import Logger
 from torchmetrics import F1Score
-from torchmetrics.functional import precision_recall_curve
+from torchmetrics.functional.classification import multiclass_precision, multiclass_recall
 import wandb
 import wandb.apis.public as public
 
@@ -265,14 +265,18 @@ class Trainer(BaseTrainer):
                 top5.update(acc5[0], _input.size(0))
 
                 _, pred = torch.max(output, 1)
+                pred = pred.to(self.cfg.gpu)
+                target = target.to(self.cfg.gpu)
+
                 F1_value = f1(pred, target)
-                precision_value, recall_value = precision_recall_curve(pred.to(self.cfg.gpu), target.to(self.cfg.gpu), average='macro', num_classes=self.cfg.num_classes)
+                prec_val = multiclass_precision(pred, target, num_classes=self.cfg.num_classes, average='macro')
+                recall_val = multiclass_recall(pred, target, num_classes=self.cfg.num_classes, average='macro')
 
                 all_preds.extend(pred.cpu().numpy())
                 all_targets.extend(target.cpu().numpy())
-                all_f1_scores.append(F1_value.cpu().numpy())
-                all_precisions.append(precision_value.cpu().numpy())
-                all_recalls.append(recall_value.cpu().numpy())
+                all_f1_scores.append(F1_value.item())
+                all_precisions.append(prec_val.item())
+                all_recalls.append(recall_val.item())
 
                 if i % self.cfg.print_freq == 0:
                     output = ('Epoch: [{0}][{1}/{2}]\t'
