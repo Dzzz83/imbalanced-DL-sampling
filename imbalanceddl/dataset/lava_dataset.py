@@ -31,6 +31,7 @@ class LavaDataset(Dataset):
             # We pass the underlying training set and labels to LAVA
             indices = get_lava_selection_indices(
                 train_ds, 
+                val_ds,
                 keep_ratio=self.ratio, 
                 device=self.device
             )
