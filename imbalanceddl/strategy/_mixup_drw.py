@@ -248,11 +248,17 @@ class MixupTrainer(Trainer):
             # Mixup Data
             _input_mix, target_a, target_b, lam = mixup_data(_input, target)
 
-            # pass the object to the GPU
-            if self.cfg.gpu is not None:
-                target_a = target_a.cuda(self.cfg.gpu, non_blocking=True)
-                target_b = target_b.cuda(self.cfg.gpu, non_blocking=True)
-                _input_mix = _input_mix.cuda(self.cfg.gpu, non_blocking=True)  
+            device = next(self.model.parameters()).device
+
+            _input_mix = _input_mix.to(device, non_blocking=True)
+            target_a = target_a.to(device, non_blocking=True)
+            target_b = target_b.to(device, non_blocking=True)
+
+            # # pass the object to the GPU
+            # if self.cfg.gpu is not None:
+            #     target_a = target_a.cuda(self.cfg.gpu, non_blocking=True)
+            #     target_b = target_b.cuda(self.cfg.gpu, non_blocking=True)
+            #     _input_mix = _input_mix.cuda(self.cfg.gpu, non_blocking=True)  
 
             # Two kinds of output
             output_prec, _ = self.model(_input)
@@ -261,7 +267,7 @@ class MixupTrainer(Trainer):
             print(f"DEBUG: output_mix device: {output_mix.device}")
             print(f"DEBUG: target_a device: {target_a.device}")
             print(f"DEBUG: target_b device: {target_b.device}")  
-            
+
             # For Loss, we use mixup output
             loss = mixup_criterion(self.criterion, output_mix, target_a,
                                    target_b, lam).mean()
