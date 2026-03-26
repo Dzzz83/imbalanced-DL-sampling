@@ -266,7 +266,7 @@ class Trainer(BaseTrainer):
 
                 _, pred = torch.max(output, 1)
                 F1_value = f1(pred, target)
-                precision_value, recall_value = precision_recall(pred, target, average='macro', num_classes=self.cfg.num_classes)
+                precision_value, recall_value = precision_recall_curve(pred.to(self.cfg.gpu), target.to(self.cfg.gpu), average='macro', num_classes=self.cfg.num_classes)
 
                 all_preds.extend(pred.cpu().numpy())
                 all_targets.extend(target.cpu().numpy())
