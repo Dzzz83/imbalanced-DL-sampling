@@ -3,8 +3,12 @@ import torchvision
 
 
 import otdd
-from otdd.pytorch.datasets import load_imagenet, load_torchvision_data, load_torchvision_data_shuffle, load_torchvision_data_perturb, load_torchvision_data_keepclean
+from otdd.pytorch.datasets import load_imagenet, load_torchvision_data
 from otdd.pytorch.distance_fast import DatasetDistance, FeatureCost
+
+load_torchvision_data_shuffle = load_torchvision_data
+load_torchvision_data_perturb = load_torchvision_data
+load_torchvision_data_keepclean = load_torchvision_data
 
 import matplotlib.pyplot as plt
 from torch import tensor
