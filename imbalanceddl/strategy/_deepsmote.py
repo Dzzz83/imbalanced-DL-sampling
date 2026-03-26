@@ -6,7 +6,7 @@ from imbalanceddl.utils.utils import AverageMeter
 from imbalanceddl.utils.metrics import accuracy
 from imbalanceddl.utils.deep_smote_data_loader import get_balanced_deep_smote
 from torchmetrics import F1Score
-from torchmetrics.functional import precision_recall
+from torchmetrics.functional import precision_recall_curve
 
 
 class DeepSMOTETrainer(Trainer):

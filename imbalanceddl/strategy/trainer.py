@@ -7,7 +7,7 @@ from imbalanceddl.utils.metrics import accuracy
 from .base import BaseTrainer
 from imbalanceddl.utils.m2m_utils import Logger
 from torchmetrics import F1Score
-from torchmetrics.functional import precision_recall
+from torchmetrics.functional import precision_recall_curve
 import wandb
 import wandb.apis.public as public
 
