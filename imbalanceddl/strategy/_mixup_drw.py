@@ -248,9 +248,11 @@ class MixupTrainer(Trainer):
             # Mixup Data
             _input_mix, target_a, target_b, lam = mixup_data(_input, target)
 
+            # pass the object to the GPU
             if self.cfg.gpu is not None:
                 target_a = target_a.cuda(self.cfg.gpu, non_blocking=True)
                 target_b = target_b.cuda(self.cfg.gpu, non_blocking=True)
+                _input_mix = _input_mix.cuda(self.cfg.gpu, non_blocking=True)
                 
             # Two kinds of output
             output_prec, _ = self.model(_input)
