@@ -254,6 +254,10 @@ class MixupTrainer(Trainer):
                 target_b = target_b.cuda(self.cfg.gpu, non_blocking=True)
                 _input_mix = _input_mix.cuda(self.cfg.gpu, non_blocking=True)
                 
+            print(f"DEBUG: output_mix device: {output_mix.device}")
+            print(f"DEBUG: target_a device: {target_a.device}")
+            print(f"DEBUG: target_b device: {target_b.device}")    
+            
             # Two kinds of output
             output_prec, _ = self.model(_input)
             output_mix, _ = self.model(_input_mix)
