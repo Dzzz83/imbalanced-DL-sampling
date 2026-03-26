@@ -69,6 +69,10 @@ class MixupTrainer(Trainer):
             self.criterion = nn.CrossEntropyLoss(weight=per_cls_weights,
                                                  reduction='none').cuda(
                                                      self.cfg.gpu)
+        elif self.strategy == "Mixup":
+            print("Mixup is being used! Using Standard CrossEntropyLoss.")
+            self.criterion = nn.CrossEntropyLoss(reduction='none').cuda(self.cfg.gpu)
+            
         else:
             raise ValueError("[Warning] Strategy is not supported !")
     def train_one_epoch_balance_mixup(self):
