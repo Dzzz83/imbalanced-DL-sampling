@@ -20,6 +20,11 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
                                imbalance_dataset,
                                model=model,
                                strategy=strategy)
+    elif strategy == 'Mixup':
+        trainer = MixupTrainer(cfg,
+                               imbalance_dataset,
+                               model=model,
+                               strategy=strategy)
     elif strategy == 'M2m':
         print("=> M2m Trainer !")
         trainer = M2mTrainer(cfg,
