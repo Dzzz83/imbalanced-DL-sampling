@@ -1,3 +1,26 @@
+import sys
+from unittest.mock import MagicMock
+
+def silence_torchtext():
+    """Bypasses the C++ linkage error in torchtext for image-only projects."""
+    modules_to_mock = [
+        "torchtext", 
+        "torchtext.data", 
+        "torchtext.data.utils", 
+        "torchtext.datasets", 
+        "torchtext.vocab"
+    ]
+    for mod in modules_to_mock:
+        if mod not in sys.modules:
+            sys.modules[mod] = MagicMock()
+
+# Execute the bypass before LAVA or OTDD can be loaded
+silence_torchtext()
+
+# NOW you can safely import your project modules
+from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
+
+
 import numpy as np
 import torch
 import os
