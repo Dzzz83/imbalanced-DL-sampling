@@ -7,7 +7,7 @@ from imbalanceddl.utils.metrics import accuracy
 from .base import BaseTrainer
 from imbalanceddl.utils.m2m_utils import Logger
 from torchmetrics import F1Score
-from torchmetrics.functional.classification import multiclass_precision, multiclass_recall
+from torchmetrics.functional.classification import multiclass_precision, multiclass_recall, multiclass_f1_score
 import wandb
 import wandb.apis.public as public
 
@@ -234,24 +234,29 @@ class Trainer(BaseTrainer):
         losses = AverageMeter('Loss', ':.4e')
         top1 = AverageMeter('Acc@1', ':6.2f')
         top5 = AverageMeter('Acc@5', ':6.2f')
-        # f1 = F1Score(num_classes=self.cfg.num_classes).to(self.cfg.gpu)
-        f1 = F1Score(task="multiclass", num_classes=self.cfg.num_classes).to(self.cfg.gpu)
+
+        self.model.eval()
+        # # f1 = F1Score(num_classes=self.cfg.num_classes).to(self.cfg.gpu)
+        # f1 = F1Score(task="multiclass", num_classes=self.cfg.num_classes).to(self.cfg.gpu)
 
         # switch to evaluate mode
         self.model.eval()
 
-        all_preds = list()
-        all_targets = list()
-        all_f1_scores = []
+        all_preds = []
+        all_targets = []
 
-        all_precisions = []
-        all_recalls = []
+        # all_preds = list()
+        # all_targets = list()
+        # all_f1_scores = []
+
+        # all_precisions = []
+        # all_recalls = []
 
         with torch.no_grad():
             for i, (_input, target) in enumerate(self.val_loader):
-
-                _input = _input.cuda(self.cfg.gpu, non_blocking=True)
-                target = target.cuda(self.cfg.gpu, non_blocking=True)
+                if self.cfg.gpu is not None:
+                    _input = _input.cuda(self.cfg.gpu, non_blocking=True)
+                    target = target.cuda(self.cfg.gpu, non_blocking=True)
 
                 # compute output
                 output, _ = self.model(_input)
@@ -265,18 +270,20 @@ class Trainer(BaseTrainer):
                 top5.update(acc5[0], _input.size(0))
 
                 _, pred = torch.max(output, 1)
-                pred = pred.to(self.cfg.gpu)
-                target = target.to(self.cfg.gpu)
-
-                F1_value = f1(pred, target)
-                prec_val = multiclass_precision(pred, target, num_classes=self.cfg.num_classes, average='macro')
-                recall_val = multiclass_recall(pred, target, num_classes=self.cfg.num_classes, average='macro')
-
+                # pred = pred.to(self.cfg.gpu)
+                # target = target.to(self.cfg.gpu)
                 all_preds.extend(pred.cpu().numpy())
                 all_targets.extend(target.cpu().numpy())
-                all_f1_scores.append(F1_value.item())
-                all_precisions.append(prec_val.item())
-                all_recalls.append(recall_val.item())
+
+                # F1_value = f1(pred, target)
+                # prec_val = multiclass_precision(pred, target, num_classes=self.cfg.num_classes, average='macro')
+                # recall_val = multiclass_recall(pred, target, num_classes=self.cfg.num_classes, average='macro')
+
+                # all_preds.extend(pred.cpu().numpy())
+                # all_targets.extend(target.cpu().numpy())
+                # all_f1_scores.append(F1_value.item())
+                # all_precisions.append(prec_val.item())
+                # all_recalls.append(recall_val.item())
 
                 if i % self.cfg.print_freq == 0:
                     output = ('Epoch: [{0}][{1}/{2}]\t'
@@ -290,13 +297,21 @@ class Trainer(BaseTrainer):
                                   top1=top1,
                                   top5=top5))
                     print(output)
-                    
+
+            all_preds_t = torch.tensor(all_preds)
+            all_targets_t = torch.tensor(all_targets)
+
+            final_f1 = multiclass_f1_score(all_preds_t, all_targets_t, num_classes=self.cfg.num_classes, average='macro').item()
+            final_prec = multiclass_precision(all_preds_t, all_targets_t, num_classes=self.cfg.num_classes, average='macro').item()
+            final_recall = multiclass_recall(all_preds_t, all_targets_t, num_classes=self.cfg.num_classes, average='macro').item()
+
+        
             wandb.log({
             "val_loss": losses.avg,
             "val_accuracy": top1.avg,
-            "val_f1_score": np.mean(all_f1_scores),
-            "val_precision": np.mean(all_precisions),
-            "val_recall": np.mean(all_recalls),
+            "val_f1_score": final_f1,
+            "val_precision": final_prec,
+            "val_recall": final_recall,
             "epoch": self.epoch,
             })
 
@@ -307,9 +322,9 @@ class Trainer(BaseTrainer):
                                             top5,
                                             flag='Testing')
 
-            all_f1_scores = np.array(all_f1_scores)
-            f1=np.mean(all_f1_scores)
-            print("==========F1_Score of TESTING dataset: {:.4f}% =============".format(f1*100))
+            # all_f1_scores = np.array(all_f1_scores)
+            # f1=np.mean(all_f1_scores)
+            print("==========F1_Score of TESTING dataset: {:.4f}% =============".format(final_f1*100))
 
         if cls_acc_string is not None:
             return top1.avg, cls_acc_string
