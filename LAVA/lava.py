@@ -122,7 +122,9 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
 
 
     tic = time.perf_counter()
-    dual_sol = dist.dual_sol(maxsamples = training_size, return_coupling = True)
+    _ = dist.distance(maxsamples = training_size, return_coupling = True)
+    # The dual solution is then accessed as an attribute
+    dual_sol = dist.dual_v
 
     toc = time.perf_counter()
     print(f"distance calculation takes {toc - tic:0.4f} seconds")
