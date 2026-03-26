@@ -272,7 +272,7 @@ class MixupTrainer(Trainer):
             # For Loss, we use mixup output
             loss = mixup_criterion(self.criterion, output_mix, target_a,
                                    target_b, lam).mean()
-            acc1, acc5 = accuracy(output_prec, target, topk=(1, 5))
+            acc1, acc5 = accuracy(output_prec, target.to(output_prec.device), topk=(1, 5))
             _, pred = torch.max(output_prec, 1)
             all_preds.extend(pred.cpu().numpy())
             all_targets.extend(target.cpu().numpy())
