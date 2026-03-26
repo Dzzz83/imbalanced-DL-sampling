@@ -1,0 +1,33 @@
+# Dataset Settings
+dataset: cifar10
+num_classes: 10
+imb_type: exp        # Exponential imbalance
+imb_factor: 0.01     # 100:1 ratio between head and tail classes
+data_path: ./data
+
+# Selection Settings (LAVA)
+method: lava         # Options: lava, random, none
+ratio: 0.1           # Keep 10% of the data based on LAVA scores
+device: cuda
+
+# Training Strategy
+strategy: Mixup_Drw  # Uses Mixup augmentation with Deferred Re-Weighting
+loss_type: CE        # Cross Entropy (can be LDAM or CB)
+train_rule: None     # Can be 'DRW' to trigger re-weighting mid-training
+
+# Hyperparameters
+epochs: 200
+batch_size: 128
+learning_rate: 0.1
+momentum: 0.9
+weight_decay: 2e-4
+lr_steps: [120, 160] # Epochs where the learning rate drops
+gamma: 0.1
+
+# Augmentation
+mixup_alpha: 1.0     # Strength of the mixup interpolation
+
+# Logging & Checkpoints
+root_log: ./example/checkpoint_cifar10
+root_model: ./example/checkpoint_cifar10
+store_name: cifar10_lava_0.1_mixup_exp0.01
