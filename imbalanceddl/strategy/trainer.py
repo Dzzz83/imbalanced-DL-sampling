@@ -259,7 +259,7 @@ class Trainer(BaseTrainer):
                 # compute output
                 output, _ = self.model(images)
                 # output = self.model(_input)
-                loss = self.criterion(output, labels).mean()
+                loss = self.criterion(output, labels.to(output.device)).mean()
 
                 # measure accuracy and record loss
                 acc1, acc5 = accuracy(output, labels, topk=(1, 5))
