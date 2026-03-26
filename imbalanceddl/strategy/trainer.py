@@ -234,8 +234,6 @@ class Trainer(BaseTrainer):
         losses = AverageMeter('Loss', ':.4e')
         top1 = AverageMeter('Acc@1', ':6.2f')
         top5 = AverageMeter('Acc@5', ':6.2f')
-
-        self.model.eval()
         # # f1 = F1Score(num_classes=self.cfg.num_classes).to(self.cfg.gpu)
         # f1 = F1Score(task="multiclass", num_classes=self.cfg.num_classes).to(self.cfg.gpu)
 
