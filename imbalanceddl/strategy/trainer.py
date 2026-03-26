@@ -299,6 +299,10 @@ class Trainer(BaseTrainer):
             all_preds_t = torch.tensor(all_preds)
             all_targets_t = torch.tensor(all_targets)
 
+            if self.cfg.gpu is not None:
+                all_preds_t = all_preds_t.cuda(self.cfg.gpu)
+                all_targets_t = all_targets_t.cuda(self.cfg.gpu)
+
             final_f1 = multiclass_f1_score(all_preds_t, all_targets_t, num_classes=self.cfg.num_classes, average='macro').item()
             final_prec = multiclass_precision(all_preds_t, all_targets_t, num_classes=self.cfg.num_classes, average='macro').item()
             final_recall = multiclass_recall(all_preds_t, all_targets_t, num_classes=self.cfg.num_classes, average='macro').item()
