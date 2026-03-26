@@ -1,7 +1,5 @@
 import torch
 import torchvision
-
-
 import otdd
 from otdd.pytorch.datasets import load_imagenet, load_torchvision_data
 try:
@@ -37,14 +35,14 @@ import pickle
 from PIL import Image, ImageOps, ImageEnhance
 from copy import deepcopy as dpcp
 
-import poi_util
+from . import poi_util
 import importlib
-from poi_util import poison_dataset,patching_test, VGG
+from .poi_util import poison_dataset,patching_test, VGG
 from torch.utils.data import Dataset, TensorDataset, DataLoader
 
-from vgg import vgg16
-from preact_resnet import PreActResNet18
-from resnet import ResNet18
+from .vgg import vgg16
+from .preact_resnet import PreActResNet18
+from .models.resnet import ResNet18
 
 
 # Load clean data
