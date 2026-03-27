@@ -44,7 +44,7 @@ class M2M_CIFAR100_LT(datasets.CIFAR100, BaseDataset, M2mBaseDataset):
             print("=> Generating Imbalanced CIFAR100 with Type: {} | Ratio: {}".format(imb_type, imb_factor))
 
 # In this implementation, we dont do normalization because M2m will normalize when adding noise into image.
-def cifar100_train_val_oversamples(cifar_root, batch_size=128):
+def cifar100_train_val_oversamples(cifar_root, cls_num_list=None, batch_size=128, alpha=None):
 
     # No Normalization
     transform_train = transforms.Compose([
