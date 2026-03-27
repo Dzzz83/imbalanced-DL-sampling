@@ -10,7 +10,7 @@ def setup_logger(exp_name):
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     
-    fh = logging.FileHandler(log_filename)
+    fh = logging.FileHandler(log_filename, mode='a', delay=True)
     fh.setFormatter(logging.Formatter("%(message)s")) 
     
     ch = logging.StreamHandler()

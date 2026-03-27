@@ -47,7 +47,7 @@ class Trainer(BaseTrainer):
                 'test loss', 'major test acc', 'neutral test acc', 'minor test acc', 'test acc', 'f1 score'
             ]
         # Initialize wandb
-        wandb.login(key="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")
+        wandb.login(key="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")
         wandb.init(
             project="imbalanced_training",  # Replace with your project name
             config={
