@@ -1,6 +1,6 @@
 import sys
 from unittest.mock import MagicMock
-
+import logging
 def silence_torchtext():
     """Bypasses the C++ linkage error in torchtext for image-only projects."""
     modules_to_mock = [
@@ -88,6 +88,7 @@ def main():
             trainer.do_train_val()
             
     print("=> All Completed !")
+    logging.shutdown() 
 
 if __name__ == "__main__":
     main()

@@ -260,6 +260,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             log = self.log_testing
 
         if self.cfg.dataset == 'cifar100' or self.cfg.dataset == 'tiny200':
+        
             all_preds = np.array(all_preds)
             all_targets = np.array(all_targets)
             many_acc, median_acc, low_acc = shot_acc(self.cfg,
@@ -268,11 +269,13 @@ class BaseTrainer(metaclass=abc.ABCMeta):
                                                      self.train_dataset,
                                                      acc_per_cls=False)
             group_acc = np.array([many_acc, median_acc, low_acc])
+    
             # Print Format
             group_acc_string = '%s Group Acc: %s' % (flag, (np.array2string(
                 group_acc,
                 separator=',',
                 formatter={'float_kind': lambda x: "%.3f" % x})))
+            self.logger.info(group_acc_string)
             print(group_acc_string)
         else:
             group_acc = None
@@ -297,6 +300,9 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             formatter={'float_kind': lambda x: "%.3f" % x})))
         print(epoch_output)
         print(cls_acc_string)
+
+        self.logger.info(epoch_output)
+        self.logger.info(cls_acc_string)
 
         # if eval with best model, just return
         if self.cfg.best_model is not None:
@@ -371,3 +377,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
                                       self.epoch)
             self.tf_writer.add_scalar('acc/test_' + flag + '_top5', top5.avg,
                                       self.epoch)
+            
+        log.flush() 
+        for handler in self.logger.handlers:
+            handler.flush()
