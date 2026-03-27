@@ -10,6 +10,7 @@ from  imbalanceddl.utils.backup_sampler import StratifiedSampler
 from imbalanceddl.utils.sampler2 import BalancedSampler
 from imbalanceddl.utils.bsampler import WeightedFixedBatchSampler
 from imbalanceddl.utils.bsampler import SamplerFactory
+from imbalanceddl.utils.logging import setup_logger, create_distribution_table
 from collections import Counter
 import torch
 
@@ -211,6 +212,11 @@ class BaseTrainer(metaclass=abc.ABCMeta):
     
 
     def _prepare_logger(self):
+        """Logger for records
+
+        Prepare logger for recording training and testing results
+        and a tensorboard writer for visualization.
+        """
 
         self.results_dir = 'results'
         if not os.path.exists(self.results_dir):
@@ -224,29 +230,21 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             f"{self.cfg.epochs}_seed"
         )
 
-        self.result_text_file = os.path.join(self.results_dir, f'{self.custom_base_name}_result.txt')
+        self.logger, self.log_filename = setup_logger(self.custom_base_name)
+        self.logger.info("=> Preparing logger and tensorboard writer !")
 
-        self.log_training = open(os.path.join(self.results_dir, f'{self.custom_base_name}_train.csv'), 'w')
-        self.log_testing = open(os.path.join(self.results_dir, f'{self.custom_base_name}_test.csv'), 'w')
-        """Logger for records
+        log_dir = os.path.join(self.cfg.root_log, self.cfg.store_name)
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
 
-        Prepare logger for recording training and testing results
-        and a tensorboard writer for visualization.
-        """
-        print("=> Preparing logger and tensorboard writer !")
-        self.log_training = open(
-            os.path.join(self.cfg.root_log, self.cfg.store_name,
-                         'log_train.csv'), 'w')
-        self.log_testing = open(
-            os.path.join(self.cfg.root_log, self.cfg.store_name,
-                         'log_test.csv'), 'w')
-        self.tf_writer = SummaryWriter(
-            log_dir=os.path.join(self.cfg.root_log, self.cfg.store_name))
+        self.log_training = open(os.path.join(log_dir, 'log_train.csv'), 'w')
+        self.log_testing = open(os.path.join(log_dir, 'log_test.csv'), 'w')
 
-        with open(
-                os.path.join(self.cfg.root_log, self.cfg.store_name,
-                             'args.txt'), 'w') as f:
+        self.tf_writer = SummaryWriter(log_dir=log_dir)
+
+        with open(os.path.join(log_dir, 'args.txt'), 'w') as f:
             f.write(str(self.cfg))
+        
 
     def compute_metrics_and_record(self,
                                    all_preds,
