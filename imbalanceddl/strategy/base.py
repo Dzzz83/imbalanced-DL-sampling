@@ -245,7 +245,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         with open(os.path.join(log_dir, 'args.txt'), 'w') as f:
             f.write(str(self.cfg))
         
-
+        
     def compute_metrics_and_record(self,
                                    all_preds,
                                    all_targets,
