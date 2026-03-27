@@ -211,6 +211,23 @@ class BaseTrainer(metaclass=abc.ABCMeta):
     
 
     def _prepare_logger(self):
+
+        self.results_dir = 'results'
+        if not os.path.exists(self.results_dir):
+            os.makedirs(self.results_dir)
+
+        self.custom_base_name = (
+            f"{self.cfg.dataset}_"
+            f"{self.cfg.imb_type}_"
+            f"{self.cfg.imb_factor}_"
+            f"{self.cfg.strategy}_"
+            f"{self.cfg.epochs}_seed"
+        )
+
+        self.result_text_file = os.path.join(self.results_dir, f'{self.custom_base_name}_result.txt')
+
+        self.log_training = open(os.path.join(self.results_dir, f'{self.custom_base_name}_train.csv'), 'w')
+        self.log_testing = open(os.path.join(self.results_dir, f'{self.custom_base_name}_test.csv'), 'w')
         """Logger for records
 
         Prepare logger for recording training and testing results
