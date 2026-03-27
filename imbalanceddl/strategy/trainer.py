@@ -160,6 +160,11 @@ class Trainer(BaseTrainer):
             from imbalanceddl.dataset.m2m_imbalance_cifar10 import cifar10_train_val_oversamples
             train_in_loader, val_in_loader, train_oversamples_loader = cifar10_train_val_oversamples(self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha)
             self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
+        elif self.cfg.dataset == 'cifar100':
+            from imbalanceddl.dataset.m2m_imbalance_cifar100 import cifar100_train_val_oversamples
+            train_in_loader, val_in_loader, train_oversamples_loader = cifar100_train_val_oversamples(self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha)
+            self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
+        
         for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
             self.epoch = epoch
 
