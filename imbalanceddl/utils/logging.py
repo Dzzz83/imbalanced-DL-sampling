@@ -7,6 +7,7 @@ def setup_logger(exp_name):
     log_filename = f"results/{exp_name}.log"
     
     logger = logging.getLogger(exp_name)
+    logger.propagate = False
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     
