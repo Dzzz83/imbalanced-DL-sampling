@@ -65,11 +65,14 @@ class Trainer(BaseTrainer):
                 "sampling_method": self.cfg.sampling,
                 "alpha": self.cfg.alpha,
                 "n_batches": self.cfg.n_batches,
+                "selection_method": self.cfg.selection_method
             },
-            name=f"{self.cfg.dataset}_{self.cfg.backbone}_{self.cfg.sampling}" + 
-                (f"_alpha{self.cfg.alpha}" 
-                if self.cfg.sampling in ["WeightedRandomBatchSampler", "WeightedFixedBatchSampler"] 
-                else "")
+            name=(
+                f"{self.cfg.dataset}_{self.cfg.backbone}_"
+                f"Select-{self.cfg.selection_method}_" 
+                f"Sample-{self.cfg.sampling}" 
+                + (f"_alpha{self.cfg.alpha}" if self.cfg.sampling in ["WeightedRandomBatchSampler", "WeightedFixedBatchSampler"] else "")
+            )
         )
 
 
