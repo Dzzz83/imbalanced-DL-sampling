@@ -23,9 +23,8 @@ class LavaDataset(Dataset):
         self.device = device
 
         train_ds, val_ds = self.base_dataset.train_val_sets
-
         print(f"==> Starting Data Selection via {method}...")
-        
+
         # 1. Get indices to keep
         if method.lower() == 'lava':
             # We pass the underlying training set and labels to LAVA
@@ -47,7 +46,7 @@ class LavaDataset(Dataset):
         self.subset = Subset(train_ds, indices)
         
         # 3. Update internal info for the trainer/model
-        self.train_dataset = self.subset
+        self.train_dataset = self 
         self.val_dataset = val_ds
         self.cls_num_list = self._compute_new_cls_num_list(indices, train_ds)
         
@@ -75,7 +74,7 @@ class LavaDataset(Dataset):
 
     def __getitem__(self, index):
         return self.subset[index]
-    
+        
     def get_cls_num_list(self):
         """Getter for the trainer to access the new class distribution."""
         return self.cls_num_list
