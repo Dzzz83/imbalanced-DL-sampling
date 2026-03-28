@@ -22,8 +22,9 @@ def setup_logger(exp_name):
     return logger, log_filename 
 
 def create_distribution_table(logger, counts_original, counts_selection=None):
-    sep = "-" * 38
-    header = f"{'Class ID':<10} | {'Original':<10} | {'Selected':<10}"
+    sep = "-" * 52
+    # Added a "Keep %" column
+    header = f"{'Class ID':<10} | {'Original':<10} | {'Selected':<10} | {'Keep %':<8}"
 
     logger.info(sep)
     logger.info(header)
@@ -32,7 +33,6 @@ def create_distribution_table(logger, counts_original, counts_selection=None):
     total_orig = 0
     total_sel = 0
 
-    # log each class
     for i in sorted(counts_original.keys()):
         before = counts_original[i]
         after = counts_selection.get(i, 0) if counts_selection is not None else before
@@ -40,13 +40,9 @@ def create_distribution_table(logger, counts_original, counts_selection=None):
         total_orig += before
         total_sel += after
         
-        logger.info(f"{i:<10} | {before:<10} | {after:<10}")
+        keep_perc = (after / before * 100) if before > 0 else 0
+        logger.info(f"{i:<10} | {before:<10} | {after:<10} | {keep_perc:>7.1f}%")
 
-    # final row
     logger.info(sep)
-    logger.info(f"{'TOTAL':<10} | {total_orig:<10} | {total_sel:<10}")
-    
-    # log the percentage kept
-    perc = (total_sel / total_orig) * 100 if total_orig > 0 else 0
-    logger.info(f"Summary: Kept {total_sel}/{total_orig} samples ({perc:.1f}%)")
+    logger.info(f"{'TOTAL':<10} | {total_orig:<10} | {total_sel:<10} | {(total_sel/total_orig*100):>7.1f}%")
     logger.info(sep)
