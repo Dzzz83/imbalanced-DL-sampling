@@ -53,6 +53,11 @@ class LavaDataset(Dataset):
         
         print(f"==> Selection Complete. New training size: {len(self.subset)}")
 
+    @property
+    def train_val_sets(self):
+        """Exposes the train and validation sets to the Trainer"""
+        return self.train_dataset, self.val_dataset
+
     def _compute_new_cls_num_list(self, indices, train_ds):
         """Calculates the new class distribution after selection."""
         all_labels = np.array(train_ds.targets)
