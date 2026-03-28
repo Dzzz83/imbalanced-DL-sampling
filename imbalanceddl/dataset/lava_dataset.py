@@ -75,3 +75,7 @@ class LavaDataset(Dataset):
 
     def __getitem__(self, index):
         return self.subset[index]
+    
+    def get_cls_num_list(self):
+        """Getter for the trainer to access the new class distribution."""
+        return self.cls_num_list
