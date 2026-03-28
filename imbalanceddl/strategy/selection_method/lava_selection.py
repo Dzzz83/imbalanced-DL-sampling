@@ -60,16 +60,28 @@ class FeatureExtractor(nn.Module):
         features = self.base_model(x)
         features = F.normalize(features, p=2, dim=1)
         return features
+    
 # OTDD expects (image, label) | PyTorch returns (image, label, index)
 # this class wraps the dataset and returns (image, label)
 class OTDDWrapper(Dataset):
     def __init__(self, dataset):
         self.dataset = dataset
 
+        targets = None
         if hasattr(dataset, 'targets'):
-            self.targets = dataset.targets
-        if hasattr(dataset, 'indices'):
-            self.indices = dataset.indices
+            targets = dataset.targets
+        elif hasattr(dataset, 'dataset') and hasattr(dataset.dataset, 'targets'):
+            # This handles the case where dataset is a Subset
+            all_targets = np.array(dataset.dataset.targets)
+            targets = all_targets[dataset.indices]
+
+        if targets is not None:
+            if not isinstance(targets, torch.Tensor):
+                self.targets = torch.tensor(targets, dtype=torch.long)
+            else:
+                self.targets = targets.long()
+        else:
+            raise ValueError("OTDDWrapper could not find targets in the provided dataset.")
 
     def __getitem__(self, index):
         item = self.dataset[index]
