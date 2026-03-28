@@ -7,12 +7,12 @@ data_path: ./data
 classifier: 'dot_product_classifier'
 
 # Selection Settings (LAVA)
-method: random         # Options: lava, random, none
-ratio: 0.7           # Keep 70% of the data based on LAVA scores
+selection_method: None         # Options: lava, random, None
+selection_ratio: 0.7           # Keep 70% of the data based on LAVA scores
 device: cuda
 
 # Training Strategy
-strategy: ERM
+strategy: DeepSMOTE
 loss_type: CE        # Cross Entropy (can be LDAM or CB)
 train_rule: None     # Can be 'DRW' to trigger re-weighting mid-training
 
@@ -36,6 +36,6 @@ optimizer: sgd
 # Logging & Checkpoints
 root_log: ./example/checkpoint_cifar10
 root_model: ./example/checkpoint_cifar10
-store_name: cifar10_randomSelection_0.7_exp0.01
+store_name: cifar10_None_0.1_deepsmote_exp0.01
 cifar_root: ./data
 gpu: 0

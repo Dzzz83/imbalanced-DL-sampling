@@ -136,6 +136,16 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     else:
         lava_values = dual_sol.detach().cpu().numpy().flatten()
 
+    # --- DEBUG START ---
+    targets = np.array(train_dataset.targets) # Ensure this matches your train_dataset
+    print("\n--- LAVA Debug: Per-Class Value Stats ---")
+    for i in range(10): # For CIFAR-10
+        class_idx = np.where(targets == i)[0]
+        if len(class_idx) > 0:
+            class_vals = lava_values[class_idx]
+            print(f"Class {i} | Size: {len(class_idx):>4} | Mean Val: {class_vals.mean():.6f} | Max: {class_vals.max():.4f} | Min: {class_vals.min():.4f}")
+    # --- DEBUG END ---
+    
     selected_indices = select_indices(lava_values, training_size, keep_ratio)
 
     return selected_indices
