@@ -135,12 +135,16 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     # 1. Create a SHUFFLED map of indices so OTDD sees all classes early
     original_indices = np.arange(len(train_dataset))
     shuffled_indices = np.copy(original_indices)
-    np.random.seed(42) # Fixed seed for reproducibility
+    np.random.seed(42)  
     np.random.shuffle(shuffled_indices)
     
     # 2. Create a Subset using these shuffled indices
     shuffled_train_dataset = Subset(train_dataset, shuffled_indices)
     
+    if hasattr(train_dataset, 'targets'):
+        # Map original targets to the new shuffled order
+        shuffled_train_dataset.targets = torch.tensor(np.array(train_dataset.targets)[shuffled_indices])
+            
     # 3. Wrap and load (Keep shuffle=False here, the Subset is already mixed!)
     train_wrapper, val_wrapper = dataset_prep(shuffled_train_dataset, val_dataset)
     train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
