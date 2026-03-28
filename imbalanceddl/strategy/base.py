@@ -224,6 +224,8 @@ class BaseTrainer(metaclass=abc.ABCMeta):
 
         self.custom_base_name = (
             f"{self.cfg.dataset}_"
+            f"{self.cfg.selection_method}_"
+            f"{self.cfg.selection_ratio}_"
             f"{self.cfg.imb_type}_"
             f"{self.cfg.imb_factor}_"
             f"{self.cfg.strategy}_"
