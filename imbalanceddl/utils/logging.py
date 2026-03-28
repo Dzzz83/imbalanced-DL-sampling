@@ -26,9 +26,13 @@ def create_distribution_table(logger, counts_original, counts_selection=None):
     # Added a "Keep %" column
     header = f"{'Class ID':<10} | {'Original':<10} | {'Selected':<10} | {'Keep %':<8}"
 
-    logger.info(sep)
-    logger.info(header)
-    logger.info(sep)
+    def output(msg):
+        logger.info(msg)
+        print(msg)
+    
+    output(sep)
+    output(header)
+    output(sep)
 
     total_orig = 0
     total_sel = 0

@@ -236,8 +236,11 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         self.logger.info("=> Preparing logger and tensorboard writer !")
 
         current_counts = self.train_dataset.get_cls_num_list()
-        counts_dict = {i: count for i, count in enumerate(current_counts)}
-        create_distribution_table(self.logger, counts_dict, counts_dict)
+        selected_dict = {i: count for i, count in enumerate(current_counts)}
+
+        original_counts = getattr(self.train_dataset, 'cls_num_list', current_counts)
+        orig_dict = {i: count for i, count in enumerate(original_counts)}
+        create_distribution_table(self.logger, orig_dict, selected_dict)
 
         log_dir = os.path.join(self.cfg.root_log, self.cfg.store_name)
         if not os.path.exists(log_dir):
