@@ -238,9 +238,14 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         current_counts = self.train_dataset.get_cls_num_list()
         selected_dict = {i: count for i, count in enumerate(current_counts)}
 
-        original_counts = getattr(self.train_dataset, 'cls_num_list', current_counts)
+        if hasattr(self.train_dataset, 'base_dataset'):
+            # This reaches: LavaDataset -> ImbalancedDataset -> IMBALANCECIFAR10.cls_num_list
+            original_counts = self.train_dataset.base_dataset.train_val_sets[0].cls_num_list
+        else:
+            original_counts = current_counts
+            
         orig_dict = {i: count for i, count in enumerate(original_counts)}
-        create_distribution_table(self.logger, orig_dict, selected_dict)
+        create_distribution_table(self.logger, orig_dict, selected_dict)    
 
         log_dir = os.path.join(self.cfg.root_log, self.cfg.store_name)
         if not os.path.exists(log_dir):
