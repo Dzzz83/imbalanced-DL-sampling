@@ -39,6 +39,9 @@ class LavaDataset(Dataset):
                 train_ds, 
                 ratio=self.ratio
             )
+        elif method.lower() == 'none':
+            indices = list(range(len(train_ds)))
+            print("==> No selection method specified. Using full dataset.")
         else:
             raise ValueError(f"Unknown selection method: {method}")
 
