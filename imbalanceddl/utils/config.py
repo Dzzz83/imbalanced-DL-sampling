@@ -64,6 +64,12 @@ def get_args():
     parser.add_argument('--alpha', default=0.5, type=float, help='For Balance - alpha')
     parser.add_argument('--kind', default='random', type=str, help='For Balance - Kind of sampler')
 
+    # Data Selection Method (Random, LAVA, None)
+    parser.add_argument('--selection_method', default=None, type=str, choices=['lava', 'random', None], 
+                        help='Method for data selection/filtering')
+    parser.add_argument('--selection_ratio', default=0.7, type=float, 
+                        help='Ratio of data to keep after selection')
+    
     # update config from command line
     parser.set_defaults(**config)
     args = parser.parse_args()
