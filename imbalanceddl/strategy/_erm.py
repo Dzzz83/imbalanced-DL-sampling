@@ -45,6 +45,14 @@ class ERMTrainer(Trainer):
                 _input = _input.cuda(self.cfg.gpu, non_blocking=True)
                 target = target.cuda(self.cfg.gpu, non_blocking=True)
 
+            if i == 0: # Only print for the first batch to avoid flooding the console
+                print(f"\n[DEBUG] Device Check - Batch {i}")
+                print(f"  Config GPU ID: {self.cfg.gpu}")
+                print(f"  Input Device:  {_input.device}")
+                print(f"  Target Device: {target.device}")
+                print(f"  Model Device:  {next(self.model.parameters()).device}")
+                print(f"  Criterion Weight Device: {self.criterion.weight.device if hasattr(self.criterion, 'weight') and self.criterion.weight is not None else 'No weights'}")
+
             # print("=> ERM training")
             out, _ = self.model(_input)
             loss = self.criterion(out, target).mean()
