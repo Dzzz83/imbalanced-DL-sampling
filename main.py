@@ -60,13 +60,13 @@ def main():
     # 5. Build Initial Dataset
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset)
 
-    if config.ratio < 1.0:
-        print(f"=> Applying Data Selection: {config.method} (Ratio: {config.ratio})")
+    if config.selection_ratio < 1.0:
+        print(f"=> Applying Data Selection: {config.selection_method} (Ratio: {config.selection_ratio})")
         imbalance_dataset = LavaDataset(
             config, 
             imbalance_dataset, 
-            config.ratio, 
-            config.method, 
+            config.selection_ratio, 
+            config.selection_method, 
             device=device
         )
 
