@@ -23,16 +23,14 @@ def setup_logger(exp_name):
 
 def create_distribution_table(logger, counts_original, counts_selection=None):
     sep = "-" * 52
-    # Added a "Keep %" column
     header = f"{'Class ID':<10} | {'Original':<10} | {'Selected':<10} | {'Keep %':<8}"
 
-    def output(msg):
-        logger.info(msg)
-        print(msg)
-    
-    output(sep)
-    output(header)
-    output(sep)
+    # REMOVE THE print(msg) HERE
+    # Only use logger.info. If your logger is set up correctly, 
+    # it will show up in the terminal AND the file.
+    logger.info(sep)
+    logger.info(header)
+    logger.info(sep)
 
     total_orig = 0
     total_sel = 0
@@ -48,5 +46,6 @@ def create_distribution_table(logger, counts_original, counts_selection=None):
         logger.info(f"{i:<10} | {before:<10} | {after:<10} | {keep_perc:>7.1f}%")
 
     logger.info(sep)
-    logger.info(f"{'TOTAL':<10} | {total_orig:<10} | {total_sel:<10} | {(total_sel/total_orig*100):>7.1f}%")
+    total_perc = (total_sel / total_orig * 100) if total_orig > 0 else 0
+    logger.info(f"{'TOTAL':<10} | {total_orig:<10} | {total_sel:<10} | {total_perc:>7.1f}%")
     logger.info(sep)
