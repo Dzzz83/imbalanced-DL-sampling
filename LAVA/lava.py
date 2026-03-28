@@ -122,21 +122,21 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
 
 
     tic = time.perf_counter()
-        # 1. Trigger the distance calculation (this is required to solve the OT problem)
-    _ = dist.distance(maxsamples=training_size, return_coupling=True)
+    # 1. Trigger the distance calculation (this is required to solve the OT problem)
+    res = dist.distance(maxsamples=training_size, return_coupling=True)
 
-    # 2. Extract the dual potentials (the "LAVA values")
-    if hasattr(dist, 'dual_v'):
+    if isinstance(res, (list, tuple)):
+        # In this version, distance() returns the potentials [F_i, G_j]
+        dual_sol = res
+    elif hasattr(dist, 'dual_v'):
         dual_sol = dist.dual_v
     elif hasattr(dist, 'dual_sol'):
         dual_sol = dist.dual_sol
-    elif hasattr(dist, 'f'): # Some versions use 'f' for source potentials
+    elif hasattr(dist, 'f'):
         dual_sol = dist.f
     else:
-        # If all else fails, the solution might be inside the coupling result
-        # In some versions, dist.distance returns (distance, coupling_matrix)
-        print("Warning: Could not find dual potentials attribute. Checking internal solver...")
-        dual_sol = dist.solve_dual() # Some versions require this explicit call
+        # Fallback if the solver requires an explicit call
+        dual_sol = dist.solve_dual()
 
     toc = time.perf_counter()
     print(f"distance calculation takes {toc - tic:0.4f} seconds")
