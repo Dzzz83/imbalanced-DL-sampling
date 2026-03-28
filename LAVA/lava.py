@@ -109,7 +109,7 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                                device='cuda')
 
     dist = DatasetDistance(trainloader, testloader,
-                           inner_ot_method = 'exact',
+                           inner_ot_method = 'sinkhorn',
                            debiased_loss = True,
                            feature_cost = feature_cost,
                            λ_x=1.0, λ_y=1.0,
