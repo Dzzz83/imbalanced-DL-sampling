@@ -1,6 +1,7 @@
 import sys
 import os 
 from unittest.mock import MagicMock
+from torch.utils.data import Subset
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
@@ -24,6 +25,7 @@ import torch.nn as nn
 import numpy as np
 import torchvision.models as models
 from torch.utils.data import DataLoader, SubsetRandomSampler, Dataset
+import torch.nn.functional as F
 
 from LAVA.lava import compute_dual, compute_values_and_visualize
 
@@ -56,6 +58,7 @@ class FeatureExtractor(nn.Module):
 
     def forward(self, x):
         features = self.base_model(x)
+        features = F.normalize(features, p=2, dim=1)
         return features
 # OTDD expects (image, label) | PyTorch returns (image, label, index)
 # this class wraps the dataset and returns (image, label)
@@ -117,15 +120,29 @@ def select_indices(lava_values, training_size, keep_ratio):
     return selected_indices.tolist()
 
 def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda'):
-    # prepare the val_dataset and train_dataset
-    train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
-
-    # dataset_indices = getattr(train_dataset, 'indices', list(range(len(train_dataset))))
-    # train_sampler = SubsetRandomSampler(dataset_indices)
-
-    # create dataloader
+    # 1. Create a SHUFFLED map of indices so OTDD sees all classes early
+    original_indices = np.arange(len(train_dataset))
+    shuffled_indices = np.copy(original_indices)
+    np.random.seed(42) # Fixed seed for reproducibility
+    np.random.shuffle(shuffled_indices)
+    
+    # 2. Create a Subset using these shuffled indices
+    shuffled_train_dataset = Subset(train_dataset, shuffled_indices)
+    
+    # 3. Wrap and load (Keep shuffle=False here, the Subset is already mixed!)
+    train_wrapper, val_wrapper = dataset_prep(shuffled_train_dataset, val_dataset)
     train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
     val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
+
+    # # prepare the val_dataset and train_dataset
+    # train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
+
+    # # dataset_indices = getattr(train_dataset, 'indices', list(range(len(train_dataset))))
+    # # train_sampler = SubsetRandomSampler(dataset_indices)
+
+    # # create dataloader
+    # train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
+    # val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
 
     # get feature extractor
     extractor = get_feature_extractor(device)
@@ -154,11 +171,17 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
         device=device
     )
 
+    # 6. Extract results from the shuffled run
     if isinstance(dual_sol, (list, tuple)):
-        # LAVA returns a list where the first element is usually the training duals
-        lava_values = dual_sol[0].detach().cpu().numpy().flatten()
+        lava_values_shuffled = dual_sol[0].detach().cpu().numpy().flatten()
     else:
-        lava_values = dual_sol.detach().cpu().numpy().flatten()
+        lava_values_shuffled = dual_sol.detach().cpu().numpy().flatten()
+    
+    # 5. RE-MAP the values back to original order before selection
+    # This ensures lava_values[0] is the score for the 1st image in train_dataset
+    lava_values_original_order = np.zeros_like(lava_values_shuffled)
+    lava_values_original_order[shuffled_indices] = lava_values_shuffled
+    
 
     # --- DEBUG START ---
     targets = np.array(train_dataset.targets) # Ensure this matches your train_dataset
@@ -166,11 +189,12 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     for i in range(10): # For CIFAR-10
         class_idx = np.where(targets == i)[0]
         if len(class_idx) > 0:
-            class_vals = lava_values[class_idx]
+            class_vals = lava_values_original_order[class_idx]
             print(f"Class {i} | Size: {len(class_idx):>4} | Mean Val: {class_vals.mean():.6f} | Max: {class_vals.max():.4f} | Min: {class_vals.min():.4f}")
     # --- DEBUG END ---
 
-    selected_indices = select_indices(lava_values, training_size, keep_ratio)
+    # 6. Now perform selection on the correctly ordered values
+    selected_indices = select_indices(lava_values_original_order, len(train_dataset), keep_ratio)
 
     return selected_indices
 
