@@ -135,6 +135,15 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     print(f"--- LAVA Selection Started ---")
     print(f"Total training samples to evaluate: {training_size}")
 
+    # Diagnostic check in get_lava_selection_indices
+    train_classes = set(np.array(train_dataset.targets))
+    val_classes = set(np.array(val_dataset.targets))
+
+    print(f"Classes in Training: {len(train_classes)}")
+    print(f"Classes in Validation: {len(val_classes)}")
+
+    if train_classes != val_classes:
+        raise ValueError(f"Mismatch! Train has {train_classes}, but Val has {val_classes}. OTDD requires both to have the same labels.")
     # calculate OT score
     dual_sol, _ = lava.compute_dual(
         feature_extractor=extractor,
