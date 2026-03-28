@@ -32,8 +32,8 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
                                model=model,
                                strategy=strategy)
 
-    elif strategy == 'Deep_SMOTE':
-        print("=> Deep_SMOTE Trainer !")
+    elif strategy == 'DeepSMOTE':
+        print("=> DeepSMOTE Trainer !")
         trainer = DeepSMOTETrainer(cfg,
                                imbalance_dataset,
                                model=model,
