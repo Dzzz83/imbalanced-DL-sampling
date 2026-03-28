@@ -7,6 +7,14 @@ import time
 from utils.deepsmote_utils import Encoder, Decoder, G_SM1
 from config.config import get_args
 from dataloader.imbalance_deepsmote import cifar10_deepsmote, cifar100_deepsmote, svhn10_deepsmote, cinic10_deepsmote, tiny200_deepsmote
+import os
+
+if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+    pro_root = '/kaggle/working/imbalanced-DL-sampling'
+else:
+    pro_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+model_dir = os.path.join(pro_root, 'deepsmote_models')
 
 print(torch.version.cuda) #10.1
 t3 = time.time()
@@ -42,6 +50,21 @@ def train_deepsmote_generative_model(args, dec_x, dec_y, class_num):
     if args.train:
         enc_optim = torch.optim.Adam(encoder.parameters(), lr = args.lr)
         dec_optim = torch.optim.Adam(decoder.parameters(), lr = args.lr)
+
+        
+
+        
+            # save_dir = os.path.join(model_dir, args.dataset)
+            # os.makedirs(save_dir, exist_ok=True)
+
+            # suffix = f"{args.dataset}_{args.imb_type}_R{int(1/args.imb_factor)}.pth"
+            # path_enc = os.path.join(save_dir, f"bst_enc_{suffix}")
+            # path_dec = os.path.join(save_dir, f"bst_dec_{suffix}")
+
+            # print(f'=> Saving best models to {save_dir}')
+            # torch.save(encoder.state_dict(), path_enc)
+            # torch.save(decoder.state_dict(), path_dec)
+            # best_loss = train_loss
 
         for epoch in range(args.epochs):
             train_loss = 0.0
@@ -121,29 +144,39 @@ def train_deepsmote_generative_model(args, dec_x, dec_y, class_num):
             tmse_loss = tmse_loss/len(train_loader)
             tdiscr_loss = tdiscr_loss/len(train_loader)
             print('Epoch: {} \tTrain Loss: {:.6f} \tmse loss: {:.6f} \tmse2 loss: {:.6f}'.format(epoch, train_loss,tmse_loss,tdiscr_loss))
-            
+        
             #store the best encoder and decoder models
             if train_loss < best_loss:
-                print('Saving..')
-                path_enc = '../deepsmote_models/' + args.dataset + '/bst_enc_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
-                path_dec = '../deepsmote_models/' + args.dataset + '/bst_dec_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
+                print('Saving best models...')
+                save_dir = os.path.join(model_dir, args.dataset)
+                os.makedirs(save_dir, exist_ok=True)
+
+                suffix = f"{args.dataset}_{args.imb_type}_R{int(1/args.imb_factor)}.pth"
+                path_enc = os.path.join(save_dir, f"bst_enc_{suffix}")
+                path_dec = os.path.join(save_dir, f"bst_dec_{suffix}")
                 
                 torch.save(encoder.state_dict(), path_enc)
                 torch.save(decoder.state_dict(), path_dec)
                 best_loss = train_loss
                 
         #in addition, store the final model (may not be the best) for informational purposes
-        path_enc = '../deepsmote_models/' + args.dataset + '/f_enc_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
-        path_dec = '../deepsmote_models/' + args.dataset + '/f_dec_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
-        print(path_enc)
-        print(path_dec)
-        torch.save(encoder.state_dict(), path_enc)
-        torch.save(decoder.state_dict(), path_dec)
+        # path_enc = '../deepsmote_models/' + args.dataset + '/f_enc_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
+        # path_dec = '../deepsmote_models/' + args.dataset + '/f_dec_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
+        # print(path_enc)
+        # print(path_dec)
+        # torch.save(encoder.state_dict(), path_enc)
+        # torch.save(decoder.state_dict(), path_dec)
+        save_dir = os.path.join(model_dir, args.dataset)
+        suffix = f"{args.dataset}_{args.imb_type}_R{int(1/args.imb_factor)}.pth"
+
+        path_enc_f = os.path.join(save_dir, f"f_enc_{suffix}")
+        path_dec_f = os.path.join(save_dir, f"f_dec_{suffix}")
+
+        torch.save(encoder.state_dict(), path_enc_f)
+        torch.save(decoder.state_dict(), path_dec_f)
     
     t1 = time.time()
     print('total time(min): {:.2f}'.format((t1 - t0)/60))             
-    t4 = time.time()
-    print('final time(min): {:.2f}'.format((t4 - t3)/60))
     torch.cuda.empty_cache()
 
 def generatesamples(args, dec_x, dec_y, class_num, img_num_per_cls):
@@ -162,10 +195,16 @@ def generatesamples(args, dec_x, dec_y, class_num, img_num_per_cls):
     #path on the computer where the models are stored
     encf = []
     decf = []
-    enc = '../deepsmote_models/' + args.dataset + '/bst_enc_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
-    dec = '../deepsmote_models/' + args.dataset + '/bst_dec_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
-    encf.append(enc)
-    decf.append(dec)
+    # enc = '../deepsmote_models/' + args.dataset + '/bst_enc_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
+    # dec = '../deepsmote_models/' + args.dataset + '/bst_dec_' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '.pth'
+
+    save_dir = os.path.join(model_dir, args.dataset)
+    suffix = f"{args.dataset}_{args.imb_type}_R{int(1/args.imb_factor)}.pth"
+
+    path_enc = os.path.join(save_dir, f"bst_enc_{suffix}")
+    path_dec = os.path.join(save_dir, f"bst_dec_{suffix}")
+    encf.append(path_enc)
+    decf.append(path_dec)
 
     #generate some images
     #In case, you does not have enough memory for generating DeepSMOTE synthetic data on GPU with large datasets (tiny-ImageNet, cinic,...)
@@ -249,10 +288,15 @@ def generatesamples(args, dec_x, dec_y, class_num, img_num_per_cls):
     print(combx.shape) #(45000, 3, 32, 32)
     print(comby.shape) #(45000,)
 
-    ifile = '../deepsmote_models/' + args.dataset + '/' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '_train_data.txt'
+    save_dir = os.path.join(model_dir, args.dataset)
+    prefix = f"{args.dataset}_{args.imb_type}_R{int(1/args.imb_factor)}"
+
+    ifile = os.path.join(save_dir, f"{prefix}_train_data.txt")
+    lfile = os.path.join(save_dir, f"{prefix}_train_label.txt")
+    # ifile = '../deepsmote_models/' + args.dataset + '/' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '_train_data.txt'
     np.savetxt(ifile, combx)
 
-    lfile = '../deepsmote_models/' + args.dataset + '/' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '_train_label.txt'
+    # lfile = '../deepsmote_models/' + args.dataset + '/' + args.dataset + '_' + args.imb_type + '_' + 'R' + str(int(1/args.imb_factor)) + '_train_label.txt'
     np.savetxt(lfile,comby) 
     print()
 
