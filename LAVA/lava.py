@@ -34,7 +34,7 @@ import torchvision.models as models
 from torch.autograd import Variable
 
 import time
-import imageio
+import traceback
 import pickle
 from PIL import Image, ImageOps, ImageEnhance
 from copy import deepcopy as dpcp
@@ -96,7 +96,7 @@ def load_pretrained_feature_extractor(feature_extractor_name, device):
     net_test.eval()
     return net_test
     
-    
+
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
     feature_extractor.eval()
     
@@ -104,26 +104,19 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
         def __init__(self, base_model):
             super().__init__()
             self.base_model = base_model
-            # Cleanly strip the head for ResNet variants
             for attr in ['fc', 'linear']:
                 if hasattr(self.base_model, attr):
                     setattr(self.base_model, attr, torch.nn.Identity())
-                
         def forward(self, x):
             features = self.base_model(x)
-            features = features.view(features.size(0), -1)
-            return torch.nn.functional.normalize(features, p=2, dim=1)
+            return torch.nn.functional.normalize(features.view(features.size(0), -1), p=2, dim=1)
         
     embedder = NormalizedEmbedder(feature_extractor).to(device)
 
-    # 1. PRE-CALC CENTERS
-    print("--- LAVA DEBUG: Pre-calculating robust class centers ---")
+    # 1. CENTER CALCULATION
     def get_centers(loader):
-        # Dynamically find feature dimension
         first_batch = next(iter(loader))
-        with torch.no_grad():
-            feat_dim = embedder(first_batch[0][:1].to(device)).shape[1]
-            
+        feat_dim = embedder(first_batch[0][:1].to(device)).shape[1]
         centers = torch.zeros((10, feat_dim)).to(device)
         counts = torch.zeros(10).to(device)
         with torch.no_grad():
@@ -137,45 +130,70 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                         counts[i] += mask.sum()
         return centers / torch.clamp(counts, min=1.0).unsqueeze(1)
 
-    train_centers = get_centers(trainloader)
-    val_centers = get_centers(testloader)
-    D_labels = torch.cdist(train_centers, val_centers, p=p)
+    print("--- LAVA DEBUG: Pre-calculating class centers ---")
+    D_labels = torch.cdist(get_centers(trainloader), get_centers(testloader), p=p)
 
-    # 2. DEFINE FEATURE COST (The missing variable)
-    f_cost_inst = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
-                              tgt_embedding=embedder, tgt_dim=(3, resize, resize),
-                              p=p, device=device)
+    # 2. DATA LOADER INTERCEPTOR (The True Debugger)
+    # This wraps the loaders to print labels right before OTDD sees them
+    class LabelVerifierWrapper:
+        def __init__(self, loader, name):
+            self.loader = loader
+            self.name = name
+        def __iter__(self):
+            for batch in self.loader:
+                x, y = batch
+                unique_y = torch.unique(y).tolist()
+                if any(val > 9 or val < 0 for val in unique_y):
+                    print(f"\n[ALERT] {self.name} yielded invalid labels: {unique_y}")
+                yield x, y
+        def __len__(self): return len(self.loader)
+        @property
+        def dataset(self): return self.loader.dataset
 
-    # 3. INITIALIZE DISTANCE
-    dist = DatasetDistance(trainloader, testloader,
+    v_trainloader = LabelVerifierWrapper(trainloader, "TRAIN")
+    v_testloader = LabelVerifierWrapper(testloader, "VAL")
+
+    # 3. INITIALIZE OTDD
+    f_cost = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
+                         tgt_embedding=embedder, tgt_dim=(3, resize, resize),
+                         p=p, device=device)
+
+    dist = DatasetDistance(v_trainloader, v_testloader,
                            inner_ot_method='sinkhorn',
                            debiased_loss=True,
-                           feature_cost=f_cost_inst, # Fixed Name
-                           p=p, entreg=1.0, 
-                           device=device)
+                           feature_cost=f_cost,
+                           p=p, entreg=1.0, device=device)
 
-    # 4. INJECT AND LOG INTERNAL MAPPING
+    # 4. FORCE LOCK INTERNAL STATE
     dist.label_distances = D_labels.to(device)
-    
-    # Force alignment to stop the Index 103 error
     dist.classes1 = [str(i) for i in range(10)]
     dist.classes2 = [str(i) for i in range(10)]
+    # Identity mapping: force class ID to be the same as matrix index
     dist.label_to_idx1 = {i: i for i in range(10)}
     dist.label_to_idx2 = {i: i for i in range(10)}
 
-    print(f"DEBUG: dist.label_to_idx1 = {dist.label_to_idx1}")
-    print(f"DEBUG: D_labels shape = {dist.label_distances.shape}")
+    # Patch the cost function to catch the index error context
+    orig_cost = dist.batch_augmented_cost
+    def patched_cost(X1, X2, Y1, Y2, batch_weight=None):
+        try:
+            return orig_cost(X1, X2, Y1, Y2, batch_weight)
+        except IndexError:
+            print(f"\n--- CRASH CONTEXT ---")
+            print(f"Y1 Max: {Y1.max()}, Y2 Max: {Y2.max()}")
+            print(f"Label Distance Matrix Shape: {dist.label_distances.shape}")
+            raise
 
+    dist.batch_augmented_cost = patched_cost
     safe_max = min(len(trainloader.dataset), int(training_size))
-    
+
+    print(f"--- Starting Distance Computation (maxsamples={safe_max}) ---")
     try:
         res = dist.distance(maxsamples=safe_max, return_coupling=True)
     except Exception as e:
-        print(f"CRITICAL OTDD FAILURE: {e}")
+        print(f"\nCaught Exception: {type(e).__name__}: {e}")
         traceback.print_exc()
         raise e
 
-    # 5. EXTRACT POTENTIALS
     if hasattr(dist, 'dual_v') and dist.dual_v is not None:
         dual_sol = dist.dual_v
     else:
@@ -329,30 +347,6 @@ def visualize_values_distr_sorted(tdid, tsidx, trsize, portion, trainGradient):
 # To Be Implemented
 def visualize_baselines():
     return
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     
