@@ -105,7 +105,7 @@ from otdd.pytorch.distance import DatasetDistance, FeatureCost
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
     feature_extractor.eval()
     
-    # 1. DEFINE NORMALIZED EMBEDDER
+    # 1. NORMALIZED EMBEDDER (Feature Extraction)
     class NormalizedEmbedder(torch.nn.Module):
         def __init__(self, base_model):
             super().__init__()
@@ -119,7 +119,23 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
         
     embedder = NormalizedEmbedder(feature_extractor).to(device)
 
-    # 2. CALCULATE CLASS CENTERS
+    # 2. DATASET VERIFIER (Catches invalid labels before OTDD sees them)
+    class DatasetVerifier(torch.utils.data.Dataset):
+        def __init__(self, dataset, name):
+            self.dataset = dataset
+            self.name = name
+        def __getitem__(self, index):
+            img, label = self.dataset[index]
+            if label < 0 or label > 9:
+                print(f"\n[ALERT] {self.name} index {index} has invalid label: {label}")
+            return img, label
+        def __len__(self):
+            return len(self.dataset)
+
+    train_ds = DatasetVerifier(trainloader.dataset, "TRAIN")
+    test_ds = DatasetVerifier(testloader.dataset, "VAL")
+
+    # 3. CALCULATE CLASS CENTERS FOR LABEL DISTANCES
     def get_centers(loader):
         with torch.no_grad():
             first_batch = next(iter(loader))
@@ -139,44 +155,23 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     print("--- LAVA DEBUG: Pre-calculating class centers ---")
     D_labels = torch.cdist(get_centers(trainloader), get_centers(testloader), p=p)
 
-    # 3. INITIALIZE OTDD
+    # 4. INITIALIZE FEATURE COST
     f_cost = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
                          tgt_embedding=embedder, tgt_dim=(3, resize, resize),
                          p=p, device=device)
-    
-    # Explicitly set class dimensions in the cost object
     f_cost.src_out_dim = 10
     f_cost.tgt_out_dim = 10
 
-    dist = DatasetDistance(trainloader, testloader,
+    # 5. INITIALIZE OTDD (Passing Datasets, not Loaders)
+    dist = DatasetDistance(train_ds, test_ds,
                            inner_ot_method='sinkhorn',
                            debiased_loss=True,
                            feature_cost=f_cost,
                            p=p, entreg=1.0, device=device)
 
-    # 4. DATA LOADER INTERCEPTOR
-    class LabelVerifierWrapper:
-        def __init__(self, loader, name):
-            self.loader = loader
-            self.name = name
-            self.dataset = loader.dataset
-            self.batch_size = getattr(loader, 'batch_size', 128)
-        def __iter__(self):
-            for batch in self.loader:
-                x, y = batch
-                # If we see any label > 9, we stop immediately to show the true culprit
-                if (y > 9).any():
-                    raise ValueError(f"CRITICAL: {self.name} yielded Label {y.max().item()}!")
-                yield x, y
-        def __len__(self): return len(self.loader)
-
-    # Apply to all possible internal loader attributes
-    v_train = LabelVerifierWrapper(trainloader, "TRAIN")
-    v_test = LabelVerifierWrapper(testloader, "VAL")
-    dist.trainloader = dist.loader1 = v_train
-    dist.testloader = dist.loader2 = v_test
-
-    # 5. FORCE LOCK STATE (Using Lists to ensure len() is 10)
+    # 6. LOCK INTERNAL STATE (Prevents Index 103 error)
+    # The Index 103 error happens when OTDD assumes an 11th class exists.
+    # By locking nclasses and the label mapping, we force the math to stay within 0-99.
     dist.nclasses1 = 10
     dist.nclasses2 = 10
     dist.classes1 = list(range(10))
@@ -185,23 +180,21 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     dist.label_to_idx2 = {i: i for i in range(10)}
     dist.label_distances = D_labels.to(device)
 
-    # 6. RUN DISTANCE CALCULATION
-    # Recommendation: Set maxsamples to 5000 to stay on GPU and avoid the CPU bug
-    safe_max = min(5000, int(training_size))
-    print(f"--- Starting Distance Computation (maxsamples={safe_max}, GPU forced) ---")
-
     
+
+    # 7. EXECUTE DISTANCE COMPUTATION
+    # maxsamples=5000 is used to keep the computation on the GPU path
+    safe_max = min(5000, int(training_size))
+    print(f"--- Starting Distance Computation (maxsamples={safe_max}) ---")
 
     try:
         res = dist.distance(maxsamples=safe_max, return_coupling=True)
     except Exception as e:
         print(f"\nCaught Exception: {type(e).__name__}: {e}")
-        # Final desperate debug: print internal state at crash time
-        print(f"Internal dist.nclasses2: {getattr(dist, 'nclasses2', 'Missing')}")
-        print(f"Internal dist.classes2: {getattr(dist, 'classes2', 'Missing')}")
         traceback.print_exc()
         raise e
 
+    # 8. EXTRACT DUAL SOLUTIONS (Potentials)
     if hasattr(dist, 'dual_v') and dist.dual_v is not None:
         dual_sol = dist.dual_v
     else:
