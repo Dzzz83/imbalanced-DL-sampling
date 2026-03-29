@@ -28,24 +28,21 @@ class LavaDataset(Dataset):
         print(f"==> Starting Data Selection via {method}...")
 
         # 1. Get indices to keep
-        # Using `str(method).lower()` safely handles both the string 'none' and the Python None object
-        safe_method = str(method).lower()
+        method_str = str(method).lower()
 
-        if safe_method == 'lava':
-            # We pass the underlying training set and labels to LAVA
+        if method_str == 'lava':
             indices = get_lava_selection_indices(
                 train_ds, 
                 val_ds,
                 keep_ratio=self.ratio, 
                 device=self.device
             )
-        elif safe_method == 'random':
+        elif method_str == 'random':
             indices = random_selection(
                 train_ds, 
                 ratio=self.ratio
             )
-        elif safe_method == 'none':
-            # KEEP ALL INDICES: No selection is applied
+        elif method_str == 'none':
             indices = list(range(len(train_ds)))
             print("==> No selection method specified. Using full dataset.")
         else:
