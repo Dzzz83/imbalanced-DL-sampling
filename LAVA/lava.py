@@ -150,7 +150,22 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                                tgt_dim = (3,resize,resize),
                                p = 2,
                                device='cuda')
+    # --- PROBING DATASET OBJECTS ---
+    print("\n--- LAVA Object Probe ---")
+    def probe_ds(ds, name):
+        print(f"Probing {name}:")
+        print(f"  - Type: {type(ds)}")
+        print(f"  - Has targets: {hasattr(ds, 'targets')}")
+        if hasattr(ds, 'targets'):
+            print(f"  - Targets Type: {type(ds.targets)}")
+        if hasattr(ds, 'dataset'): # If it's a Subset
+            print(f"  - Underlying Dataset: {type(ds.dataset)}")
+            if hasattr(ds.dataset, 'classes'):
+                print(f"  - Classes found: {ds.dataset.classes}")
 
+    probe_ds(trainloader.dataset, "Train Dataset")
+    probe_ds(testloader.dataset, "Validation Dataset")
+    
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method = 'sinkhorn',
                            debiased_loss = True,
