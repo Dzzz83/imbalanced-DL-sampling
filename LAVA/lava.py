@@ -115,6 +115,30 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     for p in embedder.parameters():
         p.requires_grad = False
 
+    print("\n--- LAVA DEBUG: Initializing FeatureCost ---")
+    feature_cost = FeatureCost(src_embedding = embedder,
+                               src_dim = (3,resize,resize),
+                               tgt_embedding = embedder,
+                               tgt_dim = (3,resize,resize),
+                               p = 2,
+                               device=device)
+
+    print("--- LAVA DEBUG: Initializing DatasetDistance ---")
+    dist = DatasetDistance(trainloader, testloader,
+                           inner_ot_method = 'sinkhorn',
+                           debiased_loss = True,
+                           feature_cost = feature_cost,
+                           λ_x=1.0, λ_y=1.0,
+                           sqrt_method = 'spectral',
+                           sqrt_niters=10,
+                           precision='single',
+                           p = 2, 
+                           entreg = 1.0, # <-- INCREASED from 1e-1 to 1.0 for extreme numerical stability
+                           device=device)
+
+    print("--- LAVA DEBUG: Attempting dist.distance() ---")
+    tic = time.perf_counter()
+
     # Here we use same embedder for both datasets
     feature_cost = FeatureCost(src_embedding = embedder,
                                src_dim = (3,resize,resize),

@@ -61,8 +61,6 @@ class FeatureExtractor(nn.Module):
         features = F.normalize(features, p=2, dim=1)
         return features
     
-# OTDD expects (image, label) | PyTorch returns (image, label, index)
-# this class wraps the dataset and returns (image, label)
 class OTDDWrapper(Dataset):
     def __init__(self, dataset):
         self.dataset = dataset
@@ -80,6 +78,9 @@ class OTDDWrapper(Dataset):
                 self.targets = torch.tensor(targets, dtype=torch.long)
             else:
                 self.targets = targets.long()
+            
+            # --- SURGERY: Explicitly define classes for OTDD ---
+            self.classes = torch.unique(self.targets).tolist()
         else:
             raise ValueError("OTDDWrapper could not find targets in the provided dataset.")
 
