@@ -109,7 +109,7 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                                device='cuda')
 
     dist = DatasetDistance(trainloader, testloader,
-                           inner_ot_method = 'sinkhorn',
+                           inner_ot_method = 'exact',
                            debiased_loss = True,
                            feature_cost = feature_cost,
                            λ_x=1.0, λ_y=1.0,
@@ -137,15 +137,12 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     else:
         # Fallback if the solver requires an explicit call
         dual_sol = dist.solve_dual()
-    
-    dual_sol = list(dual_sol)
 
     toc = time.perf_counter()
     print(f"distance calculation takes {toc - tic:0.4f} seconds")
 
     for i in range(len(dual_sol)):
-        if torch.is_tensor(dual_sol[i]):
-            dual_sol[i] = dual_sol[i].to('cpu')
+        dual_sol[i] = dual_sol[i].to('cpu')
     return dual_sol
     
 # Get the calibrated gradient of the dual solution
