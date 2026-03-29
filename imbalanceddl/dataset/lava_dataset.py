@@ -13,7 +13,7 @@ class LavaDataset(Dataset):
             config: Configuration object.
             base_dataset: The ImbalancedDataset instance.
             ratio: Fraction of data to keep (0.0 to 1.0).
-            method: 'lava', 'random', or 'none' / None.
+            method: 'lava' or 'random'.
             device: Device to run LAVA computation on.
         """
         self.config = config
@@ -23,28 +23,22 @@ class LavaDataset(Dataset):
         self.device = device
 
         train_ds, val_ds = self.base_dataset.train_val_sets
-        
-        # Guard against NoneType for printing
         print(f"==> Starting Data Selection via {method}...")
 
         # 1. Get indices to keep
-        method_str = str(method).lower()
-
-        if method_str == 'lava':
+        if method.lower() == 'lava':
+            # We pass the underlying training set and labels to LAVA
             indices = get_lava_selection_indices(
                 train_ds, 
                 val_ds,
                 keep_ratio=self.ratio, 
                 device=self.device
             )
-        elif method_str == 'random':
+        elif method.lower() == 'random':
             indices = random_selection(
                 train_ds, 
                 ratio=self.ratio
             )
-        elif method_str == 'none':
-            indices = list(range(len(train_ds)))
-            print("==> No selection method specified. Using full dataset.")
         else:
             raise ValueError(f"Unknown selection method: {method}")
 
