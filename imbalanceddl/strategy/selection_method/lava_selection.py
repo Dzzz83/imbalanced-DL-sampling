@@ -1,7 +1,6 @@
 import sys
 import os 
 from unittest.mock import MagicMock
-from torch.utils.data import Subset
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
@@ -25,7 +24,6 @@ import torch.nn as nn
 import numpy as np
 import torchvision.models as models
 from torch.utils.data import DataLoader, SubsetRandomSampler, Dataset
-import torch.nn.functional as F
 
 from LAVA.lava import compute_dual, compute_values_and_visualize
 
@@ -58,56 +56,22 @@ class FeatureExtractor(nn.Module):
 
     def forward(self, x):
         features = self.base_model(x)
-        features = F.normalize(features, p=2, dim=1)
         return features
-    
+# OTDD expects (image, label) | PyTorch returns (image, label, index)
+# this class wraps the dataset and returns (image, label)
 class OTDDWrapper(Dataset):
     def __init__(self, dataset):
         self.dataset = dataset
-        
-        # 1. Recursive search for the base targets
-        def find_targets(ds):
-            if hasattr(ds, 'targets'):
-                return ds.targets
-            if hasattr(ds, 'dataset'):
-                return find_targets(ds.dataset)
-            return None
 
-        targets = find_targets(dataset)
-
-        if targets is not None:
-            # 2. Accumulate indices from nested Subsets
-            curr = dataset
-            final_indices = None
-            while hasattr(curr, 'indices'):
-                if final_indices is None:
-                    final_indices = np.array(curr.indices)
-                else:
-                    # Map the current level's indices through the parent's indices
-                    final_indices = final_indices[np.array(curr.indices)]
-                curr = curr.dataset
-            
-            # 3. Slice targets if indices were found
-            if final_indices is not None:
-                targets = np.array(targets)[final_indices]
-
-            # 4. Final attribute assignment
-            if not isinstance(targets, torch.Tensor):
-                self.targets = torch.tensor(targets, dtype=torch.long)
-            else:
-                self.targets = targets.long()
-            
-            # 5. Force classes to be strings for OTDD alignment
-            unique_labels = torch.unique(self.targets).tolist()
-            self.classes = [str(int(l)) for l in sorted(unique_labels)]
-            
-        else:
-            raise ValueError("OTDDWrapper could not find targets in the provided dataset hierarchy.")
+        if hasattr(dataset, 'targets'):
+            self.targets = dataset.targets
+        if hasattr(dataset, 'indices'):
+            self.indices = dataset.indices
 
     def __getitem__(self, index):
-        # Ensure we only return (data, target) to satisfy OTDD's expected format
-        data, target = self.dataset[index]
-        return data, target
+        item = self.dataset[index]
+
+        return item[0], item[1]
     
     def __len__(self):
         return len(self.dataset)
@@ -153,33 +117,15 @@ def select_indices(lava_values, training_size, keep_ratio):
     return selected_indices.tolist()
 
 def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda'):
-    # 1. Create a SHUFFLED map of indices so OTDD sees all classes early
-    original_indices = np.arange(len(train_dataset))
-    shuffled_indices = np.copy(original_indices)
-    np.random.seed(42)  
-    np.random.shuffle(shuffled_indices)
-    
-    # 2. Create a Subset using these shuffled indices
-    shuffled_train_dataset = Subset(train_dataset, shuffled_indices)
-    
-    if hasattr(train_dataset, 'targets'):
-        # Map original targets to the new shuffled order
-        shuffled_train_dataset.targets = torch.tensor(np.array(train_dataset.targets)[shuffled_indices])
-            
-    # 3. Wrap and load (Keep shuffle=False here, the Subset is already mixed!)
-    train_wrapper, val_wrapper = dataset_prep(shuffled_train_dataset, val_dataset)
+    # prepare the val_dataset and train_dataset
+    train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
+
+    # dataset_indices = getattr(train_dataset, 'indices', list(range(len(train_dataset))))
+    # train_sampler = SubsetRandomSampler(dataset_indices)
+
+    # create dataloader
     train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
     val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
-
-    # # prepare the val_dataset and train_dataset
-    # train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
-
-    # # dataset_indices = getattr(train_dataset, 'indices', list(range(len(train_dataset))))
-    # # train_sampler = SubsetRandomSampler(dataset_indices)
-
-    # # create dataloader
-    # train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
-    # val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
 
     # get feature extractor
     extractor = get_feature_extractor(device)
@@ -189,38 +135,6 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     print(f"--- LAVA Selection Started ---")
     print(f"Total training samples to evaluate: {training_size}")
 
-    # Diagnostic check in get_lava_selection_indices
-    train_classes = set(np.array(train_dataset.targets))
-    val_classes = set(np.array(val_dataset.targets))
-
-    print(f"Classes in Training: {len(train_classes)}")
-    print(f"Classes in Validation: {len(val_classes)}")
-
-    # --- DEBUG FOR OTDD VALUEERROR ---
-    print("\n--- OTDD Label Diagnostic ---")
-    train_targets = []
-    for _, target in train_loader:
-        train_targets.append(target)
-    train_targets = torch.cat(train_targets)
-    unique_train = torch.unique(train_targets).tolist()
-    
-    val_targets = []
-    for _, target in val_loader:
-        val_targets.append(target)
-    val_targets = torch.cat(val_targets)
-    unique_val = torch.unique(val_targets).tolist()
-
-    print(f"Unique Training Labels: {unique_train}")
-    print(f"Unique Validation Labels: {unique_val}")
-    print(f"Number of samples per class (Train): {torch.bincount(train_targets).tolist()}")
-    print(f"Number of samples per class (Val): {torch.bincount(val_targets).tolist()}")
-    
-    if len(unique_train) != len(unique_val):
-        print("CRITICAL: Label count mismatch between sets!")
-    # ---------------------------------
-
-    if train_classes != val_classes:
-        raise ValueError(f"Mismatch! Train has {train_classes}, but Val has {val_classes}. OTDD requires both to have the same labels.")
     # calculate OT score
     dual_sol, _ = lava.compute_dual(
         feature_extractor=extractor,
@@ -231,17 +145,11 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
         device=device
     )
 
-    # 6. Extract results from the shuffled run
     if isinstance(dual_sol, (list, tuple)):
-        lava_values_shuffled = dual_sol[0].detach().cpu().numpy().flatten()
+        # LAVA returns a list where the first element is usually the training duals
+        lava_values = dual_sol[0].detach().cpu().numpy().flatten()
     else:
-        lava_values_shuffled = dual_sol.detach().cpu().numpy().flatten()
-    
-    # 5. RE-MAP the values back to original order before selection
-    # This ensures lava_values[0] is the score for the 1st image in train_dataset
-    lava_values_original_order = np.zeros_like(lava_values_shuffled)
-    lava_values_original_order[shuffled_indices] = lava_values_shuffled
-    
+        lava_values = dual_sol.detach().cpu().numpy().flatten()
 
     # --- DEBUG START ---
     targets = np.array(train_dataset.targets) # Ensure this matches your train_dataset
@@ -249,12 +157,10 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     for i in range(10): # For CIFAR-10
         class_idx = np.where(targets == i)[0]
         if len(class_idx) > 0:
-            class_vals = lava_values_original_order[class_idx]
+            class_vals = lava_values[class_idx]
             print(f"Class {i} | Size: {len(class_idx):>4} | Mean Val: {class_vals.mean():.6f} | Max: {class_vals.max():.4f} | Min: {class_vals.min():.4f}")
     # --- DEBUG END ---
 
-    # 6. Now perform selection on the correctly ordered values
-    selected_indices = select_indices(lava_values_original_order, len(train_dataset), keep_ratio)
+    selected_indices = select_indices(lava_values, training_size, keep_ratio)
 
     return selected_indices
-
