@@ -176,6 +176,29 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     print(f"Classes in Training: {len(train_classes)}")
     print(f"Classes in Validation: {len(val_classes)}")
 
+    # --- DEBUG FOR OTDD VALUEERROR ---
+    print("\n--- OTDD Label Diagnostic ---")
+    train_targets = []
+    for _, target in train_loader:
+        train_targets.append(target)
+    train_targets = torch.cat(train_targets)
+    unique_train = torch.unique(train_targets).tolist()
+    
+    val_targets = []
+    for _, target in val_loader:
+        val_targets.append(target)
+    val_targets = torch.cat(val_targets)
+    unique_val = torch.unique(val_targets).tolist()
+
+    print(f"Unique Training Labels: {unique_train}")
+    print(f"Unique Validation Labels: {unique_val}")
+    print(f"Number of samples per class (Train): {torch.bincount(train_targets).tolist()}")
+    print(f"Number of samples per class (Val): {torch.bincount(val_targets).tolist()}")
+    
+    if len(unique_train) != len(unique_val):
+        print("CRITICAL: Label count mismatch between sets!")
+    # ---------------------------------
+    
     if train_classes != val_classes:
         raise ValueError(f"Mismatch! Train has {train_classes}, but Val has {val_classes}. OTDD requires both to have the same labels.")
     # calculate OT score
