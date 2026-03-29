@@ -103,9 +103,13 @@ import traceback
 from otdd.pytorch.distance import DatasetDistance, FeatureCost
 
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
+    """
+    Computes the OTDD dual solution. 
+    Includes a target-aware DatasetVerifier to prevent initialization errors in otdd.
+    """
     feature_extractor.eval()
     
-    # 1. NORMALIZED EMBEDDER (Feature Extraction)
+    # 1. NORMALIZED EMBEDDER
     class NormalizedEmbedder(torch.nn.Module):
         def __init__(self, base_model):
             super().__init__()
@@ -119,23 +123,39 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
         
     embedder = NormalizedEmbedder(feature_extractor).to(device)
 
-    # 2. DATASET VERIFIER (Catches invalid labels before OTDD sees them)
+    # 2. TARGET-AWARE DATASET VERIFIER
     class DatasetVerifier(torch.utils.data.Dataset):
         def __init__(self, dataset, name):
             self.dataset = dataset
             self.name = name
+            
+            # Extract targets so OTDD can calculate class distributions
+            if hasattr(dataset, 'targets'):
+                self.targets = dataset.targets
+            elif hasattr(dataset, 'labels'):
+                self.targets = dataset.labels
+            else:
+                # Fallback: Manually build target list (required for Subsets)
+                print(f"--- LAVA DEBUG: Extracting targets for {name} ---")
+                self.targets = [dataset[i][1] for i in range(len(dataset))]
+            
+            # Ensure targets are in a format OTDD recognizes (list or tensor)
+            if isinstance(self.targets, np.ndarray):
+                self.targets = self.targets.tolist()
+
         def __getitem__(self, index):
             img, label = self.dataset[index]
             if label < 0 or label > 9:
-                print(f"\n[ALERT] {self.name} index {index} has invalid label: {label}")
+                 print(f"\n[ALERT] {self.name} index {index} has invalid label: {label}")
             return img, label
+
         def __len__(self):
             return len(self.dataset)
 
     train_ds = DatasetVerifier(trainloader.dataset, "TRAIN")
     test_ds = DatasetVerifier(testloader.dataset, "VAL")
 
-    # 3. CALCULATE CLASS CENTERS FOR LABEL DISTANCES
+    # 3. CALCULATE CLASS CENTERS
     def get_centers(loader):
         with torch.no_grad():
             first_batch = next(iter(loader))
@@ -162,16 +182,14 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     f_cost.src_out_dim = 10
     f_cost.tgt_out_dim = 10
 
-    # 5. INITIALIZE OTDD (Passing Datasets, not Loaders)
+    # 5. INITIALIZE OTDD
     dist = DatasetDistance(train_ds, test_ds,
                            inner_ot_method='sinkhorn',
                            debiased_loss=True,
                            feature_cost=f_cost,
                            p=p, entreg=1.0, device=device)
 
-    # 6. LOCK INTERNAL STATE (Prevents Index 103 error)
-    # The Index 103 error happens when OTDD assumes an 11th class exists.
-    # By locking nclasses and the label mapping, we force the math to stay within 0-99.
+    # 6. LOCK INTERNAL STATE
     dist.nclasses1 = 10
     dist.nclasses2 = 10
     dist.classes1 = list(range(10))
@@ -180,10 +198,8 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     dist.label_to_idx2 = {i: i for i in range(10)}
     dist.label_distances = D_labels.to(device)
 
-    
-
     # 7. EXECUTE DISTANCE COMPUTATION
-    # maxsamples=5000 is used to keep the computation on the GPU path
+    # Using 5000 samples to keep computation on the GPU
     safe_max = min(5000, int(training_size))
     print(f"--- Starting Distance Computation (maxsamples={safe_max}) ---")
 
@@ -194,7 +210,7 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
         traceback.print_exc()
         raise e
 
-    # 8. EXTRACT DUAL SOLUTIONS (Potentials)
+    # 8. EXTRACT POTENTIALS
     if hasattr(dist, 'dual_v') and dist.dual_v is not None:
         dual_sol = dist.dual_v
     else:
