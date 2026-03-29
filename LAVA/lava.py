@@ -17,6 +17,7 @@ except ImportError:
         from otdd.pytorch import DatasetDistance, FeatureCost
         print("Note: Using top-level otdd.pytorch path.")
 
+# Original logic for data loading shims
 load_torchvision_data_shuffle = load_torchvision_data
 load_torchvision_data_perturb = load_torchvision_data
 load_torchvision_data_keepclean = load_torchvision_data
@@ -34,19 +35,19 @@ import torchvision.models as models
 from torch.autograd import Variable
 
 import time
-import traceback
+import imageio
 import pickle
 from PIL import Image, ImageOps, ImageEnhance
 from copy import deepcopy as dpcp
 
-from . import poi_util
+import poi_util
 import importlib
-from .poi_util import poison_dataset,patching_test, VGG
+from poi_util import poison_dataset, patching_test, VGG
 from torch.utils.data import Dataset, TensorDataset, DataLoader
 
-from .vgg import vgg16
-from .preact_resnet import PreActResNet18
-from .models.resnet import ResNet18
+from vgg import vgg16
+from preact_resnet import PreActResNet18
+from resnet import ResNet18
 
 
 # Load clean data
@@ -72,8 +73,6 @@ def load_data_corrupted(corrupt_type='shuffle', dataname=None, data=None, valid_
                                                                              shuffle=shuffle, maxsize=training_size, 
                                                                              maxsize_test = test_size, shuffle_per=currupt_por)
         return loaders, shuffle_ind
-    # elif corrupt_type == 'feature':
-    # elif corrupt_type == 'backdoor-blend', 'backdoor-trojan-sq', 'backdoor-trojan-wm'
     else: # empty or non-implemented == Loading Clean Data
         shuffle_ind = []
         loaders, full_dict  = load_torchvision_data_shuffle(dataname, valid_size=valid_size, random_seed=random_seed, 
@@ -82,9 +81,7 @@ def load_data_corrupted(corrupt_type='shuffle', dataname=None, data=None, valid_
         return loaders, shuffle_ind
     
     
-    
 # Get list of all indices of a dataset (subset)
-# We use a train loader here
 def get_indices(singleloader):
     return singleloader.batch_sampler.sampler.indices
     
@@ -96,148 +93,56 @@ def load_pretrained_feature_extractor(feature_extractor_name, device):
     net_test.eval()
     return net_test
     
-
-import torch
-import numpy as np
-import traceback
-from otdd.pytorch.distance import DatasetDistance, FeatureCost
-
+    
+# Get dual solution of OT problem (Restored to original implementation)
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
-    """
-    Computes the OTDD dual solution. 
-    Includes a target-aware DatasetVerifier to prevent initialization errors in otdd.
-    """
-    feature_extractor.eval()
+    embedder = feature_extractor.to(device)
+    embedder.fc = torch.nn.Identity()
+    for p_param in embedder.parameters():
+        p_param.requires_grad = False
+
+    # Here we use same embedder for both datasets
+    feature_cost = FeatureCost(src_embedding = embedder,
+                               src_dim = (3,resize,resize),
+                               tgt_embedding = embedder,
+                               tgt_dim = (3,resize,resize),
+                               p = 2,
+                               device='cuda')
+
+    dist = DatasetDistance(trainloader, testloader,
+                           inner_ot_method = 'exact',
+                           debiased_loss = True,
+                           feature_cost = feature_cost,
+                           λ_x=1.0, λ_y=1.0,
+                           sqrt_method = 'spectral',
+                           sqrt_niters=10,
+                           precision='single',
+                           p = 2, entreg = 1e-1,
+                           device='cuda')
+
+    tic = time.perf_counter()
+    dual_sol = dist.dual_sol(maxsamples = training_size, return_coupling = True)
+
+    toc = time.perf_counter()
+    print(f"distance calculation takes {toc - tic:0.4f} seconds")
+
+    for i in range(len(dual_sol)):
+        dual_sol[i] = dual_sol[i].to('cpu')
+    return dual_sol
     
-    # 1. NORMALIZED EMBEDDER
-    class NormalizedEmbedder(torch.nn.Module):
-        def __init__(self, base_model):
-            super().__init__()
-            self.base_model = base_model
-            for attr in ['fc', 'linear']:
-                if hasattr(self.base_model, attr):
-                    setattr(self.base_model, attr, torch.nn.Identity())
-        def forward(self, x):
-            features = self.base_model(x)
-            return torch.nn.functional.normalize(features.view(features.size(0), -1), p=2, dim=1)
-        
-    embedder = NormalizedEmbedder(feature_extractor).to(device)
-
-    # 2. TARGET-AWARE DATASET VERIFIER
-    class DatasetVerifier(torch.utils.data.Dataset):
-        def __init__(self, dataset, name):
-            self.dataset = dataset
-            self.name = name
-            
-            # Extract targets so OTDD can calculate class distributions
-            if hasattr(dataset, 'targets'):
-                self.targets = dataset.targets
-            elif hasattr(dataset, 'labels'):
-                self.targets = dataset.labels
-            else:
-                # Fallback: Manually build target list (required for Subsets)
-                print(f"--- LAVA DEBUG: Extracting targets for {name} ---")
-                self.targets = [dataset[i][1] for i in range(len(dataset))]
-            
-            # Ensure targets are in a format OTDD recognizes (list or tensor)
-            if isinstance(self.targets, np.ndarray):
-                self.targets = self.targets.tolist()
-
-        def __getitem__(self, index):
-            img, label = self.dataset[index]
-            if label < 0 or label > 9:
-                 print(f"\n[ALERT] {self.name} index {index} has invalid label: {label}")
-            return img, label
-
-        def __len__(self):
-            return len(self.dataset)
-
-    train_ds = DatasetVerifier(trainloader.dataset, "TRAIN")
-    test_ds = DatasetVerifier(testloader.dataset, "VAL")
-
-    # 3. CALCULATE CLASS CENTERS
-    def get_centers(loader):
-        with torch.no_grad():
-            first_batch = next(iter(loader))
-            feat_dim = embedder(first_batch[0][:1].to(device)).shape[1]
-            centers = torch.zeros((10, feat_dim)).to(device)
-            counts = torch.zeros(10).to(device)
-            for imgs, targets in loader:
-                targets = targets.long().to(device)
-                feats = embedder(imgs.to(device))
-                for i in range(10):
-                    mask = (targets == i)
-                    if mask.any():
-                        centers[i] += feats[mask].sum(0)
-                        counts[i] += mask.sum()
-        return centers / torch.clamp(counts, min=1.0).unsqueeze(1)
-
-    print("--- LAVA DEBUG: Pre-calculating class centers ---")
-    D_labels = torch.cdist(get_centers(trainloader), get_centers(testloader), p=p)
-
-    # 4. INITIALIZE FEATURE COST
-    f_cost = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
-                         tgt_embedding=embedder, tgt_dim=(3, resize, resize),
-                         p=p, device=device)
-    f_cost.src_out_dim = 10
-    f_cost.tgt_out_dim = 10
-
-    # 5. INITIALIZE OTDD
-    dist = DatasetDistance(train_ds, test_ds,
-                           inner_ot_method='sinkhorn',
-                           debiased_loss=True,
-                           feature_cost=f_cost,
-                           p=p, entreg=1.0, device=device)
-
-    # 6. LOCK INTERNAL STATE
-    dist.nclasses1 = 10
-    dist.nclasses2 = 10
-    dist.classes1 = list(range(10))
-    dist.classes2 = list(range(10))
-    dist.label_to_idx1 = {i: i for i in range(10)}
-    dist.label_to_idx2 = {i: i for i in range(10)}
-    dist.label_distances = D_labels.to(device)
-
-    # 7. EXECUTE DISTANCE COMPUTATION
-    # Using 5000 samples to keep computation on the GPU
-    safe_max = min(5000, int(training_size))
-    print(f"--- Starting Distance Computation (maxsamples={safe_max}) ---")
-
-    try:
-        res = dist.distance(maxsamples=safe_max, return_coupling=True)
-    except Exception as e:
-        print(f"\nCaught Exception: {type(e).__name__}: {e}")
-        traceback.print_exc()
-        raise e
-
-    # 8. EXTRACT POTENTIALS
-    if hasattr(dist, 'dual_v') and dist.dual_v is not None:
-        dual_sol = dist.dual_v
-    else:
-        dual_sol = dist.solve_dual()
-    
-    return [d.detach().cpu() for d in list(dual_sol)]
-
+# Get the calibrated gradient of the dual solution
 def values(dual_sol, training_size):
-    dualsol = dual_sol
-    
     f1k = np.array(dual_sol[0].squeeze())
-
-    trainGradient = [0]*training_size
     trainGradient = (1+1/(training_size-1))*f1k - sum(f1k)/(training_size-1)
     return list(trainGradient)
-
-
 
 def train_with_corrupt_flag(trainloader, shuffle_ind, train_indices):
     trained_with_flag = []
     itr = 0
-    counting_labels = {} # For statistics
+    counting_labels = {} 
     for trai in trainloader:
-        #print(trai)
         train_images = trai[0]
         train_labels = trai[1]
-        # get one image of the training from that batch
         for i in range(len(train_labels)):
             train_image = train_images[i]
             train_label = train_labels[i]
@@ -249,50 +154,30 @@ def train_with_corrupt_flag(trainloader, shuffle_ind, train_indices):
                 counting_labels[train_label.item()] = 1
     return trained_with_flag
 
-
-
 def compute_dual(feature_extractor, trainloader, testloader, training_size, shuffle_ind, p=2, resize=32, device='cuda'):
-    # to return 2
-    # get indices of corrupted and non corrupted for visualization
     train_indices = get_indices(trainloader)
     trained_with_flag = train_with_corrupt_flag(trainloader, shuffle_ind, train_indices)
-    
-    # to return 1
-    # OT Dual calculation
     dual_sol = get_OT_dual_sol(feature_extractor, trainloader, testloader, p=2, resize=32, device='cuda')
     return dual_sol, trained_with_flag
     
-    
-# Get the data values and also visualizes the detection of 'bad' data
 def compute_values_and_visualize(dual_sol, trained_with_flag, training_size, portion):
     calibrated_gradient = values(dual_sol, training_size)
     sorted_gradient_ind = sort_and_keep_indices(calibrated_gradient, training_size)
     visualize_values_distr_sorted(trained_with_flag, sorted_gradient_ind, training_size, portion, calibrated_gradient)
     return calibrated_gradient
     
-    
-# For VISUALIZATION - helper functions
-
-# Sort the calibrated values and keep original indices 
-# Higher value is worse
 def sort_and_keep_indices(trainGradient, training_size):
     oriTrainGradient = dpcp(trainGradient)
     trainGradient.sort(reverse=True)
     sorted_gradient_ind = [np.where(oriTrainGradient == trainGradient[i])[0] for i in range(training_size)]
     return sorted_gradient_ind
     
-# Visualize based on sorted values (calibrated gradient)
-# Prints 3 graphs, with a random baselines (explained in paper...)
 def visualize_values_distr_sorted(tdid, tsidx, trsize, portion, trainGradient):
     x1, y1, base = [], [], []
     poisoned = trsize * portion
     for vari in range(10,trsize,10):
         if vari < 3000:
             found = sum(tdid[tsidx[i][0]][2] for i in range(vari))
-            
-#             print('inspected: '+str(vari), 'found: '+str(found),  
-#                   'detection rate: ', str(found / poisoned), 'baseline = '+str(vari*0.2*0.9))
-            
             print(f'inspected: {vari}, found: {found} detection rate: {found / poisoned:.2f} baseline: {vari*0.2*0.9}')
             
         x1.append(vari)
@@ -300,19 +185,12 @@ def visualize_values_distr_sorted(tdid, tsidx, trsize, portion, trainGradient):
         base.append(vari*portion*1.0)
     plt.scatter(x1, y1, s=10)
     plt.scatter(x1, base, s=10)
-    # naming the x axis
     plt.xlabel('Inspected Images')
-    # naming the y axis
     plt.ylabel('Detected Images')
     plt.yticks([0,1])
-
-    # giving a title to my graph
     plt.title('Detection vs Gradient Inspection')
-
-    # function to show the plot
     plt.show()
 
-    ################# GETTING POISON FLAG WITH GRADIENT ############
     x, y = [],[]
     poison_cnt = 0
     last_ind = -1
@@ -320,7 +198,6 @@ def visualize_values_distr_sorted(tdid, tsidx, trsize, portion, trainGradient):
     non_poisoned = []
     for i in range(trsize):
         x.append(trainGradient[i])
-        #print(trainGradient[i])
         oriid = tsidx[i][0]
         y.append(tdid[oriid][2])
         poison_cnt += 1 if tdid[oriid][2] else 0
@@ -330,65 +207,39 @@ def visualize_values_distr_sorted(tdid, tsidx, trsize, portion, trainGradient):
         else:
             non_poisoned.append(trainGradient[i])
     plt.scatter(x, y, s=10)
-
-    # naming the x axis
     plt.xlabel('Gradient')
-    # naming the y axis
     plt.ylabel('Poisoned Image')
     plt.yticks([0,1])
-
-    # giving a title to my graph
     plt.title('Gradient vs Poisoned')
-
-    # function to show the plot
     plt.show()
 
     print("Number of poisoned images: ", poison_cnt, " out of 10000.")
     print("last index of poison", last_ind)
 
-    ########################### HISTOGRAM PLOT #################################################
     tminElement = np.amin(trainGradient)
     tmaxElement = np.amax(trainGradient)
     bins = np.linspace(tminElement, tmaxElement,200)
     plt.hist(non_poisoned, bins,label="Clean Images")
     plt.hist(x_poisoned, bins,label="Poisoned Images", edgecolor='None', alpha = 0.5,)
-    # naming the x axis
     plt.xlabel('Gradient')
-    # naming the y axis
     plt.ylabel('Number of Images')
     plt.title('Gradient of Poisoned and Non-Poisoned Images Lambda=(1,1)')
     plt.legend(loc="upper left")
     plt.show()
     
-# Loading Baseline Data Values and Visualize
-# To Be Implemented
 def visualize_baselines():
     return
     
-    
-    
-'''Pre-activation ResNet in PyTorch.
-
-Reference:
-[1] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
-    Identity Mappings in Deep Residual Networks. arXiv:1603.05027
-'''
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
+# --- Original Pre-activation ResNet Classes ---
 
 class PreActBlock(nn.Module):
-    '''Pre-activation version of the BasicBlock.'''
     expansion = 1
-
     def __init__(self, in_planes, planes, stride=1):
         super(PreActBlock, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
-
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)
@@ -402,11 +253,8 @@ class PreActBlock(nn.Module):
         out += shortcut
         return out
 
-
 class PreActBottleneck(nn.Module):
-    '''Pre-activation version of the original Bottleneck module.'''
     expansion = 4
-
     def __init__(self, in_planes, planes, stride=1):
         super(PreActBottleneck, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
@@ -415,7 +263,6 @@ class PreActBottleneck(nn.Module):
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=False)
-
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)
@@ -430,12 +277,10 @@ class PreActBottleneck(nn.Module):
         out += shortcut
         return out
 
-
 class PreActResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10):
         super(PreActResNet, self).__init__()
         self.in_planes = 64
-
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
@@ -446,8 +291,8 @@ class PreActResNet(nn.Module):
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, stride))
+        for s in strides:
+            layers.append(block(self.in_planes, planes, s))
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
@@ -462,58 +307,10 @@ class PreActResNet(nn.Module):
         out = self.linear(out)
         return out
 
-
 def PreActResNet18():
     return PreActResNet(PreActBlock, [2,2,2,2])
-
-def PreActResNet34():
-    return PreActResNet(PreActBlock, [3,4,6,3])
-
-def PreActResNet50():
-    return PreActResNet(PreActBottleneck, [3,4,6,3])
-
-def PreActResNet101():
-    return PreActResNet(PreActBottleneck, [3,4,23,3])
-
-def PreActResNet152():
-    return PreActResNet(PreActBottleneck, [3,8,36,3])
-
 
 def test():
     net = PreActResNet18()
     y = net((torch.randn(1,3,32,32)))
     print(y.size())
-
-# test()
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
