@@ -97,6 +97,11 @@ def load_pretrained_feature_extractor(feature_extractor_name, device):
     return net_test
     
 
+import torch
+import numpy as np
+import traceback
+from otdd.pytorch.distance import DatasetDistance, FeatureCost
+
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
     feature_extractor.eval()
     
@@ -133,12 +138,27 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     print("--- LAVA DEBUG: Pre-calculating class centers ---")
     D_labels = torch.cdist(get_centers(trainloader), get_centers(testloader), p=p)
 
-    # 2. DATA LOADER INTERCEPTOR (The True Debugger)
-    # This wraps the loaders to print labels right before OTDD sees them
+    # 2. INITIALIZE OTDD WITH ORIGINAL LOADERS (Bypasses the ValueError)
+    f_cost = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
+                         tgt_embedding=embedder, tgt_dim=(3, resize, resize),
+                         p=p, device=device)
+
+    # Note: We use the raw trainloader and testloader here
+    dist = DatasetDistance(trainloader, testloader,
+                           inner_ot_method='sinkhorn',
+                           debiased_loss=True,
+                           feature_cost=f_cost,
+                           p=p, entreg=1.0, device=device)
+
+    # 3. DATA LOADER INTERCEPTOR (The True Debugger)
     class LabelVerifierWrapper:
         def __init__(self, loader, name):
             self.loader = loader
             self.name = name
+            # Required pass-throughs for otdd
+            self.dataset = loader.dataset
+            self.batch_size = getattr(loader, 'batch_size', 128)
+            
         def __iter__(self):
             for batch in self.loader:
                 x, y = batch
@@ -147,28 +167,15 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                     print(f"\n[ALERT] {self.name} yielded invalid labels: {unique_y}")
                 yield x, y
         def __len__(self): return len(self.loader)
-        @property
-        def dataset(self): return self.loader.dataset
 
-    v_trainloader = LabelVerifierWrapper(trainloader, "TRAIN")
-    v_testloader = LabelVerifierWrapper(testloader, "VAL")
-
-    # 3. INITIALIZE OTDD
-    f_cost = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
-                         tgt_embedding=embedder, tgt_dim=(3, resize, resize),
-                         p=p, device=device)
-
-    dist = DatasetDistance(v_trainloader, v_testloader,
-                           inner_ot_method='sinkhorn',
-                           debiased_loss=True,
-                           feature_cost=f_cost,
-                           p=p, entreg=1.0, device=device)
+    # Swap the internal loaders AFTER initialization
+    dist.trainloader = LabelVerifierWrapper(trainloader, "TRAIN")
+    dist.testloader = LabelVerifierWrapper(testloader, "VAL")
 
     # 4. FORCE LOCK INTERNAL STATE
     dist.label_distances = D_labels.to(device)
     dist.classes1 = [str(i) for i in range(10)]
     dist.classes2 = [str(i) for i in range(10)]
-    # Identity mapping: force class ID to be the same as matrix index
     dist.label_to_idx1 = {i: i for i in range(10)}
     dist.label_to_idx2 = {i: i for i in range(10)}
 
@@ -179,7 +186,8 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
             return orig_cost(X1, X2, Y1, Y2, batch_weight)
         except IndexError:
             print(f"\n--- CRASH CONTEXT ---")
-            print(f"Y1 Max: {Y1.max()}, Y2 Max: {Y2.max()}")
+            print(f"Y1 Unique: {torch.unique(Y1).tolist()}")
+            print(f"Y2 Unique: {torch.unique(Y2).tolist()}")
             print(f"Label Distance Matrix Shape: {dist.label_distances.shape}")
             raise
 
