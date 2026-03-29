@@ -103,25 +103,50 @@ import traceback
 from otdd.pytorch.distance import DatasetDistance, FeatureCost
 
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
+    """
+    Computes the OTDD dual solution between train and test distributions.
+    Locked to 10 classes to prevent indexing errors in imbalanced datasets.
+    """
     feature_extractor.eval()
+    
+    # --- HELPER CLASSES ---
     
     class NormalizedEmbedder(torch.nn.Module):
         def __init__(self, base_model):
             super().__init__()
             self.base_model = base_model
+            # Strip classification heads to get raw features
             for attr in ['fc', 'linear']:
                 if hasattr(self.base_model, attr):
                     setattr(self.base_model, attr, torch.nn.Identity())
         def forward(self, x):
             features = self.base_model(x)
             return torch.nn.functional.normalize(features.view(features.size(0), -1), p=2, dim=1)
-        
+
+    class LabelVerifierWrapper:
+        """Intercepts data yielding to check for out-of-bounds labels."""
+        def __init__(self, loader, name):
+            self.loader = loader
+            self.name = name
+            self.dataset = loader.dataset
+            self.batch_size = getattr(loader, 'batch_size', 128)
+        def __iter__(self):
+            for batch in self.loader:
+                x, y = batch
+                if (y > 9).any() or (y < 0).any():
+                    print(f"\n[ALERT] {self.name} yielded labels out of 0-9 range: {torch.unique(y).tolist()}")
+                yield x, y
+        def __len__(self): return len(self.loader)
+
+    # --- SETUP ---
+    
     embedder = NormalizedEmbedder(feature_extractor).to(device)
 
-    # 1. CENTER CALCULATION
     def get_centers(loader):
+        """Pre-calculates robust class centers for label distances."""
         first_batch = next(iter(loader))
-        feat_dim = embedder(first_batch[0][:1].to(device)).shape[1]
+        with torch.no_grad():
+            feat_dim = embedder(first_batch[0][:1].to(device)).shape[1]
         centers = torch.zeros((10, feat_dim)).to(device)
         counts = torch.zeros(10).to(device)
         with torch.no_grad():
@@ -138,59 +163,55 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     print("--- LAVA DEBUG: Pre-calculating class centers ---")
     D_labels = torch.cdist(get_centers(trainloader), get_centers(testloader), p=p)
 
-    # 2. INITIALIZE OTDD WITH ORIGINAL LOADERS
+    # 1. Initialize Cost with locked dimensions
     f_cost = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
                          tgt_embedding=embedder, tgt_dim=(3, resize, resize),
                          p=p, device=device)
+    f_cost.src_out_dim = 10
+    f_cost.tgt_out_dim = 10
 
+    # 2. Initialize Distance (using raw loaders first to avoid init errors)
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method='sinkhorn',
                            debiased_loss=True,
                            feature_cost=f_cost,
                            p=p, entreg=1.0, device=device)
 
-    # 3. DATA LOADER INTERCEPTOR 
-    class LabelVerifierWrapper:
-        def __init__(self, loader, name):
-            self.loader = loader
-            self.name = name
-            self.dataset = loader.dataset
-            self.batch_size = getattr(loader, 'batch_size', 128)
-            
-        def __iter__(self):
-            for batch in self.loader:
-                x, y = batch
-                unique_y = torch.unique(y).tolist()
-                if any(val > 9 or val < 0 for val in unique_y):
-                    print(f"\n[ALERT] {self.name} yielded invalid labels: {unique_y}")
-                yield x, y
-        def __len__(self): return len(self.loader)
-
-    # Swap the internal loaders AFTER initialization
-    dist.trainloader = LabelVerifierWrapper(trainloader, "TRAIN")
-    dist.testloader = LabelVerifierWrapper(testloader, "VAL")
-
-    # 4. FORCE LOCK INTERNAL STATE (Using Tensors instead of Strings)
+    # 3. Force-Lock Internal State to prevent Index 103 (11th class inference)
+    dist.nclasses1 = 10
+    dist.nclasses2 = 10
     dist.label_distances = D_labels.to(device)
-    # Using torch.arange ensures OTDD treats these strictly as numerical indices
     dist.classes1 = torch.arange(10).to(device)
     dist.classes2 = torch.arange(10).to(device)
     dist.label_to_idx1 = {i: i for i in range(10)}
     dist.label_to_idx2 = {i: i for i in range(10)}
 
-    safe_max = min(len(trainloader.dataset), int(training_size))
+    # 4. Inject Interceptor for runtime verification
+    dist.loader1 = LabelVerifierWrapper(trainloader, "TRAIN")
+    dist.loader2 = LabelVerifierWrapper(testloader, "VAL")
 
+    print(f"--- LAVA DEBUG: Internal nclasses locked at {dist.nclasses1} ---")
+    
+    safe_max = min(len(trainloader.dataset), int(training_size))
     print(f"--- Starting Distance Computation (maxsamples={safe_max}) ---")
+
+    # 5. Execute Distance Computation
     try:
         res = dist.distance(maxsamples=safe_max, return_coupling=True)
     except Exception as e:
-        print(f"\nCaught Exception: {type(e).__name__}: {e}")
+        print(f"\nCRITICAL FAILURE during distance computation: {e}")
+        # Detailed diagnostic for Index 103
+        if "index 103" in str(e).lower():
+            print("Diagnostic: OTDD tried to access (Label 10 * 10) + Label 3 or similar.")
+            print(f"Label Matrix Shape: {dist.label_distances.shape}")
         traceback.print_exc()
         raise e
 
+    # 6. Extract Potentials
     if hasattr(dist, 'dual_v') and dist.dual_v is not None:
         dual_sol = dist.dual_v
     else:
+        # Fallback if distance() didn't store potentials automatically
         dual_sol = dist.solve_dual()
     
     return [d.detach().cpu() for d in list(dual_sol)]
