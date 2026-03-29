@@ -138,24 +138,22 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     print("--- LAVA DEBUG: Pre-calculating class centers ---")
     D_labels = torch.cdist(get_centers(trainloader), get_centers(testloader), p=p)
 
-    # 2. INITIALIZE OTDD WITH ORIGINAL LOADERS (Bypasses the ValueError)
+    # 2. INITIALIZE OTDD WITH ORIGINAL LOADERS
     f_cost = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
                          tgt_embedding=embedder, tgt_dim=(3, resize, resize),
                          p=p, device=device)
 
-    # Note: We use the raw trainloader and testloader here
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method='sinkhorn',
                            debiased_loss=True,
                            feature_cost=f_cost,
                            p=p, entreg=1.0, device=device)
 
-    # 3. DATA LOADER INTERCEPTOR (The True Debugger)
+    # 3. DATA LOADER INTERCEPTOR 
     class LabelVerifierWrapper:
         def __init__(self, loader, name):
             self.loader = loader
             self.name = name
-            # Required pass-throughs for otdd
             self.dataset = loader.dataset
             self.batch_size = getattr(loader, 'batch_size', 128)
             
@@ -172,26 +170,14 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
     dist.trainloader = LabelVerifierWrapper(trainloader, "TRAIN")
     dist.testloader = LabelVerifierWrapper(testloader, "VAL")
 
-    # 4. FORCE LOCK INTERNAL STATE
+    # 4. FORCE LOCK INTERNAL STATE (Using Tensors instead of Strings)
     dist.label_distances = D_labels.to(device)
-    dist.classes1 = [str(i) for i in range(10)]
-    dist.classes2 = [str(i) for i in range(10)]
+    # Using torch.arange ensures OTDD treats these strictly as numerical indices
+    dist.classes1 = torch.arange(10).to(device)
+    dist.classes2 = torch.arange(10).to(device)
     dist.label_to_idx1 = {i: i for i in range(10)}
     dist.label_to_idx2 = {i: i for i in range(10)}
 
-    # Patch the cost function to catch the index error context
-    orig_cost = dist.batch_augmented_cost
-    def patched_cost(X1, X2, Y1, Y2, batch_weight=None):
-        try:
-            return orig_cost(X1, X2, Y1, Y2, batch_weight)
-        except IndexError:
-            print(f"\n--- CRASH CONTEXT ---")
-            print(f"Y1 Unique: {torch.unique(Y1).tolist()}")
-            print(f"Y2 Unique: {torch.unique(Y2).tolist()}")
-            print(f"Label Distance Matrix Shape: {dist.label_distances.shape}")
-            raise
-
-    dist.batch_augmented_cost = patched_cost
     safe_max = min(len(trainloader.dataset), int(training_size))
 
     print(f"--- Starting Distance Computation (maxsamples={safe_max}) ---")
