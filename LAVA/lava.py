@@ -97,165 +97,79 @@ def load_pretrained_feature_extractor(feature_extractor_name, device):
     return net_test
     
     
-# Get dual solution of OT problem
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
     class NormalizedEmbedder(torch.nn.Module):
         def __init__(self, base_model):
             super().__init__()
             self.base_model = base_model
-            # Remove the final classification layer
             if hasattr(self.base_model, 'fc'):
                 self.base_model.fc = torch.nn.Identity()
                 
         def forward(self, x):
             features = self.base_model(x)
-            features = features.view(features.size(0), -1) # Flatten
-            # The NaN Preventer: L2 Normalize all features
+            features = features.view(features.size(0), -1)
+            # L2 Normalization prevents feature collapse during OT distance calculation
             return torch.nn.functional.normalize(features, p=2, dim=1)
         
     embedder = NormalizedEmbedder(feature_extractor).to(device)
-    # embedder = feature_extractor.to(device)
-    # embedder.fc = torch.nn.Identity()
-    for p in embedder.parameters():
-        p.requires_grad = False
+    for param in embedder.parameters():
+        param.requires_grad = False
 
-    print("\n--- LAVA DEBUG: Initializing FeatureCost ---")
+    # 1. Initialize FeatureCost once
     feature_cost = FeatureCost(src_embedding = embedder,
-                               src_dim = (3,resize,resize),
+                               src_dim = (3, resize, resize),
                                tgt_embedding = embedder,
-                               tgt_dim = (3,resize,resize),
-                               p = 2,
+                               tgt_dim = (3, resize, resize),
+                               p = p,
                                device=device)
 
-    print("--- LAVA DEBUG: Initializing DatasetDistance ---")
+    # 2. Initialize DatasetDistance once with all stability flags
+    # diagonal_cov=True is essential when class sizes are as small as 50 samples
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method = 'sinkhorn',
                            debiased_loss = True,
                            feature_cost = feature_cost,
                            λ_x=1.0, λ_y=1.0,
                            sqrt_method = 'spectral',
-                           sqrt_niters=10,
+                           sqrt_niters=15,
                            precision='single',
-                           p = 2, 
-                           entreg = 1.0, # <-- INCREASED from 1e-1 to 1.0 for extreme numerical stability
+                           p = p, 
+                           entreg = 1.0, 
+                           diagonal_cov=True, 
                            device=device)
 
-    print("--- LAVA DEBUG: Attempting dist.distance() ---")
+    # 3. Determine safe maxsamples
+    n_train = len(trainloader.dataset)
+    n_val = len(testloader.dataset)
+    
+    print(f"--- LAVA DEBUG: Calculating distance (Train: {n_train}, Val: {n_val}) ---")
+    
     tic = time.perf_counter()
-
-    # Here we use same embedder for both datasets
-    feature_cost = FeatureCost(src_embedding = embedder,
-                               src_dim = (3,resize,resize),
-                               tgt_embedding = embedder,
-                               tgt_dim = (3,resize,resize),
-                               p = 2,
-                               device='cuda')
-    # --- PROBING DATASET OBJECTS ---
-    print("\n--- LAVA Object Probe ---")
-    def probe_ds(ds, name):
-        print(f"Probing {name}:")
-        print(f"  - Type: {type(ds)}")
-        print(f"  - Has targets: {hasattr(ds, 'targets')}")
-        if hasattr(ds, 'targets'):
-            print(f"  - Targets Type: {type(ds.targets)}")
-        if hasattr(ds, 'dataset'): # If it's a Subset
-            print(f"  - Underlying Dataset: {type(ds.dataset)}")
-            if hasattr(ds.dataset, 'classes'):
-                print(f"  - Classes found: {ds.dataset.classes}")
-
-    probe_ds(trainloader.dataset, "Train Dataset")
-    probe_ds(testloader.dataset, "Validation Dataset")
-
-    # --- FINAL ALIGNMENT CHECK ---
-    print(f"--- LAVA DEBUG: Final attribute check ---")
-    for i, ds in enumerate([trainloader.dataset, testloader.dataset]):
-        name = "Train" if i == 0 else "Val"
-        if not hasattr(ds, 'classes'):
-            print(f"WARNING: {name} dataset missing .classes attribute! Patching...")
-            # Manually patching just in case
-            ds.classes = [str(i) for i in range(10)]
-        print(f" {name} Classes: {ds.classes[:3]}... (Length: {len(ds.classes)})")
-
-    # Use diagonal_cov=True for better stability with your 0.01 imbalance ratio
-    dist = DatasetDistance(trainloader, testloader,
-                           inner_ot_method = 'sinkhorn',
-                           debiased_loss = True,
-                           feature_cost = feature_cost,
-                           sqrt_method = 'spectral',
-                           sqrt_niters=10,
-                           precision='single',
-                           p = 2, 
-                           entreg = 1e-1,
-                           diagonal_cov=True, # Strongly recommended for imbalanced data
-                           device=device)
-
-    dist = DatasetDistance(trainloader, testloader,
-                           inner_ot_method = 'sinkhorn',
-                           debiased_loss = True,
-                           feature_cost = feature_cost,
-                           λ_x=1.0, λ_y=1.0,
-                           sqrt_method = 'spectral',
-                           sqrt_niters=10,
-                           precision='single',
-                           p = 2, entreg = 1e-1,
-                           device='cuda')
-
-    print("--- LAVA DEBUG: Attempting dist.distance() ---")
     try:
-        res = dist.distance(maxsamples=training_size, return_coupling=True)
-    except ValueError:
-        print("\n" + "!"*30)
-        print("OTDD VALUEERROR DETECTED - DUMPING INTERNALS")
-        print("!"*30)
-        
-        # Get the traceback object
-        type_, value, tb = sys.exc_info()
-        
-        # Look for the frame inside otdd/pytorch/distance.py
-        current_tb = tb
-        while current_tb:
-            frame = current_tb.tb_frame
-            if 'otdd' in frame.f_code.co_filename and '_get_label_distances' in frame.f_code.co_name:
-                print(f"\n--- Failing Function: {frame.f_code.co_name} ---")
-                print(f"File: {frame.f_code.co_filename}")
-                print("\n--- Local Variables at time of crash ---")
-                for key, val in frame.f_locals.items():
-                    # Print types and shapes to avoid flooding the console
-                    if torch.is_tensor(val):
-                        print(f"{key}: Tensor of shape {val.shape}, dtype {val.dtype}")
-                    elif isinstance(val, (list, np.ndarray)):
-                        print(f"{key}: {type(val)} of length {len(val)}")
-                    else:
-                        print(f"{key}: {val}")
-            current_tb = current_tb.tb_next
-            
+        # Pass a tuple to maxsamples to ensure we don't over-index the smaller dataset
+        res = dist.distance(maxsamples=(n_train, n_val), return_coupling=True)
+    except ValueError as e:
+        print(f"CRITICAL ERROR: OTDD failed. Label mismatch or numerical collapse. Error: {e}")
         raise
 
-    tic = time.perf_counter()
-    # 1. Trigger the distance calculation (this is required to solve the OT problem)
-    res = dist.distance(maxsamples=training_size, return_coupling=True)
-
+    # 4. Extract Dual Solutions (Potentials)
     if isinstance(res, (list, tuple)):
-        # In this version, distance() returns the potentials [F_i, G_j]
+        # Most OTDD versions return potentials [F_i, G_j] in the result tuple
         dual_sol = res
     elif hasattr(dist, 'dual_v'):
         dual_sol = dist.dual_v
-    elif hasattr(dist, 'dual_sol'):
-        dual_sol = dist.dual_sol
-    elif hasattr(dist, 'f'):
-        dual_sol = dist.f
     else:
-        # Fallback if the solver requires an explicit call
         dual_sol = dist.solve_dual()
     
     dual_sol = list(dual_sol)
-
     toc = time.perf_counter()
-    print(f"distance calculation takes {toc - tic:0.4f} seconds")
+    print(f"Distance calculation completed in {toc - tic:0.4f} seconds")
 
+    # Move to CPU for downstream selection logic
     for i in range(len(dual_sol)):
         if torch.is_tensor(dual_sol[i]):
-            dual_sol[i] = dual_sol[i].to('cpu')
+            dual_sol[i] = dual_sol[i].detach().cpu()
+            
     return dual_sol
     
 # Get the calibrated gradient of the dual solution
