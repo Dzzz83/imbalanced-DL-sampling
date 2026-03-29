@@ -131,23 +131,30 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                            feature_cost = feature_cost,
                            λ_x=1.0, λ_y=1.0,
                            sqrt_method = 'spectral',
-                           sqrt_niters=15,
+                           sqrt_niters=20,
                            precision='single',
                            p = p, 
-                           entreg = 1.0, 
+                           entreg = 1e-1, 
                            diagonal_cov=True, 
+                           λ_y=1.0,
                            device=device)
+    safe_max = min(len(trainloader.dataset), len(testloader.dataset), int(training_size))
 
-    print(f"--- LAVA DEBUG: Calculating distance (Max Samples: {training_size}) ---")
-    
+    print(f"--- LAVA DEBUG: Calculating distance (Max Samples: {safe_max}) ---")
     tic = time.perf_counter()
     try:
         # FIX: maxsamples MUST be an integer. 
         # training_size should be >= the number of training samples to get all LAVA scores.
-        res = dist.distance(maxsamples=int(training_size), return_coupling=True)
+        res = dist.distance(maxsamples=safe_max, return_coupling=True)
     except ValueError as e:
-        print(f"OTDD failed. Check for label mismatches or singular covariance matrices. Error: {e}")
-        raise
+        print("\n" + "!"*30)
+        print("OTDD VALUEERROR: Moment matching failed for imbalanced classes.")
+        print("Falling back to a more aggressive regularization...")
+        print("!"*30)
+        
+        # Aggressive Fallback: Increase entreg and re-run
+        dist.entreg = 1.0 
+        res = dist.distance(maxsamples=safe_max, return_coupling=True)
 
     # 3. Extract Dual Solutions (Potentials)
     # The 'distance' method returns (dist, coupling) or a results object depending on version
