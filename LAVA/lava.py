@@ -108,14 +108,14 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
         def forward(self, x):
             features = self.base_model(x)
             features = features.view(features.size(0), -1)
-            # L2 Normalization prevents feature collapse during OT distance calculation
+            # L2 Normalize to prevent feature collapse and NaN errors in OT
             return torch.nn.functional.normalize(features, p=2, dim=1)
         
     embedder = NormalizedEmbedder(feature_extractor).to(device)
     for param in embedder.parameters():
         param.requires_grad = False
 
-    # 1. Initialize FeatureCost once
+    # 1. Initialize FeatureCost
     feature_cost = FeatureCost(src_embedding = embedder,
                                src_dim = (3, resize, resize),
                                tgt_embedding = embedder,
@@ -123,8 +123,8 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                                p = p,
                                device=device)
 
-    # 2. Initialize DatasetDistance once with all stability flags
-    # diagonal_cov=True is essential when class sizes are as small as 50 samples
+    # 2. Initialize DatasetDistance
+    # We use diagonal_cov=True and higher entreg for your 0.01 imbalance ratio
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method = 'sinkhorn',
                            debiased_loss = True,
@@ -138,34 +138,32 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                            diagonal_cov=True, 
                            device=device)
 
-    # 3. Determine safe maxsamples
-    n_train = len(trainloader.dataset)
-    n_val = len(testloader.dataset)
-    
-    print(f"--- LAVA DEBUG: Calculating distance (Train: {n_train}, Val: {n_val}) ---")
+    print(f"--- LAVA DEBUG: Calculating distance (Max Samples: {training_size}) ---")
     
     tic = time.perf_counter()
     try:
-        # Pass a tuple to maxsamples to ensure we don't over-index the smaller dataset
-        res = dist.distance(maxsamples=(n_train, n_val), return_coupling=True)
+        # FIX: maxsamples MUST be an integer. 
+        # training_size should be >= the number of training samples to get all LAVA scores.
+        res = dist.distance(maxsamples=int(training_size), return_coupling=True)
     except ValueError as e:
-        print(f"CRITICAL ERROR: OTDD failed. Label mismatch or numerical collapse. Error: {e}")
+        print(f"OTDD failed. Check for label mismatches or singular covariance matrices. Error: {e}")
         raise
 
-    # 4. Extract Dual Solutions (Potentials)
+    # 3. Extract Dual Solutions (Potentials)
+    # The 'distance' method returns (dist, coupling) or a results object depending on version
     if isinstance(res, (list, tuple)):
-        # Most OTDD versions return potentials [F_i, G_j] in the result tuple
         dual_sol = res
-    elif hasattr(dist, 'dual_v'):
+    elif hasattr(dist, 'dual_v') and dist.dual_v is not None:
         dual_sol = dist.dual_v
     else:
+        # Fallback for older versions
         dual_sol = dist.solve_dual()
     
     dual_sol = list(dual_sol)
     toc = time.perf_counter()
-    print(f"Distance calculation completed in {toc - tic:0.4f} seconds")
+    print(f"Distance calculation takes {toc - tic:0.4f} seconds")
 
-    # Move to CPU for downstream selection logic
+    # Move to CPU for selection logic
     for i in range(len(dual_sol)):
         if torch.is_tensor(dual_sol[i]):
             dual_sol[i] = dual_sol[i].detach().cpu()
