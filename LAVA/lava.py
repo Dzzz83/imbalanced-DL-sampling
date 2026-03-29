@@ -136,7 +136,6 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                            p = p, 
                            entreg = 1e-1, 
                            diagonal_cov=True, 
-                           λ_y=1.0,
                            device=device)
     safe_max = min(len(trainloader.dataset), len(testloader.dataset), int(training_size))
 
