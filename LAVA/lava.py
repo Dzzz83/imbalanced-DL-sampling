@@ -98,55 +98,22 @@ def load_pretrained_feature_extractor(feature_extractor_name, device):
     
     
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
-    feature_extractor.eval()
+    # ... (Keep your NormalizedEmbedder and center calculation code from before) ...
     
-    class NormalizedEmbedder(torch.nn.Module):
-        def __init__(self, base_model):
-            super().__init__()
-            self.base_model = base_model
-            # Handle ResNet variant fc/linear layers
-            for attr in ['fc', 'linear']:
-                if hasattr(self.base_model, attr):
-                    setattr(self.base_model, attr, torch.nn.Identity())
-                
-        def forward(self, x):
-            features = self.base_model(x)
-            features = features.view(features.size(0), -1)
-            return torch.nn.functional.normalize(features, p=2, dim=1)
-        
-    embedder = NormalizedEmbedder(feature_extractor).to(device)
+    # 1. PRE-CALCULATION DIAGNOSTICS
+    print("\n" + "="*50)
+    print("LAVA DEBUG: DATASET INSPECTION")
+    train_targets = []
+    for _, t in trainloader: train_targets.extend(t.tolist())
+    val_targets = []
+    for _, t in testloader: val_targets.extend(t.tolist())
+    
+    print(f"Train Label Range: {min(train_targets)} to {max(train_targets)}")
+    print(f"Val Label Range:   {min(val_targets)} to {max(val_targets)}")
+    print(f"Unique Train Labels: {np.unique(train_targets)}")
+    print("="*50 + "\n")
 
-    # 1. Manual Center Calculation (Ensures 10x10 shape)
-    def get_centers(loader):
-        centers = torch.zeros((10, 512 if 'resnet32' in str(type(feature_extractor)).lower() else 512)).to(device)
-        counts = torch.zeros(10).to(device)
-        with torch.no_grad():
-            for imgs, targets in loader:
-                # CRITICAL: Ensure targets are long and clamped to 0-9
-                targets = targets.long().to(device)
-                feats = embedder(imgs.to(device))
-                for i in range(10):
-                    mask = (targets == i)
-                    if mask.any():
-                        centers[i] += feats[mask].sum(0)
-                        counts[i] += mask.sum()
-        
-        # Avoid division by zero for highly imbalanced classes
-        counts = torch.clamp(counts, min=1.0)
-        return centers / counts.unsqueeze(1)
-
-    print("--- LAVA DEBUG: Pre-calculating robust class centers ---")
-    train_centers = get_centers(trainloader)
-    val_centers = get_centers(testloader)
-    D_labels = torch.cdist(train_centers, val_centers, p=p)
-
-    # 2. Setup FeatureCost
-    feature_cost = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
-                               tgt_embedding=embedder, tgt_dim=(3, resize, resize),
-                               p=p, device=device)
-
-    # 3. Initialize DatasetDistance with EXPLICIT classes
-    # This prevents the "Index 103" error by locking the label dimensions
+    # 2. INITIALIZE DISTANCE OBJECT
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method='sinkhorn',
                            debiased_loss=True,
@@ -154,34 +121,44 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                            p=p, entreg=1.0, 
                            device=device)
 
-    # INJECT AND LOCK
-    # We must ensure D_labels is the exact shape OTDD expects for the augmented cost
-    dist.label_distances = D_labels.to(device)
+    # 3. INTERNAL STATE DIAGNOSTICS
+    print("\n" + "="*50)
+    print("LAVA DEBUG: OTDD INTERNAL STATE")
+    print(f"dist.classes1: {getattr(dist, 'classes1', 'MISSING')}")
+    print(f"dist.classes2: {getattr(dist, 'classes2', 'MISSING')}")
     
-    # Force OTDD to see exactly 10 classes
-    dist.classes1 = [str(i) for i in range(10)]
-    dist.classes2 = [str(i) for i in range(10)]
+    if hasattr(dist, 'label_to_idx1'):
+        print(f"dist.label_to_idx1: {dist.label_to_idx1}")
+    else:
+        print("dist.label_to_idx1: NOT YET CREATED")
 
+    # Inject your manual distance matrix
+    dist.label_distances = D_labels.to(device)
+    print(f"Injected label_distances shape: {dist.label_distances.shape}")
+    print("="*50 + "\n")
+
+    # 4. TRACEBACK CAPTURE
     safe_max = min(len(trainloader.dataset), int(training_size))
+    print(f"--- Executing distance(maxsamples={safe_max}) ---")
     
     try:
         res = dist.distance(maxsamples=safe_max, return_coupling=True)
-    except Exception as e:
-        print(f"OTDD Core Failure: {e}")
-        # The .to('cpu') failed because DatasetDistance isn't a standard nn.Module
-        # We just return empty or re-run with a smaller batch if needed
+    except IndexError as e:
+        print("\n" + "!"*50)
+        print("INDEX ERROR DETECTED DURING distance()")
+        print(f"Error Message: {e}")
+        
+        # Check if the internal mapping changed during the call
+        if hasattr(dist, 'label_to_idx1'):
+            print(f"Current label_to_idx1: {dist.label_to_idx1}")
+        
+        # Access the specific line logic if possible
+        import traceback
+        traceback.print_exc()
+        print("!"*50 + "\n")
         raise e
 
-    # 4. Extract Potentials
-    # Check both potential locations for the dual solution
-    if hasattr(dist, 'dual_v') and dist.dual_v is not None:
-        dual_sol = dist.dual_v
-    else:
-        # solve_dual returns the potentials needed for LAVA scores
-        dual_sol = dist.solve_dual()
-    
-    return [d.detach().cpu() for d in list(dual_sol)]
-
+    # ... (Rest of your extraction logic) ...
 # Get the calibrated gradient of the dual solution
 # Which can be considered as data values (more in paper...)
 def values(dual_sol, training_size):
