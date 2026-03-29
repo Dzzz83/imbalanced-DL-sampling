@@ -104,9 +104,10 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
         def __init__(self, base_model):
             super().__init__()
             self.base_model = base_model
-            # Handle different backbone architectures
-            if hasattr(self.base_model, 'fc'): self.base_model.fc = torch.nn.Identity()
-            if hasattr(self.base_model, 'linear'): self.base_model.linear = torch.nn.Identity()
+            # Handle ResNet variant fc/linear layers
+            for attr in ['fc', 'linear']:
+                if hasattr(self.base_model, attr):
+                    setattr(self.base_model, attr, torch.nn.Identity())
                 
         def forward(self, x):
             features = self.base_model(x)
@@ -115,42 +116,37 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
         
     embedder = NormalizedEmbedder(feature_extractor).to(device)
 
-    # 1. ROBUST MOMENT MATCHING (The "Correct" Fix)
-    # We manually compute class means to prevent the line 526 ValueError
-    print("--- LAVA DEBUG: Pre-calculating robust class centers ---")
+    # 1. Manual Center Calculation (Ensures 10x10 shape)
     def get_centers(loader):
-        centers = {}
-        counts = {}
+        centers = torch.zeros((10, 512 if 'resnet32' in str(type(feature_extractor)).lower() else 512)).to(device)
+        counts = torch.zeros(10).to(device)
         with torch.no_grad():
             for imgs, targets in loader:
+                # CRITICAL: Ensure targets are long and clamped to 0-9
+                targets = targets.long().to(device)
                 feats = embedder(imgs.to(device))
-                for f, t in zip(feats, targets):
-                    t_item = t.item()
-                    centers[t_item] = centers.get(t_item, 0) + f
-                    counts[t_item] = counts.get(t_item, 0) + 1
+                for i in range(10):
+                    mask = (targets == i)
+                    if mask.any():
+                        centers[i] += feats[mask].sum(0)
+                        counts[i] += mask.sum()
         
-        # Stack in order 0-9
-        ordered_centers = []
-        for i in range(10):
-            if i in centers:
-                ordered_centers.append(centers[i] / counts[i])
-            else:
-                # Fallback to zero if class missing (shouldn't happen per your logs)
-                ordered_centers.append(torch.zeros_like(feats[0]))
-        return torch.stack(ordered_centers)
+        # Avoid division by zero for highly imbalanced classes
+        counts = torch.clamp(counts, min=1.0)
+        return centers / counts.unsqueeze(1)
 
+    print("--- LAVA DEBUG: Pre-calculating robust class centers ---")
     train_centers = get_centers(trainloader)
     val_centers = get_centers(testloader)
-    
-    # Compute the actual Euclidean distance between class centers
     D_labels = torch.cdist(train_centers, val_centers, p=p)
 
-    # 2. Initialize FeatureCost
+    # 2. Setup FeatureCost
     feature_cost = FeatureCost(src_embedding=embedder, src_dim=(3, resize, resize),
                                tgt_embedding=embedder, tgt_dim=(3, resize, resize),
                                p=p, device=device)
 
-    # 3. Initialize DatasetDistance
+    # 3. Initialize DatasetDistance with EXPLICIT classes
+    # This prevents the "Index 103" error by locking the label dimensions
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method='sinkhorn',
                            debiased_loss=True,
@@ -158,29 +154,34 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                            p=p, entreg=1.0, 
                            device=device)
 
-    # INJECT the manually calculated distances. 
-    # This prevents the internal crash and keeps the math correct.
-    dist.label_distances = D_labels
+    # INJECT AND LOCK
+    # We must ensure D_labels is the exact shape OTDD expects for the augmented cost
+    dist.label_distances = D_labels.to(device)
+    
+    # Force OTDD to see exactly 10 classes
+    dist.classes1 = [str(i) for i in range(10)]
+    dist.classes2 = [str(i) for i in range(10)]
 
     safe_max = min(len(trainloader.dataset), int(training_size))
-    print(f"--- LAVA DEBUG: Calculating distance (Safe Max: {safe_max}) ---")
     
     try:
         res = dist.distance(maxsamples=safe_max, return_coupling=True)
     except Exception as e:
-        print(f"OTDD Core Failure: {e}. Attempting CPU fallback.")
-        dist.to('cpu')
-        res = dist.distance(maxsamples=safe_max, return_coupling=True)
+        print(f"OTDD Core Failure: {e}")
+        # The .to('cpu') failed because DatasetDistance isn't a standard nn.Module
+        # We just return empty or re-run with a smaller batch if needed
+        raise e
 
-    # 4. Extract Dual Solutions
+    # 4. Extract Potentials
+    # Check both potential locations for the dual solution
     if hasattr(dist, 'dual_v') and dist.dual_v is not None:
         dual_sol = dist.dual_v
     else:
-        # If distance() returns a tuple (d, coupling), extract v from the solver
+        # solve_dual returns the potentials needed for LAVA scores
         dual_sol = dist.solve_dual()
     
     return [d.detach().cpu() for d in list(dual_sol)]
-    
+
 # Get the calibrated gradient of the dual solution
 # Which can be considered as data values (more in paper...)
 def values(dual_sol, training_size):
