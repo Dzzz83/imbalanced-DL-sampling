@@ -95,8 +95,23 @@ def load_pretrained_feature_extractor(feature_extractor_name, device):
     
 # Get dual solution of OT problem
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
-    embedder = feature_extractor.to(device)
-    embedder.fc = torch.nn.Identity()
+    class NormalizedEmbedder(torch.nn.Module):
+        def __init__(self, base_model):
+            super().__init__()
+            self.base_model = base_model
+            # Remove the final classification layer
+            if hasattr(self.base_model, 'fc'):
+                self.base_model.fc = torch.nn.Identity()
+                
+        def forward(self, x):
+            features = self.base_model(x)
+            features = features.view(features.size(0), -1) # Flatten
+            # The NaN Preventer: L2 Normalize all features
+            return torch.nn.functional.normalize(features, p=2, dim=1)
+        
+    embedder = NormalizedEmbedder(feature_extractor).to(device)
+    # embedder = feature_extractor.to(device)
+    # embedder.fc = torch.nn.Identity()
     for p in embedder.parameters():
         p.requires_grad = False
 
