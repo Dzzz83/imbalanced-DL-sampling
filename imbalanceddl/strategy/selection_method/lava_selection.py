@@ -66,12 +66,14 @@ class OTDDWrapper(Dataset):
         self.dataset = dataset
 
         targets = None
-        if hasattr(dataset, 'targets'):
-            targets = dataset.targets
-        elif hasattr(dataset, 'dataset') and hasattr(dataset.dataset, 'targets'):
-            # This handles the case where dataset is a Subset
-            all_targets = np.array(dataset.dataset.targets)
-            targets = all_targets[dataset.indices]
+        if hasattr(dataset, 'classes'):
+            self.classes = dataset.classes
+        elif hasattr(dataset, 'dataset') and hasattr(dataset.dataset, 'classes'):
+            self.classes = dataset.dataset.classes
+        else:
+            # Fallback for CIFAR-10 if names are totally lost
+            self.classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 
+                            'dog', 'frog', 'horse', 'ship', 'truck']
 
         if targets is not None:
             if not isinstance(targets, torch.Tensor):
@@ -198,7 +200,7 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     if len(unique_train) != len(unique_val):
         print("CRITICAL: Label count mismatch between sets!")
     # ---------------------------------
-    
+
     if train_classes != val_classes:
         raise ValueError(f"Mismatch! Train has {train_classes}, but Val has {val_classes}. OTDD requires both to have the same labels.")
     # calculate OT score
