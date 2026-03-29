@@ -165,7 +165,30 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
 
     probe_ds(trainloader.dataset, "Train Dataset")
     probe_ds(testloader.dataset, "Validation Dataset")
-    
+
+    # --- FINAL ALIGNMENT CHECK ---
+    print(f"--- LAVA DEBUG: Final attribute check ---")
+    for i, ds in enumerate([trainloader.dataset, testloader.dataset]):
+        name = "Train" if i == 0 else "Val"
+        if not hasattr(ds, 'classes'):
+            print(f"WARNING: {name} dataset missing .classes attribute! Patching...")
+            # Manually patching just in case
+            ds.classes = [str(i) for i in range(10)]
+        print(f" {name} Classes: {ds.classes[:3]}... (Length: {len(ds.classes)})")
+
+    # Use diagonal_cov=True for better stability with your 0.01 imbalance ratio
+    dist = DatasetDistance(trainloader, testloader,
+                           inner_ot_method = 'sinkhorn',
+                           debiased_loss = True,
+                           feature_cost = feature_cost,
+                           sqrt_method = 'spectral',
+                           sqrt_niters=10,
+                           precision='single',
+                           p = 2, 
+                           entreg = 1e-1,
+                           diagonal_cov=True, # Strongly recommended for imbalanced data
+                           device=device)
+
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method = 'sinkhorn',
                            debiased_loss = True,
