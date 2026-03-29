@@ -64,26 +64,48 @@ class FeatureExtractor(nn.Module):
 class OTDDWrapper(Dataset):
     def __init__(self, dataset):
         self.dataset = dataset
+        print(f"\n[DEBUG] OTDDWrapper: Probing {type(dataset)}")
+        
+        # Trace recursion for nested subsets
+        def find_targets(ds, depth=0):
+            indent = "  " * depth
+            print(f"{indent}Level {depth}: {type(ds)}")
+            if hasattr(ds, 'targets'):
+                print(f"{indent}-> Found .targets at this level!")
+                return ds.targets
+            if hasattr(ds, 'dataset'):
+                print(f"{indent}-> No .targets here, looking inside .dataset...")
+                return find_targets(ds.dataset, depth + 1)
+            return None
 
-        targets = None
-        if hasattr(dataset, 'classes'):
-            self.classes = dataset.classes
-        elif hasattr(dataset, 'dataset') and hasattr(dataset.dataset, 'classes'):
-            self.classes = dataset.dataset.classes
-        else:
-            # Fallback for CIFAR-10 if names are totally lost
-            self.classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 
-                            'dog', 'frog', 'horse', 'ship', 'truck']
+        targets = find_targets(dataset)
 
         if targets is not None:
+            # If we found targets but are in a Subset, we must slice them
+            curr = dataset
+            final_indices = None
+            while hasattr(curr, 'indices'):
+                if final_indices is None:
+                    final_indices = np.array(curr.indices)
+                else:
+                    final_indices = final_indices[np.array(curr.indices)]
+                curr = curr.dataset
+            
+            if final_indices is not None:
+                print(f"[DEBUG] Slicing targets with accumulated indices (Length: {len(final_indices)})")
+                targets = np.array(targets)[final_indices]
+
             if not isinstance(targets, torch.Tensor):
                 self.targets = torch.tensor(targets, dtype=torch.long)
             else:
                 self.targets = targets.long()
             
-            # --- SURGERY: Explicitly define classes for OTDD ---
             self.classes = torch.unique(self.targets).tolist()
+            print(f"[DEBUG] Success: Found {len(self.targets)} targets and {len(self.classes)} classes.")
         else:
+            # List all available attributes to see where they might be stored
+            print(f"[ERROR] Could not find 'targets' in {type(dataset)} or its parents.")
+            print(f"[DEBUG] Available attributes: {dir(dataset)}")
             raise ValueError("OTDDWrapper could not find targets in the provided dataset.")
 
     def __getitem__(self, index):
