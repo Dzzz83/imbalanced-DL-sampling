@@ -1,6 +1,10 @@
 import torch
 import torchvision
 import otdd
+import inspect
+import traceback
+import sys
+
 from otdd.pytorch.datasets import load_imagenet, load_torchvision_data
 try:
     from otdd.pytorch.distance_fast import DatasetDistance, FeatureCost
@@ -158,7 +162,36 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                            p = 2, entreg = 1e-1,
                            device='cuda')
 
-
+    print("--- LAVA DEBUG: Attempting dist.distance() ---")
+    try:
+        res = dist.distance(maxsamples=training_size, return_coupling=True)
+    except ValueError:
+        print("\n" + "!"*30)
+        print("OTDD VALUEERROR DETECTED - DUMPING INTERNALS")
+        print("!"*30)
+        
+        # Get the traceback object
+        type_, value, tb = sys.exc_info()
+        
+        # Look for the frame inside otdd/pytorch/distance.py
+        current_tb = tb
+        while current_tb:
+            frame = current_tb.tb_frame
+            if 'otdd' in frame.f_code.co_filename and '_get_label_distances' in frame.f_code.co_name:
+                print(f"\n--- Failing Function: {frame.f_code.co_name} ---")
+                print(f"File: {frame.f_code.co_filename}")
+                print("\n--- Local Variables at time of crash ---")
+                for key, val in frame.f_locals.items():
+                    # Print types and shapes to avoid flooding the console
+                    if torch.is_tensor(val):
+                        print(f"{key}: Tensor of shape {val.shape}, dtype {val.dtype}")
+                    elif isinstance(val, (list, np.ndarray)):
+                        print(f"{key}: {type(val)} of length {len(val)}")
+                    else:
+                        print(f"{key}: {val}")
+            current_tb = current_tb.tb_next
+            
+        raise
 
     tic = time.perf_counter()
     # 1. Trigger the distance calculation (this is required to solve the OT problem)
