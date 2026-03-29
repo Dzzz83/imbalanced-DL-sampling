@@ -95,25 +95,11 @@ def get_feature_extractor(device):
     return model
 
 def select_indices(lava_values, training_size, keep_ratio):
-    """
-    Implements LAVA Calibration (Eq. 1) and Gradient-based selection.
-    """
-    # 1. Extract dual variables for training set
-    f_star = lava_values[:training_size]
-    N = len(f_star)
-    
-    # 2. Calibrate Gradients: f_i - [avg of all other f_j]
-    # Mathematically equivalent to: f_i - (Total_Sum - f_i) / (N - 1)
-    total_sum = np.sum(f_star)
-    calibrated_gradients = (f_star - (total_sum - f_star) / (N - 1))
-    
-    # 3. Selection Strategy (Section 3.1):
-    # To reduce OT distance (make training look like validation),
-    # we discard samples with LARGE POSITIVE gradients.
-    # Therefore, we sort ASCENDING and keep the smallest/most negative.
-    num_to_keep = int(N * keep_ratio)
-    selected_indices = np.argsort(calibrated_gradients)[:num_to_keep]
-    
+    # get only the OT score for training samples
+    train_scores = lava_values[:training_size]
+    # sort and select the top samples
+    selected_sample_size = int(len(train_scores) * keep_ratio)
+    selected_indices = np.argsort(train_scores)[::-1][:selected_sample_size]
     return selected_indices.tolist()
 
 def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda'):
@@ -146,8 +132,7 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     )
 
     if isinstance(dual_sol, (list, tuple)):
-        # LAVA returns a list where the first element is usually the training duals
-        lava_values = dual_sol[0].detach().cpu().numpy().flatten()
+        lava_values = torch.cat([d.detach().cpu().flatten() for d in dual_sol if torch.is_tensor(d)]).numpy()
     else:
         lava_values = dual_sol.detach().cpu().numpy().flatten()
 
@@ -160,7 +145,7 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
             class_vals = lava_values[class_idx]
             print(f"Class {i} | Size: {len(class_idx):>4} | Mean Val: {class_vals.mean():.6f} | Max: {class_vals.max():.4f} | Min: {class_vals.min():.4f}")
     # --- DEBUG END ---
-
+    
     selected_indices = select_indices(lava_values, training_size, keep_ratio)
 
     return selected_indices
