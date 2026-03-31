@@ -47,7 +47,7 @@ def prepare_folders(args):
     for folder in folders_util:
         if not os.path.exists(folder):
             print('creating folder ' + folder)
-            os.mkdirs(folder, exist_ok=True)
+            os.makedirs(folder, exist_ok=True)
 
 
 def prepare_store_name(args):
