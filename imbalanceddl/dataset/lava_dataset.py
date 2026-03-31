@@ -48,10 +48,16 @@ class LavaDataset(Dataset):
         else:
             raise ValueError(f"Unknown selection method: {method}")
 
-        # 2. Create the subset
+        self.indices = indices
         self.subset = Subset(train_ds, indices)
-        
-        # 3. Update internal info for the trainer/model
+
+        if hasattr(train_ds, 'targets'):
+            self.targets = np.array(train_ds.targets)[indices].tolist()
+        elif hasattr(train_ds, 'labels'):
+            self.targets = np.array(train_ds.labels)[indices].tolist()
+        else:
+            self.targets = [train_ds[i][1] for i in indices]
+
         self.train_dataset = self 
         self.val_dataset = val_ds
         self.cls_num_list = self._compute_new_cls_num_list(indices, train_ds)
@@ -65,10 +71,7 @@ class LavaDataset(Dataset):
 
     def _compute_new_cls_num_list(self, indices, train_ds):
         """Calculates the new class distribution after selection."""
-        all_labels = np.array(train_ds.targets)
-        selected_labels = all_labels[indices]
-        unique, counts = np.unique(selected_labels, return_counts=True)
-        
+        unique, counts = np.unique(self.targets, return_counts=True)        
         # Create a full list including classes that might now have 0 samples
         new_list = [0] * len(self.base_dataset.cfg.cls_num_list)
         for cls, count in zip(unique, counts):
