@@ -90,6 +90,13 @@ class Trainer(BaseTrainer):
                                   momentum=self.cfg.momentum,
                                   weight_decay=self.cfg.weight_decay)
             return optimizer
+        elif self.cfg.optimizer == 'adam':
+            print("=> Initialize optimizer {}".format(self.cfg.optimizer))
+            optimizer = optim.Adam(self.model.parameters(),
+                                   self.cfg.learning_rate,
+                                   weight_decay = self.cfg.weight_decay)
+            return optimizer
+
         else:
             raise ValueError("[Warning] Selected Optimizer not supported !")
 
@@ -146,7 +153,8 @@ class Trainer(BaseTrainer):
         # net_seed = models.__dict__[self.cfg.backbone](self.cfg.num_classes)
 
         net, net_seed = net.to(device), net_seed.to(device)
-        optimizer = optim.SGD(net.parameters(), lr=self.cfg.learning_rate, momentum=self.cfg.momentum, weight_decay=self.cfg.weight_decay)
+        # optimizer = optim.SGD(net.parameters(), lr=self.cfg.learning_rate, momentum=self.cfg.momentum, weight_decay=self.cfg.weight_decay)
+        optimizer = self._init_optimizer()
         
         SUCCESS = torch.zeros(self.cfg.epochs, self.cfg.num_classes, 2)
         self.train_oversamples = []
