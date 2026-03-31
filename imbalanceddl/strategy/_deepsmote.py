@@ -6,8 +6,8 @@ from imbalanceddl.utils.utils import AverageMeter
 from imbalanceddl.utils.metrics import accuracy
 from imbalanceddl.utils.deep_smote_data_loader import get_balanced_deep_smote
 from torchmetrics import F1Score
-from torchmetrics.functional import precision_recall_curve
-
+# from torchmetrics.functional import precision_recall_curve
+from torchmetrics import F1Score, Precision, Recall
 
 class DeepSMOTETrainer(Trainer):
     def __init__(self, *args, **kwargs):
@@ -29,7 +29,11 @@ class DeepSMOTETrainer(Trainer):
         losses = AverageMeter('Loss', ':.4e')
         top1 = AverageMeter('Acc@1', ':6.2f')
         top5 = AverageMeter('Acc@5', ':6.2f')
-        f1 = F1Score(num_classes=self.cfg.num_classes).to(self.cfg.gpu)
+
+        # f1 = F1Score(num_classes=self.cfg.num_classes).to(self.cfg.gpu)
+        f1_metric = F1Score(task="multiclass", num_classes=self.cfg.num_classes).to(self.cfg.gpu)
+        precision_metric = Precision(task="multiclass", num_classes=self.cfg.num_classes, average='macro').to(self.cfg.gpu)
+        recall_metric = Recall(task="multiclass", num_classes=self.cfg.num_classes, average='macro').to(self.cfg.gpu)
 
         # for confusion matrix
         all_preds = list()
@@ -55,12 +59,15 @@ class DeepSMOTETrainer(Trainer):
             acc1, acc5 = accuracy(out, target, topk=(1, 5))
 
             _, pred = torch.max(out, 1)
-            F1_value = f1(pred, target)
-            precision_value, recall_value = precision_recall(pred, target, average='macro', num_classes=self.cfg.num_classes)
+            F1_value = f1_metric(pred, target)
+            # precision_value, recall_value = precision_recall(pred, target, average='macro', num_classes=self.cfg.num_classes)
+            precision_value = precision_metric(pred, target)
+            recall_value = recall_metric(pred, target)
 
             all_preds.extend(pred.cpu().numpy())
             all_targets.extend(target.cpu().numpy())
             all_f1_scores.append(F1_value.cpu().numpy())
+            
             # all_precisions.append(precision_value.cpu().numpy())
             # all_recalls.append(recall_value.cpu().numpy())
 
