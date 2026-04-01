@@ -89,10 +89,12 @@ def dataset_prep(train_dataset, val_dataset):
 
 # load the IMAGENET1K ResNet18 model to extract feature
 def get_feature_extractor(device):
-    base_resnet = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1).to(device)
+    base_resnet = models.resnet18(weights=None)
+    checkpoint = torch.load('models/cifar10_embedder_preact_resnet18.pth', map_location=device)
+    base_resnet.load_state_dict(checkpoint)
     model = FeatureExtractor(base_resnet)
     model.eval()
-    return model
+    return model.to(device)
 
 def select_indices(lava_values, training_size, keep_ratio):
     train_scores = lava_values[:training_size]          # only training duals
