@@ -91,6 +91,14 @@ def prepare_store_name(args):
             str(args.epochs),
             str(args.seed)
         ])
+    elif args.strategy == "Mixup":
+        args.store_name = '_'.join([
+            args.dataset, args.imb_type,
+            str(args.imb_factor), args.strategy,
+            str(args.loss_type),
+            str(args.epochs),
+            str(args.seed)
+        ])
     else:
         args.store_name = '_'.join([
             args.dataset, args.imb_type,

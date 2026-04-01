@@ -301,17 +301,31 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         cls_hit = np.diag(cf)
         cls_acc = cls_hit / cls_cnt
         # overall epoch output
+        # epoch_output = (
+        #     '{flag} Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} \
+        #     Loss {loss.avg:.5f}'.format(flag=flag,
+        #                                 top1=top1,
+        #                                 top5=top5,
+        #                                 loss=losses))
         epoch_output = (
-            '{flag} Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} \
-            Loss {loss.avg:.5f}'.format(flag=flag,
+            'Epoch [{epoch}] {flag} Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} \
+            Loss {loss.avg:.5f}'.format(epoch=self.epoch, # <--- Add this line
+                                        flag=flag,
                                         top1=top1,
                                         top5=top5,
                                         loss=losses))
         # per class output
-        cls_acc_string = '%s Class Recall: %s' % (flag, (np.array2string(
-            cls_acc,
-            separator=',',
-            formatter={'float_kind': lambda x: "%.3f" % x})))
+        # cls_acc_string = '%s Class Recall: %s' % (flag, (np.array2string(
+        #     cls_acc,
+        #     separator=',',
+        #     formatter={'float_kind': lambda x: "%.3f" % x})))
+
+        cls_acc_string = 'Epoch [{epoch}] {flag} Class Recall: {acc}'.format(
+            epoch=self.epoch,
+            flag=flag,
+            acc=(np.array2string(cls_acc, separator=',', formatter={'float_kind': lambda x: "%.3f" % x}))
+        )
+        
         print(epoch_output)
         print(cls_acc_string)
 
