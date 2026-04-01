@@ -40,7 +40,9 @@ class LavaDataset(Dataset):
         elif method_str == 'random':
             indices = random_selection(
                 train_ds, 
-                ratio=self.ratio
+                val_ds,
+                keep_ratio=self.ratio, 
+                device=self.device
             )
         elif method_str == 'none':
             indices = list(range(len(train_ds)))
