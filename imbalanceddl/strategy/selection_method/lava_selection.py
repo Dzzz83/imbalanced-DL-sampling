@@ -90,7 +90,7 @@ def dataset_prep(train_dataset, val_dataset):
 # load the IMAGENET1K ResNet18 model to extract feature
 def get_feature_extractor(device):
     model = PreActResNet18()
-    checkpoint = torch.load('imbalanced-DL-sampling/models/cifar10_embedder_preact_resnet18.pth', map_location=device)
+    checkpoint = torch.load('models/cifar10_embedder_preact_resnet18.pth', map_location=device)
     model.load_state_dict(checkpoint)
     model = FeatureExtractor(model)
     model.eval()
