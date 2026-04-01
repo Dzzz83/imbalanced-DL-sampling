@@ -2,34 +2,41 @@ import sys
 import os
 from unittest.mock import MagicMock
 
-# Determine the repository root based on the location of this file.
-# This file is at: imbalanceddl/strategy/selection_method/lava_selection.py
-# So the repository root is three levels up.
+# Compute the repository root based on the location of this file
+# This file is at: imbalanced-DL-sampling/imbalanceddl/strategy/selection_method/lava_selection.py
+# So the project root is 4 levels up.
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+project_root = os.path.abspath(os.path.join(current_dir, "../../../../"))
 
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Set up the path to the LAVA folder (under the project root)
+# Add the LAVA folder (which contains the local otdd) to sys.path
 lava_folder = os.path.join(project_root, 'LAVA')
 if lava_folder not in sys.path:
     sys.path.insert(0, lava_folder)
 
-# Now import the local otdd and LAVA modules
+# Now import the local otdd (must be done before any other import that might pull a global one)
 import otdd
-print("otdd location:", otdd.__file__)   # For debugging – shows the local version
+print("otdd location:", otdd.__file__)   # This should show .../LAVA/otdd/__init__.py
 
+# Import LAVA modules
 from LAVA import lava
 from LAVA.lava import compute_dual, PreActResNet18
 print("Successfully imported LAVA.lava")
 
-# Fake all the unnecessary libraries (mocking)
+# Mock unnecessary libraries (optional, but keeps dependencies minimal)
 lib = ["torchtext", "torchtext.data", "torchtext.data.utils",
        "torchtext.datasets", "torchtext.vocab", "vgg", "resnet"]
 for mod in lib:
     if mod not in sys.modules:
         sys.modules[mod] = MagicMock()
+
+import torch
+import torch.nn as nn
+import numpy as np
+import torchvision.models as models
+from torch.utils.data import DataLoader, Dataset
 
 import torch
 import torch.nn as nn
