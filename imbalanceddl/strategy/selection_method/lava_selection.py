@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 # Compute the repository root based on the location of this file
 # This file is at: imbalanced-DL-sampling/imbalanceddl/strategy/selection_method/lava_selection.py
-# So the project root is 4 levels up.
+# So the project root is 3 levels up.
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "../../../../"))
+project_root = os.path.abspath(os.path.join(current_dir, "../../.."))
 
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
@@ -24,25 +24,6 @@ print("otdd location:", otdd.__file__)   # This should show .../LAVA/otdd/__init
 from LAVA import lava
 from LAVA.lava import compute_dual, PreActResNet18
 print("Successfully imported LAVA.lava")
-
-# Mock unnecessary libraries (optional, but keeps dependencies minimal)
-lib = ["torchtext", "torchtext.data", "torchtext.data.utils",
-       "torchtext.datasets", "torchtext.vocab", "vgg", "resnet"]
-for mod in lib:
-    if mod not in sys.modules:
-        sys.modules[mod] = MagicMock()
-
-import torch
-import torch.nn as nn
-import numpy as np
-import torchvision.models as models
-from torch.utils.data import DataLoader, Dataset
-
-import torch
-import torch.nn as nn
-import numpy as np
-import torchvision.models as models
-from torch.utils.data import DataLoader, Dataset
 
 # replace the original compute_dual with the new compute_dual_1 
 def compute_dual_1(feature_extractor, trainloader, testloader, training_size, shuffle_ind, p=2, resize=32, device='cuda'):
