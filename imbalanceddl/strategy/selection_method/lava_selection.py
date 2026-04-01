@@ -87,8 +87,9 @@ def dataset_prep(train_dataset, val_dataset):
     
     return OTDDWrapper(train_dataset), OTDDWrapper(val_dataset)
 
-# load the IMAGENET1K ResNet18 model to extract feature
+# load the ResNet18 model to extract feature
 def get_feature_extractor(device):
+    print("Using PreActResnet18 as a feature extractor")
     model = PreActResNet18()
     checkpoint = torch.load('models/cifar10_embedder_preact_resnet18.pth', map_location=device)
     model.load_state_dict(checkpoint)
@@ -125,10 +126,7 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
 
     # dual_sol[0] is f (source potentials)
     f = dual_sol[0]
-    if isinstance(f, torch.Tensor):
-        lava_values = f.detach().cpu().numpy().flatten()
-    else:
-        lava_values = np.array(f).flatten()
+    lava_values = f.detach().cpu().numpy().flatten()
 
     if len(lava_values) != training_size:
         raise ValueError(f"Expected {training_size} scores, got {len(lava_values)}")
