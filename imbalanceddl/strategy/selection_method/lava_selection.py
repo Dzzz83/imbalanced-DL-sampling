@@ -2,16 +2,27 @@ import sys
 import os 
 from unittest.mock import MagicMock
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
 
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+# if project_root not in sys.path:
+#     sys.path.insert(0, project_root)
 
-lava_folder = os.path.join(project_root, 'LAVA')
+# lava_folder = os.path.join(project_root, 'LAVA')
+# if lava_folder not in sys.path:
+#     sys.path.insert(0, lava_folder)
+    
+base_dir = os.path.dirname(os.path.abspath('.'))          # current working directory
+lava_folder = os.path.join(base_dir, 'imbalanced-DL-sampling', 'LAVA')
+if not os.path.exists(lava_folder):
+    # If the notebook is not in the project root, adjust accordingly
+    lava_folder = '/home/phatht/phat/imbalanced-DL-sampling/LAVA'   # fallback for local
 if lava_folder not in sys.path:
     sys.path.insert(0, lava_folder)
-    
+
+import otdd
+print(otdd.__file__)   
+
 from LAVA import lava
 from LAVA.lava import compute_dual
 print("Successfully imported LAVA.lava")
