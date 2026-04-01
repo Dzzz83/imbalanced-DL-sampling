@@ -32,7 +32,7 @@ if __name__ == "__main__":
         ".git",
         '.vscode',
         'my_venv'
-
+        'wandb'
     }
 
     project_root = "." 
