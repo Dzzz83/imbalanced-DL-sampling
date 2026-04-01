@@ -93,138 +93,50 @@ def load_pretrained_feature_extractor(feature_extractor_name, device):
     return net_test
     
     
-# # Get dual solution of OT problem
-# def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
-#     embedder = feature_extractor.to(device)
-#     embedder.fc = torch.nn.Identity()
-#     for p in embedder.parameters():
-#         p.requires_grad = False
-
-#     # Here we use same embedder for both datasets
-#     feature_cost = FeatureCost(src_embedding = embedder,
-#                                src_dim = (3,resize,resize),
-#                                tgt_embedding = embedder,
-#                                tgt_dim = (3,resize,resize),
-#                                p = 2,
-#                                device='cuda')
-
-#     dist = DatasetDistance(trainloader, testloader,
-#                            inner_ot_method = 'exact',
-#                            debiased_loss = True,
-#                            feature_cost = feature_cost,
-#                            λ_x=1.0, λ_y=1.0,
-#                            sqrt_method = 'spectral',
-#                            sqrt_niters=10,
-#                            precision='single',
-#                            p = 2, entreg = 1e-1,
-#                            device='cuda')
-
-
-
-#     tic = time.perf_counter()
-#     # 1. Trigger the distance calculation (this is required to solve the OT problem)
-#     # res = dist.dual_sol(maxsamples=training_size, return_coupling=True)
-#     _ = dist.distance(maxsamples=training_size, return_coupling=False)
-
-#     if hasattr(dist, 'f'):
-#         dual_f = dist.f
-#     elif hasattr(dist, 'src_dual'):
-#         dual_f = dist.src_dual
-#     elif hasattr(dist, 'dual_v'):
-#         dual_f = dist.dual_v
-#     else:
-#         raise RuntimeError("Could not find source potentials in dist object")
-    
-#     if hasattr(dist, 'g'):
-#         dual_g = dist.g
-#     elif hasattr(dist, 'tgt_dual'):
-#         dual_g = dist.tgt_dual
-#     else:
-#         dual_g = None
-    
-#     if not isinstance(dual_f, torch.Tensor):
-#         dual_f = torch.tensor(dual_f)
-
-#     dual_sol = [dual_f, dual_g] if dual_g is not None else [dual_f]
-
-#     toc = time.perf_counter()
-#     print(f"distance calculation takes {toc - tic:0.4f} seconds")
-
-#     for i in range(len(dual_sol)):
-#         if torch.is_tensor(dual_sol[i]):
-#             dual_sol[i] = dual_sol[i].to('cpu')
-#     return dual_sol
-
+# Get dual solution of OT problem
 def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
     embedder = feature_extractor.to(device)
     embedder.fc = torch.nn.Identity()
     for p in embedder.parameters():
         p.requires_grad = False
 
-    feature_cost = FeatureCost(src_embedding=embedder,
-                               src_dim=(3, resize, resize),
-                               tgt_embedding=embedder,
-                               tgt_dim=(3, resize, resize),
-                               p=2,
+    # Here we use same embedder for both datasets
+    feature_cost = FeatureCost(src_embedding = embedder,
+                               src_dim = (3,resize,resize),
+                               tgt_embedding = embedder,
+                               tgt_dim = (3,resize,resize),
+                               p = 2,
                                device='cuda')
 
     dist = DatasetDistance(trainloader, testloader,
-                           inner_ot_method='exact',
-                           debiased_loss=True,
-                           feature_cost=feature_cost,
+                           inner_ot_method = 'exact',
+                           debiased_loss = True,
+                           feature_cost = feature_cost,
                            λ_x=1.0, λ_y=1.0,
-                           sqrt_method='spectral',
+                           sqrt_method = 'spectral',
                            sqrt_niters=10,
                            precision='single',
-                           p=2, entreg=1e-1,
+                           p = 2, entreg = 1e-1,
                            device='cuda')
 
+
+
     tic = time.perf_counter()
-
-    # Solve the OT problem (this will populate internal attributes)
-    _ = dist.distance(maxsamples=training_size, return_coupling=False)
-
-    # --- Debug: print all tensor attributes ---
-    print("\n--- dist object attributes (tensors) ---")
-    for attr in dir(dist):
-        if not attr.startswith('_'):
-            val = getattr(dist, attr)
-            if isinstance(val, torch.Tensor):
-                print(f"  {attr}: shape {val.shape}")
-    # -----------------------------------------
-
-    # Try to find the source potentials
-    dual_f = None
-    # Common attribute names in otdd
-    for attr_name in ['dual_v', 'f', 'src_dual', 'dual_sol']:
-        if hasattr(dist, attr_name):
-            candidate = getattr(dist, attr_name)
-            if isinstance(candidate, torch.Tensor) and candidate.numel() == training_size:
-                dual_f = candidate
-                print(f"Found source potentials in dist.{attr_name}")
-                break
-
-    if dual_f is None:
-        raise RuntimeError(f"Could not find source potentials. dist attributes: {[a for a in dir(dist) if not a.startswith('_')]}")
-
-    # We might also retrieve target potentials if needed, but only source is required
-    dual_g = None
-    for attr_name in ['dual_w', 'g', 'tgt_dual']:
-        if hasattr(dist, attr_name):
-            candidate = getattr(dist, attr_name)
-            if isinstance(candidate, torch.Tensor):
-                dual_g = candidate
-                break
-
-    dual_sol = [dual_f] if dual_g is None else [dual_f, dual_g]
+    # 1. Trigger the distance calculation (this is required to solve the OT problem)
+    # res = dist.dual_sol(maxsamples=training_size, return_coupling=True)
+    dual_sol = dist.dual_sol(maxsamples=training_size)
 
     toc = time.perf_counter()
     print(f"distance calculation takes {toc - tic:0.4f} seconds")
 
-    for i in range(len(dual_sol)):
-        if torch.is_tensor(dual_sol[i]):
-            dual_sol[i] = dual_sol[i].to('cpu')
+    if isinstance(dual_sol, (list, tuple)):
+        for i in range(len(dual_sol)):
+            if torch.is_tensor(dual_sol[i]):
+                dual_sol[i] = dual_sol[i].to('cpu')
+                
     return dual_sol
+
+
     
 # Get the calibrated gradient of the dual solution
 # Which can be considered as data values (more in paper...)
