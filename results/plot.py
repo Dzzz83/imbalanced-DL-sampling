@@ -68,10 +68,10 @@ def plot_and_save(log_dir, output_dir):
     ax2.set_ylabel('Accuracy (%)')
     ax2.legend()
 
-    plt.suptitle('CIFAR-10 Trivial_augmentation', fontsize=16)
+    plt.suptitle('CIFAR-10_exp_0.01_DeepSMOTE', fontsize=16)
     plt.tight_layout()
     
-    save_path = os.path.join(output_dir, 'CIFAR-10_trivial_augmentation.png')
+    save_path = os.path.join(output_dir, 'CIFAR-10_exp_0.01_DeepSMOTE_200_None.png')
     plt.savefig(save_path, dpi=300)
     print(f"🎉 Successfully saved plot to: {save_path}")
     plt.show()

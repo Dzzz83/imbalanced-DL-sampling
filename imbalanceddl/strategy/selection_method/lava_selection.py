@@ -95,11 +95,10 @@ def get_feature_extractor(device):
     return model
 
 def select_indices(lava_values, training_size, keep_ratio):
-    # get only the OT score for training samples
-    train_scores = lava_values[:training_size]
-    # sort and select the top samples
+    train_scores = lava_values[:training_size]          # only training duals
     selected_sample_size = int(len(train_scores) * keep_ratio)
-    selected_indices = np.argsort(train_scores)[::-1][:selected_sample_size]
+    # sort ascending, take first selected_sample_size (smallest scores)
+    selected_indices = np.argsort(train_scores)[:selected_sample_size]
     return selected_indices.tolist()
 
 def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda'):
@@ -131,10 +130,12 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
         device=device
     )
 
-    if isinstance(dual_sol, (list, tuple)):
-        lava_values = torch.cat([d.detach().cpu().flatten() for d in dual_sol if torch.is_tensor(d)]).numpy()
+    # dual_sol[0] is f (training dual potentials)
+    f_tensor = dual_sol[0]
+    if isinstance(f_tensor, torch.Tensor):
+        lava_values = f_tensor.detach().cpu().flatten().numpy()
     else:
-        lava_values = dual_sol.detach().cpu().numpy().flatten()
+        lava_values = np.array(f_tensor).flatten()
 
     # --- DEBUG START ---
     targets = np.array(train_dataset.targets) # Ensure this matches your train_dataset
