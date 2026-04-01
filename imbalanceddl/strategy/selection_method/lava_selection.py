@@ -102,21 +102,16 @@ def select_indices(lava_values, training_size, keep_ratio):
     return selected_indices.tolist()
 
 def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda'):
-    # Prepare datasets
     train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
-
-    # Create dataloaders (shuffle=False to preserve order)
     train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
     val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
 
-    # Feature extractor
     extractor = get_feature_extractor(device)
     training_size = len(train_dataset)
 
     print(f"--- LAVA Selection Started ---")
     print(f"Total training samples to evaluate: {training_size}")
 
-    # Compute OT duals
     dual_sol, _ = lava.compute_dual(
         feature_extractor=extractor,
         trainloader=train_loader,
@@ -126,57 +121,19 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
         device=device
     )
 
-    # --- DEBUG: Inspect dual_sol structure ---
-    print("\n--- dual_sol structure ---")
-    print(f"type(dual_sol): {type(dual_sol)}")
-    if isinstance(dual_sol, (tuple, list)):
-        print(f"len(dual_sol): {len(dual_sol)}")
-        for i, elem in enumerate(dual_sol):
-            if isinstance(elem, torch.Tensor):
-                print(f"  elem[{i}] shape: {elem.shape}")
-            else:
-                print(f"  elem[{i}] type: {type(elem)}")
+    # dual_sol[0] is f (source potentials)
+    f = dual_sol[0]
+    if isinstance(f, torch.Tensor):
+        lava_values = f.detach().cpu().numpy().flatten()
     else:
-        print(f"dual_sol is not a tuple/list; shape: {dual_sol.shape if hasattr(dual_sol, 'shape') else 'scalar'}")
+        lava_values = np.array(f).flatten()
 
-    # --- Extract source potentials (f) ---
-    f_tensor = None
-    if isinstance(dual_sol, (tuple, list)):
-        # dual_sol[1] should be source potentials (size = training_size)
-        if len(dual_sol) >= 2 and isinstance(dual_sol[1], torch.Tensor) and dual_sol[1].numel() == training_size:
-            f_tensor = dual_sol[1]
-            print("Extracted source potentials from dual_sol[1]")
-        else:
-            # Fallback: search for any tensor with correct length
-            for i, elem in enumerate(dual_sol):
-                if isinstance(elem, torch.Tensor) and elem.numel() == training_size:
-                    f_tensor = elem
-                    print(f"Found source potentials at index {i}")
-                    break
-    elif isinstance(dual_sol, torch.Tensor):
-        f_tensor = dual_sol
-
-    if f_tensor is None:
-        raise RuntimeError(f"Could not find source potentials. dual_sol structure: {dual_sol}")
-
-    # Convert to numpy
-    lava_values = f_tensor.detach().cpu().numpy().flatten()
     if len(lava_values) != training_size:
-        raise ValueError(f"Source potentials have length {len(lava_values)}, expected {training_size}")
+        raise ValueError(f"Expected {training_size} scores, got {len(lava_values)}")
 
-    # --- Per‑class statistics for debugging ---
-    targets = np.array(train_dataset.targets)
-    print("\n--- LAVA Debug: Per-Class Value Stats ---")
-    for i in range(10):  # adjust for your number of classes
-        class_idx = np.where(targets == i)[0]
-        if len(class_idx) > 0:
-            class_vals = lava_values[class_idx]
-            print(f"Class {i} | Size: {len(class_idx):>4} | "
-                  f"Mean Val: {class_vals.mean():.6f} | "
-                  f"Max: {class_vals.max():.4f} | Min: {class_vals.min():.4f}")
-
-    # --- Select top keep_ratio% (lowest scores = highest quality) ---
+    # Select lowest scores (best quality)
     selected_sample_size = int(training_size * keep_ratio)
     selected_indices = np.argsort(lava_values)[:selected_sample_size].tolist()
     print(f"Selected {len(selected_indices)} samples (keep_ratio = {keep_ratio})")
+
     return selected_indices
