@@ -67,7 +67,7 @@ def get_args():
     # Data Selection Method (Random, LAVA, None)
     parser.add_argument('--selection_method', default=None, type=str, choices=['lava', 'random', None], 
                         help='Method for data selection/filtering')
-    parser.add_argument('--selection_ratio', default=None, type=float, 
+    parser.add_argument('--selection_ratio', default=1.0, type=float, 
                         help='Ratio of data to keep after selection')
     
     # update config from command line
