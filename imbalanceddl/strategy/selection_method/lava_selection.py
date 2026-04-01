@@ -102,25 +102,21 @@ def select_indices(lava_values, training_size, keep_ratio):
     return selected_indices.tolist()
 
 def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda'):
-    # prepare the val_dataset and train_dataset
+    # Prepare datasets
     train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
 
-    # dataset_indices = getattr(train_dataset, 'indices', list(range(len(train_dataset))))
-    # train_sampler = SubsetRandomSampler(dataset_indices)
-
-    # create dataloader
+    # Create dataloaders (shuffle=False to preserve order)
     train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
     val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
 
-    # get feature extractor
+    # Feature extractor
     extractor = get_feature_extractor(device)
-    # get training size
     training_size = len(train_dataset)
 
     print(f"--- LAVA Selection Started ---")
     print(f"Total training samples to evaluate: {training_size}")
 
-    # calculate OT score
+    # Compute OT duals
     dual_sol, _ = lava.compute_dual(
         feature_extractor=extractor,
         trainloader=train_loader,
@@ -130,23 +126,51 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
         device=device
     )
 
-    # dual_sol[0] is f (training dual potentials)
-    f_tensor = dual_sol[0]
-    if isinstance(f_tensor, torch.Tensor):
-        lava_values = f_tensor.detach().cpu().flatten().numpy()
+    # --- DEBUG: Inspect dual_sol structure ---
+    print("\n--- dual_sol structure ---")
+    print(f"type(dual_sol): {type(dual_sol)}")
+    if isinstance(dual_sol, (tuple, list)):
+        print(f"len(dual_sol): {len(dual_sol)}")
+        for i, elem in enumerate(dual_sol):
+            if isinstance(elem, torch.Tensor):
+                print(f"  elem[{i}] shape: {elem.shape}")
+            else:
+                print(f"  elem[{i}] type: {type(elem)}")
     else:
-        lava_values = np.array(f_tensor).flatten()
+        print(f"dual_sol is not a tuple/list; shape: {dual_sol.shape if hasattr(dual_sol, 'shape') else 'scalar'}")
 
-    # --- DEBUG START ---
-    targets = np.array(train_dataset.targets) # Ensure this matches your train_dataset
+    # --- Extract source potentials (f) ---
+    f_tensor = None
+    if isinstance(dual_sol, (tuple, list)):
+        # Try each element, looking for a tensor with length == training_size
+        for i, elem in enumerate(dual_sol):
+            if isinstance(elem, torch.Tensor) and elem.numel() == training_size:
+                f_tensor = elem
+                print(f"Found source potentials at index {i} with shape {elem.shape}")
+                break
+    elif isinstance(dual_sol, torch.Tensor):
+        f_tensor = dual_sol
+
+    if f_tensor is None:
+        raise RuntimeError(f"Could not find source potentials. dual_sol structure: {dual_sol}")
+
+    lava_values = f_tensor.detach().cpu().numpy().flatten()
+    if len(lava_values) != training_size:
+        raise ValueError(f"Source potentials have length {len(lava_values)}, expected {training_size}")
+
+    # --- Per‑class statistics for debugging ---
+    targets = np.array(train_dataset.targets)
     print("\n--- LAVA Debug: Per-Class Value Stats ---")
-    for i in range(10): # For CIFAR-10
+    for i in range(10):  # adjust for your number of classes
         class_idx = np.where(targets == i)[0]
         if len(class_idx) > 0:
             class_vals = lava_values[class_idx]
-            print(f"Class {i} | Size: {len(class_idx):>4} | Mean Val: {class_vals.mean():.6f} | Max: {class_vals.max():.4f} | Min: {class_vals.min():.4f}")
-    # --- DEBUG END ---
-    
-    selected_indices = select_indices(lava_values, training_size, keep_ratio)
+            print(f"Class {i} | Size: {len(class_idx):>4} | "
+                  f"Mean Val: {class_vals.mean():.6f} | "
+                  f"Max: {class_vals.max():.4f} | Min: {class_vals.min():.4f}")
 
+    # --- Select top keep_ratio% (lowest scores) ---
+    selected_sample_size = int(training_size * keep_ratio)
+    selected_indices = np.argsort(lava_values)[:selected_sample_size].tolist()
+    print(f"Selected {len(selected_indices)} samples (keep_ratio = {keep_ratio})")
     return selected_indices

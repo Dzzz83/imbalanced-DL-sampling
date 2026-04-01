@@ -78,8 +78,8 @@ def plot_and_save(log_dir, output_dir):
 
 if __name__ == "__main__":
     # CHECK THIS PATH CAREFULLY!
-    source_logs = "../example/checkpoint_cifar10_deepsmote/cifar10_exp_0.01_DeepSMOTE_200_None"
-    results_output = "results_plot"
+    source_logs = "results/train"
+    results_output = "plot"
     
     print(f"Looking for logs in: {os.path.abspath(source_logs)}")
     plot_and_save(source_logs, results_output)
