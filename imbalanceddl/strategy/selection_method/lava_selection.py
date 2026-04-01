@@ -25,7 +25,7 @@ import numpy as np
 import torchvision.models as models
 from torch.utils.data import DataLoader, SubsetRandomSampler, Dataset
 
-from LAVA.lava import compute_dual, compute_values_and_visualize
+from LAVA.lava import compute_dual, compute_values_and_visualize, PreActResNet18
 
 
 # replace the original compute_dual with the new compute_dual_1 
@@ -89,10 +89,10 @@ def dataset_prep(train_dataset, val_dataset):
 
 # load the IMAGENET1K ResNet18 model to extract feature
 def get_feature_extractor(device):
-    base_resnet = models.resnet18(weights=None)
+    model = PreActResNet18()
     checkpoint = torch.load('models/cifar10_embedder_preact_resnet18.pth', map_location=device)
-    base_resnet.load_state_dict(checkpoint)
-    model = FeatureExtractor(base_resnet)
+    model.load_state_dict(checkpoint)
+    model = FeatureExtractor(model)
     model.eval()
     return model.to(device)
 
