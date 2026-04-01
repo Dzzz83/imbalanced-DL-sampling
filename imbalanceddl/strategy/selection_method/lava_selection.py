@@ -25,6 +25,19 @@ from LAVA import lava
 from LAVA.lava import compute_dual, PreActResNet18
 print("Successfully imported LAVA.lava")
 
+lib = ["torchtext", "torchtext.data", "torchtext.data.utils",
+       "torchtext.datasets", "torchtext.vocab", "vgg", "resnet"]
+for mod in lib:
+    if mod not in sys.modules:
+        sys.modules[mod] = MagicMock()
+
+# --- Standard imports (must be after path setup but before any classes) ---
+import torch
+import torch.nn as nn
+import numpy as np
+import torchvision.models as models
+from torch.utils.data import DataLoader, Dataset
+
 # replace the original compute_dual with the new compute_dual_1 
 def compute_dual_1(feature_extractor, trainloader, testloader, training_size, shuffle_ind, p=2, resize=32, device='cuda'):
     # train_indices = lava.get_indices(trainloader)
