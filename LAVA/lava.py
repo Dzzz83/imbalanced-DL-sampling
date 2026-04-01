@@ -123,23 +123,30 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
 
     tic = time.perf_counter()
     # 1. Trigger the distance calculation (this is required to solve the OT problem)
-    res = dist.distance(maxsamples=training_size, return_coupling=True)
+    # res = dist.dual_sol(maxsamples=training_size, return_coupling=True)
+    _ = dist.distance(maxsamples=training_size, return_coupling=False)
 
-    if isinstance(res, (list, tuple)):
-        # In this version, distance() returns the potentials [F_i, G_j]
-        dual_sol = res
+    if hasattr(dist, 'f'):
+        dual_f = dist.f
+    elif hasattr(dist, 'src_dual'):
+        dual_f = dist.src_dual
     elif hasattr(dist, 'dual_v'):
-        dual_sol = dist.dual_v
-    elif hasattr(dist, 'dual_sol'):
-        dual_sol = dist.dual_sol
-    elif hasattr(dist, 'f'):
-        dual_sol = dist.f
+        dual_f = dist.dual_v
     else:
-        # Fallback if the solver requires an explicit call
-        dual_sol = dist.solve_dual()
+        raise RuntimeError("Could not find source potentials in dist object")
     
-    dual_sol = list(dual_sol)
+    if hasattr(dist, 'g'):
+        dual_g = dist.g
+    elif hasattr(dist, 'tgt_dual'):
+        dual_g = dist.tgt_dual
+    else:
+        dual_g = None
+    
+    if not isinstance(dual_f, torch.Tensor):
+        dual_f = torch.tensor(dual_f)
 
+    dual_sol = [dual_f, dual_g] if dual_g is not None else [dual_f]
+    
     toc = time.perf_counter()
     print(f"distance calculation takes {toc - tic:0.4f} seconds")
 
