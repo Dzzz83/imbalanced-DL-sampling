@@ -26,9 +26,6 @@ def create_distribution_table(logger, counts_original, counts_selection=None):
     sep = "-" * 52
     header = f"{'Class ID':<10} | {'Original':<10} | {'Selected':<10} | {'Keep %':<8}"
 
-    # REMOVE THE print(msg) HERE
-    # Only use logger.info. If your logger is set up correctly, 
-    # it will show up in the terminal AND the file.
     logger.info(sep)
     logger.info(header)
     logger.info(sep)
