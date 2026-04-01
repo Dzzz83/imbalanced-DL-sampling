@@ -8,6 +8,10 @@ project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+lava_folder = os.path.join(project_root, 'LAVA')
+if lava_folder not in sys.path:
+    sys.path.insert(0, lava_folder)
+    
 from LAVA import lava
 from LAVA.lava import compute_dual
 print("Successfully imported LAVA.lava")
