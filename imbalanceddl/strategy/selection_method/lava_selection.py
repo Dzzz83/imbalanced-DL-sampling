@@ -1,35 +1,32 @@
 import sys
-import os 
+import os
 from unittest.mock import MagicMock
 
-# current_dir = os.path.dirname(os.path.abspath(__file__))
-# project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+# Determine the repository root based on the location of this file.
+# This file is at: imbalanceddl/strategy/selection_method/lava_selection.py
+# So the repository root is three levels up.
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
 
-# if project_root not in sys.path:
-#     sys.path.insert(0, project_root)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-# lava_folder = os.path.join(project_root, 'LAVA')
-# if lava_folder not in sys.path:
-#     sys.path.insert(0, lava_folder)
-    
-base_dir = os.path.dirname(os.path.abspath('.'))          # current working directory
-lava_folder = os.path.join(base_dir, 'imbalanced-DL-sampling', 'LAVA')
-if not os.path.exists(lava_folder):
-    # If the notebook is not in the project root, adjust accordingly
-    lava_folder = '/home/phatht/phat/imbalanced-DL-sampling/LAVA'   # fallback for local
+# Set up the path to the LAVA folder (under the project root)
+lava_folder = os.path.join(project_root, 'LAVA')
 if lava_folder not in sys.path:
     sys.path.insert(0, lava_folder)
 
+# Now import the local otdd and LAVA modules
 import otdd
-print(otdd.__file__)   
+print("otdd location:", otdd.__file__)   # For debugging – shows the local version
 
 from LAVA import lava
-from LAVA.lava import compute_dual
+from LAVA.lava import compute_dual, PreActResNet18
 print("Successfully imported LAVA.lava")
 
-# fake all the unncessary libraries
-lib = ["torchtext", "torchtext.data", "torchtext.data.utils", 
-            "torchtext.datasets", "torchtext.vocab", "vgg", "resnet"]
+# Fake all the unnecessary libraries (mocking)
+lib = ["torchtext", "torchtext.data", "torchtext.data.utils",
+       "torchtext.datasets", "torchtext.vocab", "vgg", "resnet"]
 for mod in lib:
     if mod not in sys.modules:
         sys.modules[mod] = MagicMock()
@@ -38,10 +35,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torchvision.models as models
-from torch.utils.data import DataLoader, SubsetRandomSampler, Dataset
-
-from LAVA.lava import compute_dual, compute_values_and_visualize, PreActResNet18
-
+from torch.utils.data import DataLoader, Dataset
 
 # replace the original compute_dual with the new compute_dual_1 
 def compute_dual_1(feature_extractor, trainloader, testloader, training_size, shuffle_ind, p=2, resize=32, device='cuda'):
