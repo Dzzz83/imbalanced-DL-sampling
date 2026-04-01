@@ -142,18 +142,24 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     # --- Extract source potentials (f) ---
     f_tensor = None
     if isinstance(dual_sol, (tuple, list)):
-        # Try each element, looking for a tensor with length == training_size
-        for i, elem in enumerate(dual_sol):
-            if isinstance(elem, torch.Tensor) and elem.numel() == training_size:
-                f_tensor = elem
-                print(f"Found source potentials at index {i} with shape {elem.shape}")
-                break
+        # dual_sol[1] should be source potentials (size = training_size)
+        if len(dual_sol) >= 2 and isinstance(dual_sol[1], torch.Tensor) and dual_sol[1].numel() == training_size:
+            f_tensor = dual_sol[1]
+            print("Extracted source potentials from dual_sol[1]")
+        else:
+            # Fallback: search for any tensor with correct length
+            for i, elem in enumerate(dual_sol):
+                if isinstance(elem, torch.Tensor) and elem.numel() == training_size:
+                    f_tensor = elem
+                    print(f"Found source potentials at index {i}")
+                    break
     elif isinstance(dual_sol, torch.Tensor):
         f_tensor = dual_sol
 
     if f_tensor is None:
         raise RuntimeError(f"Could not find source potentials. dual_sol structure: {dual_sol}")
 
+    # Convert to numpy
     lava_values = f_tensor.detach().cpu().numpy().flatten()
     if len(lava_values) != training_size:
         raise ValueError(f"Source potentials have length {len(lava_values)}, expected {training_size}")
@@ -169,7 +175,7 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
                   f"Mean Val: {class_vals.mean():.6f} | "
                   f"Max: {class_vals.max():.4f} | Min: {class_vals.min():.4f}")
 
-    # --- Select top keep_ratio% (lowest scores) ---
+    # --- Select top keep_ratio% (lowest scores = highest quality) ---
     selected_sample_size = int(training_size * keep_ratio)
     selected_indices = np.argsort(lava_values)[:selected_sample_size].tolist()
     print(f"Selected {len(selected_indices)} samples (keep_ratio = {keep_ratio})")
