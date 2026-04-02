@@ -134,7 +134,8 @@ f = dual_sol[0].detach().cpu().numpy().flatten()
 assert len(f) == len(train_dataset)
 
 # 4. Analyze scores
-scores = f   # these are the LAVA scores (higher = worse)
+N = len(f)
+scores = (N / (N - 1)) * (f - np.mean(f))
 
 # Print top 10 highest scores
 print("Top 10 highest scores (worst quality):")
