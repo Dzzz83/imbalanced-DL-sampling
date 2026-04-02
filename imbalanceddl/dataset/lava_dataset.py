@@ -31,11 +31,13 @@ class LavaDataset(Dataset):
         method_str = str(method).lower()
 
         if method_str == 'lava':
+            file_key = f"{self.config.dataset}_{self.config.imb_type}_{self.config.imb_factor}"
             indices = get_lava_selection_indices(
                 train_ds, 
                 val_ds,
                 keep_ratio=self.ratio, 
-                device=self.device
+                device=self.device,
+                file_key=file_key
             )
         elif method_str == 'random':
             indices = random_selection(

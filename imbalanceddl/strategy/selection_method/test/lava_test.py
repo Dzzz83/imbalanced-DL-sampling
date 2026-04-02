@@ -2,7 +2,6 @@ import sys
 import os
 from unittest.mock import MagicMock
 
-# Add the project root (three levels up from this file) to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 lib = ["torchtext", "torchtext.data", "torchtext.data.utils",
@@ -58,22 +57,6 @@ def add_gaussian_noise(img, std=2.0):
     noise = torch.randn_like(img) * std
     return img + noise
 
-# Define distant class mapping for mislabeling (cat->airplane, dog->truck, etc.)
-# We'll use a fixed mapping for classes 0-9 to ensure large label distance
-# For simplicity, map each class to a class that is very different:
-# 0: airplane -> 3: cat (but we want cat->airplane, so we need to map)
-# We'll create a mapping dictionary:
-# Original class -> new class (very different)
-# 0 airplane -> 9 truck (different)
-# 1 automobile -> 5 dog (different)
-# 2 bird -> 1 automobile
-# 3 cat -> 0 airplane
-# 4 deer -> 9 truck
-# 5 dog -> 1 automobile
-# 6 frog -> 2 bird
-# 7 horse -> 3 cat
-# 8 ship -> 0 airplane
-# 9 truck -> 3 cat
 mislabel_map = {
     0: 9,  # airplane -> truck
     1: 5,  # automobile -> dog
