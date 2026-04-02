@@ -1,7 +1,16 @@
 import sys
 import os
+from unittest.mock import MagicMock
+
 # Add the project root (three levels up from this file) to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+
+lib = ["torchtext", "torchtext.data", "torchtext.data.utils",
+       "torchtext.datasets", "torchtext.vocab", "vgg", "resnet"]
+for mod in lib:
+    if mod not in sys.modules:
+        sys.modules[mod] = MagicMock()
+
 
 import torch
 import torchvision
