@@ -59,29 +59,41 @@ def add_gaussian_noise(img, mean=0, std=0.5):
     noise = torch.randn_like(img) * std + mean
     return img + noise
 
+# Instead of random 50 indices, take 5 images per class (balanced training set)
 train_data = []
 train_labels = []
-corrupted_flags = []
+corrupted_flags = []   # we'll fill this later after corruption
+np.random.seed(42)
+for class_id in range(10):
+    # Get all training indices belonging to this class
+    class_indices = [i for i, (_, lbl) in enumerate(full_train) if lbl == class_id]
+    # Randomly pick 5 indices (without replacement)
+    chosen = np.random.choice(class_indices, 5, replace=False)
+    for idx in chosen:
+        img, label = full_train[idx]
+        train_data.append(img)
+        train_labels.append(label)
 
-for idx in range(len(train_clean)):
-    img, label = train_clean[idx]
-    # Mark first 10 as noise-corrupted
+# Now create corrupted copies (same as before, but now train_data has 50 images)
+corrupted_flags = []
+for idx in range(len(train_data)):
+    img = train_data[idx]
+    label = train_labels[idx]
     if idx < 10:
         img = add_gaussian_noise(img)
         corrupted_flags.append(True)
-    # Next 10 as mislabeled
     elif idx < 20:
         new_label = np.random.choice([l for l in range(10) if l != label])
         label = new_label
         corrupted_flags.append(True)
     else:
         corrupted_flags.append(False)
-    train_data.append(img)
-    train_labels.append(label)
+    train_data[idx] = img
+    train_labels[idx] = label
 
-# Create a custom dataset for training
+# Create dataset
 train_dataset = TensorDataset(torch.stack(train_data), torch.tensor(train_labels))
-train_dataset.targets = train_labels   
+train_dataset.targets = train_labels  
 
 # 3. Compute LAVA scores (using your existing function)
 # We need to wrap the dataset for OTDD (the wrapper expects a dataset that returns (img, label))
