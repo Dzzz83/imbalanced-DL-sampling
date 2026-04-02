@@ -107,7 +107,12 @@ dual_sol = get_OT_dual_sol(
     resize=32,
     device=device
 )
-
+print("dual_sol length:", len(dual_sol))
+for i, item in enumerate(dual_sol):
+    if torch.is_tensor(item):
+        print(f"  dual_sol[{i}] shape: {item.shape}")
+    else:
+        print(f"  dual_sol[{i}] type: {type(item)}")
 # Extract source potentials (f)
 f = dual_sol[0].detach().cpu().numpy().flatten()
 assert len(f) == len(train_dataset)
