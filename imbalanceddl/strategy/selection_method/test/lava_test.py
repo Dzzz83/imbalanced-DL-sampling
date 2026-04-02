@@ -52,8 +52,8 @@ for class_id in range(10):
         train_data.append(img)
         train_labels.append(label)
 
-# 4. Corruption: strong noise (std=2.0) and mislabel between distant classes
-def add_gaussian_noise(img, std=2.0):
+# 4. Corruption: strong noise
+def add_gaussian_noise(img, std=10):
     noise = torch.randn_like(img) * std
     return img + noise
 
