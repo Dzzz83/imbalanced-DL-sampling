@@ -57,32 +57,15 @@ def add_gaussian_noise(img, std=2.0):
     noise = torch.randn_like(img) * std
     return img + noise
 
-mislabel_map = {
-    0: 9,  # airplane -> truck
-    1: 5,  # automobile -> dog
-    2: 1,  # bird -> automobile
-    3: 0,  # cat -> airplane
-    4: 9,  # deer -> truck
-    5: 1,  # dog -> automobile
-    6: 2,  # frog -> bird
-    7: 3,  # horse -> cat
-    8: 0,  # ship -> airplane
-    9: 3   # truck -> cat
-}
 
 corrupted_flags = []
 for idx in range(len(train_data)):
     img = train_data[idx]
     label = train_labels[idx]
-    # Corrupt first 2 of each class with noise
+    # Corrupt with noise
     if idx % 10 < 2:
         img = add_gaussian_noise(img, std=2.0)
-        corrupted_flags.append(True)
-    # Next 2 of each class with mislabel to distant class
-    elif idx % 10 < 4:
-        new_label = mislabel_map[label]
-        label = new_label
-        corrupted_flags.append(True)
+        corrupted_flags.append(True)    
     else:
         corrupted_flags.append(False)
     train_data[idx] = img
