@@ -53,7 +53,7 @@ for class_id in range(10):
         train_labels.append(label)
 
 # 4. Corruption: strong noise
-def add_gaussian_noise(img, std=10):
+def add_gaussian_noise(img, std=100):
     noise = torch.randn_like(img) * std
     return img + noise
 
