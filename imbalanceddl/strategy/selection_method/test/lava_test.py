@@ -38,6 +38,8 @@ val_indices = np.random.choice(len(full_val), 20, replace=False)
 
 train_clean = Subset(full_train, train_indices)
 val_clean = Subset(full_val, val_indices)
+val_targets = [full_val[i][1] for i in val_indices]   
+val_clean.targets = val_targets
 
 # 2. Create corrupted copies
 def add_gaussian_noise(img, mean=0, std=0.5):
@@ -66,6 +68,7 @@ for idx in range(len(train_clean)):
 
 # Create a custom dataset for training
 train_dataset = TensorDataset(torch.stack(train_data), torch.tensor(train_labels))
+train_dataset.targets = train_labels   
 
 # 3. Compute LAVA scores (using your existing function)
 # We need to wrap the dataset for OTDD (the wrapper expects a dataset that returns (img, label))
