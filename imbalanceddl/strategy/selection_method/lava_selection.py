@@ -37,6 +37,30 @@ import numpy as np
 import torchvision.models as models
 from torch.utils.data import DataLoader, Dataset
 
+def get_saved_scores(file_key, training_size, recompute=False):
+    """
+    Load cached LAVA scores if available and match training size.
+    Returns (scores, saved_file_path) or (None, None) if not found or recompute=True.
+    """
+    if recompute or file_key is None:
+        return None, None
+    cache_dir = 'lava_selection_results'
+    os.makedirs(cache_dir, exist_ok=True)
+    score_file = os.path.join(cache_dir, f"{file_key}_scores.npy")
+    if os.path.exists(score_file):
+        scores = np.load(score_file)
+        if len(scores) == training_size:
+            print(f"Loaded cached LAVA scores from {score_file}")
+            return scores, score_file
+        else:
+            print(f"Cached scores length {len(scores)} != training size {training_size}. Recomputing.")
+    return None, score_file  # score_file is the path where we should save later
+
+def save_lava_scores(scores, score_file):
+    """Save scores to the given file path."""
+    np.save(score_file, scores)
+    print(f"Saved LAVA scores to {score_file}")
+
 # replace the original compute_dual with the new compute_dual_1 
 def compute_dual_1(feature_extractor, trainloader, testloader, training_size, shuffle_ind, p=2, resize=32, device='cuda'):
     # train_indices = lava.get_indices(trainloader)
@@ -113,32 +137,38 @@ def select_indices(lava_values, training_size, keep_ratio):
     selected_indices = np.argsort(train_scores)[:selected_sample_size]
     return selected_indices.tolist()
 
-def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda'):
-    train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
-    train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
-    val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
-
-    extractor = get_feature_extractor(device)
+def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda', file_key=None):
     training_size = len(train_dataset)
+    lava_values, saved_file = get_saved_scores(file_key, training_size)
 
-    print(f"--- LAVA Selection Started ---")
-    print(f"Total training samples to evaluate: {training_size}")
+    if lava_values is None:
+        train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
+        train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
+        val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
 
-    dual_sol, _ = lava.compute_dual(
-        feature_extractor=extractor,
-        trainloader=train_loader,
-        testloader=val_loader,
-        training_size=training_size,
-        shuffle_ind=[],
-        device=device
-    )
+        extractor = get_feature_extractor(device)
 
-    # dual_sol[0] is f (source potentials)
-    calibrated = values(dual_sol, training_size)
-    lava_values = np.array(calibrated)
+        print(f"--- LAVA Selection Started ---")
+        print(f"Total training samples to evaluate: {training_size}")
 
-    if len(lava_values) != training_size:
-        raise ValueError(f"Expected {training_size} scores, got {len(lava_values)}")
+        dual_sol, _ = lava.compute_dual(
+            feature_extractor=extractor,
+            trainloader=train_loader,
+            testloader=val_loader,
+            training_size=training_size,
+            shuffle_ind=[],
+            device=device
+        )
+
+        # dual_sol[0] is f (source potentials)
+        calibrated = values(dual_sol, training_size)
+        lava_values = np.array(calibrated)
+
+        # Save to cache if a saved_file path was provided
+        if saved_file is not None:
+            save_lava_scores(lava_values, saved_file)
+    else:
+        print("Using cached LAVA scores.")
 
     # Select lowest scores (best quality)
     selected_sample_size = int(training_size * keep_ratio)
