@@ -10,6 +10,7 @@ from torchmetrics import F1Score
 from torchmetrics.functional.classification import multiclass_precision, multiclass_recall, multiclass_f1_score
 import wandb
 import wandb.apis.public as public
+from torch.utils.data import DataLoader
 
 class Trainer(BaseTrainer):
     def __init__(self, *args, **kwargs):
