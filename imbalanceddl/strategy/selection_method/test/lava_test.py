@@ -38,14 +38,21 @@ val_indices = np.random.choice(len(full_val), 20, replace=False)
 
 train_clean = Subset(full_train, train_indices)
 
+# Build a balanced validation set (2 images per class, total 20)
+np.random.seed(42)  # same seed for reproducibility
 val_data = []
 val_labels = []
-for idx in val_indices:
-    img, label = full_val[idx]
-    val_data.append(img)
-    val_labels.append(label)
+for class_id in range(10):
+    # Get all indices in full_val that belong to this class
+    class_indices = [i for i, (_, lbl) in enumerate(full_val) if lbl == class_id]
+    # Randomly pick 2 indices (without replacement)
+    chosen = np.random.choice(class_indices, 2, replace=False)
+    for idx in chosen:
+        img, label = full_val[idx]
+        val_data.append(img)
+        val_labels.append(label)
 val_dataset = TensorDataset(torch.stack(val_data), torch.tensor(val_labels))
-val_dataset.targets = val_labels   
+val_dataset.targets = val_labels 
 
 # 2. Create corrupted copies
 def add_gaussian_noise(img, mean=0, std=0.5):
