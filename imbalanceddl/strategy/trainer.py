@@ -190,10 +190,9 @@ class Trainer(BaseTrainer):
     #         self.train_one_epoch()
     #         acc1 = self.validate()
     def do_train_val(self):
-        # Check if we have a custom dataset (like LavaDataset)
         if hasattr(self, 'dataset') and hasattr(self.dataset, 'train_val_sets'):
             train_ds, val_ds = self.dataset.train_val_sets
-            # Create loaders with the selected dataset
+            # create loaders with the selected dataset
             self.train_loader = DataLoader(
                 train_ds, batch_size=self.cfg.batch_size,
                 shuffle=True, num_workers=self.cfg.workers, pin_memory=True
@@ -202,13 +201,11 @@ class Trainer(BaseTrainer):
                 val_ds, batch_size=self.cfg.batch_size,
                 shuffle=False, num_workers=self.cfg.workers, pin_memory=True
             )
-            # The oversampling loader is not needed for ERM; we can set to None
             self.train_oversamples = None
             print(f"Using selected dataset: train size = {len(train_ds)}, val size = {len(val_ds)}")
             if hasattr(train_ds, 'targets'):
                 print(f"First 10 train targets: {train_ds.targets[:10]}")
         else:
-            # Original code (for M2m, etc.)
             if self.cfg.dataset == 'cifar10':
                 from imbalanceddl.dataset.m2m_imbalance_cifar10 import cifar10_train_val_oversamples
                 train_in_loader, val_in_loader, train_oversamples_loader = cifar10_train_val_oversamples(
@@ -221,9 +218,7 @@ class Trainer(BaseTrainer):
                     self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha
                 )
                 self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
-            # Add other datasets if needed
 
-        # Continue with the rest of the method (epoch loop, etc.)
         for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
             self.epoch = epoch
             self.adjust_learning_rate()
