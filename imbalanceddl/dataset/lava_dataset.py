@@ -61,6 +61,7 @@ class LavaDataset(Dataset):
         self.train_dataset = self 
         self.val_dataset = val_ds
         self.cls_num_list = self._compute_new_cls_num_list(indices, train_ds)
+        self.cfg.cls_num_list = self.cls_num_list   
         
         print(f"==> Selection Complete. New training size: {len(self.subset)}")
 
