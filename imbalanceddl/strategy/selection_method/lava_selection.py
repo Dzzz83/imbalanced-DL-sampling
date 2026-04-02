@@ -22,7 +22,7 @@ print("otdd location:", otdd.__file__)
 
 # Import LAVA modules
 from LAVA import lava
-from LAVA.lava import compute_dual, PreActResNet18
+from LAVA.lava import compute_dual, PreActResNet18, values
 print("Successfully imported LAVA.lava")
 
 lib = ["torchtext", "torchtext.data", "torchtext.data.utils",
@@ -134,8 +134,8 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     )
 
     # dual_sol[0] is f (source potentials)
-    f = dual_sol[0]
-    lava_values = f.detach().cpu().numpy().flatten()
+    calibrated = values(dual_sol, training_size)
+    lava_values = np.array(calibrated)
 
     if len(lava_values) != training_size:
         raise ValueError(f"Expected {training_size} scores, got {len(lava_values)}")
