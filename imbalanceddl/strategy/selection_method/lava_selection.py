@@ -18,7 +18,7 @@ if lava_folder not in sys.path:
 
 # Now import the local otdd (must be done before any other import that might pull a global one)
 import otdd
-print("otdd location:", otdd.__file__)   # This should show .../LAVA/otdd/__init__.py
+print("otdd location:", otdd.__file__)
 
 # Import LAVA modules
 from LAVA import lava
@@ -31,7 +31,6 @@ for mod in lib:
     if mod not in sys.modules:
         sys.modules[mod] = MagicMock()
 
-# --- Standard imports (must be after path setup but before any classes) ---
 import torch
 import torch.nn as nn
 import numpy as np
