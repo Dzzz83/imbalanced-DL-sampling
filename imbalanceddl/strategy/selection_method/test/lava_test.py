@@ -54,35 +54,39 @@ for class_id in range(10):
 val_dataset = TensorDataset(torch.stack(val_data), torch.tensor(val_labels))
 val_dataset.targets = val_labels 
 
-# 2. Create corrupted copies
+# 2. Create corrupted copies with balanced classes
 def add_gaussian_noise(img, mean=0, std=0.5):
     noise = torch.randn_like(img) * std + mean
     return img + noise
 
-# Instead of random 50 indices, take 5 images per class (balanced training set)
+# Take 10 images per class (100 total) to ensure enough samples after corruption
 train_data = []
 train_labels = []
-corrupted_flags = []   # we'll fill this later after corruption
+corrupted_flags = []
 np.random.seed(42)
+
 for class_id in range(10):
-    # Get all training indices belonging to this class
     class_indices = [i for i, (_, lbl) in enumerate(full_train) if lbl == class_id]
-    # Randomly pick 5 indices (without replacement)
-    chosen = np.random.choice(class_indices, 5, replace=False)
+    chosen = np.random.choice(class_indices, 10, replace=False)  # 10 per class
     for idx in chosen:
         img, label = full_train[idx]
         train_data.append(img)
         train_labels.append(label)
 
-# Now create corrupted copies (same as before, but now train_data has 50 images)
+# Now corrupt: first 20 images (2 per class) with noise, next 20 (2 per class) with mislabel
+# This leaves 6 clean images per class.
 corrupted_flags = []
 for idx in range(len(train_data)):
     img = train_data[idx]
     label = train_labels[idx]
-    if idx < 10:
+    # Determine which class this image belongs to (original class)
+    class_id = idx // 10   # because 10 images per class, in order
+    # Noise for the first 2 images of each class (global indices 0-9,10-19,...,90-99)
+    if idx % 10 < 2:
         img = add_gaussian_noise(img)
         corrupted_flags.append(True)
-    elif idx < 20:
+    # Mislabel for the next 2 images of each class (global indices 2-3 per block)
+    elif idx % 10 < 4:
         new_label = np.random.choice([l for l in range(10) if l != label])
         label = new_label
         corrupted_flags.append(True)
