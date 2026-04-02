@@ -287,32 +287,6 @@ def visualize_values_distr_sorted(tdid, tsidx, trsize, portion, trainGradient):
 def visualize_baselines():
     return
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
 '''Pre-activation ResNet in PyTorch.
 
 Reference:
