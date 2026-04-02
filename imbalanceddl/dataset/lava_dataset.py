@@ -31,7 +31,7 @@ class LavaDataset(Dataset):
         method_str = str(method).lower()
 
         if method_str == 'lava':
-            file_key = f"{self.config.dataset}_{self.config.imb_type}_{self.config.imb_factor}"
+            file_key = f"{self.config.dataset}_{self.config.imb_type}_{self.config.imb_factor}_{self.config.rand_number}"
             indices = get_lava_selection_indices(
                 train_ds, 
                 val_ds,
