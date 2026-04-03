@@ -120,9 +120,10 @@ def dataset_prep(train_dataset, val_dataset):
 def get_feature_extractor(device):
     print("Using PreActResnet18 as a feature extractor")
     model = PreActResNet18()
-    checkpoint = torch.load('models/cifar10_embedder_preact_resnet18.pth', map_location=device)
+    checkpoint = torch.load('models/cifar10_embedder_preact_resnet18.pth', map_location='cpu')
     model.load_state_dict(checkpoint)
     model = FeatureExtractor(model)
+    model = model.to(device)
     model.eval()
     return model.to(device)
 
