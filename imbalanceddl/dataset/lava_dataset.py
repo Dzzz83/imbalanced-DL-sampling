@@ -2,8 +2,7 @@ import torch
 from torch.utils.data import Dataset, Subset
 import numpy as np
 import os
-
-# Updated imports to match your new package structure
+from imbalanceddl.dataset import ImbalancedDataset 
 from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
 from imbalanceddl.strategy.selection_method.random_selection import random_selection
 
@@ -25,7 +24,6 @@ class LavaDataset(Dataset):
 
         train_ds, val_ds = self.base_dataset.train_val_sets
         
-        # Guard against NoneType for printing
         print(f"==> Starting Data Selection via {method}...")
 
         # 1. Get indices to keep
@@ -33,16 +31,21 @@ class LavaDataset(Dataset):
 
         if method_str == 'lava':
             file_key = f"{self.config.dataset}_{self.config.imb_type}_{self.config.imb_factor}_{self.config.rand_number}"
-            if (len(train_ds) > 30000):
-                os.environ["CUDA_VISIBLE_DEVICES"] = ""
-            else:
-                os.environ.pop("CUDA_VISIBLE_DEVICES", None)
+            print("Creating dataset (no augmentation) for LAVA scoring...")
+            no_aug_dataset = ImbalancedDataset(self.config, self.config.dataset, augmentation='none')
+            no_aug_train_dataset, _ = no_aug_dataset.train_val_sets
 
+            if (len(no_aug_train_dataset) > 30000):
+                the_device='cpu'
+                print("Large dataset, using CPU for OT computation")
+            else:
+                the_device=self.device
+            
             indices = get_lava_selection_indices(
-                train_ds, 
+                no_aug_train_dataset, 
                 val_ds,
                 keep_ratio=self.ratio, 
-                device=self.device,
+                device=the_device,
                 file_key=file_key
             )
         elif method_str == 'random':

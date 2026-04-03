@@ -95,7 +95,7 @@ def plot_and_save(log_dir, output_dir):
         plt.close()
 
 if __name__ == "__main__":
-    source_logs = "train/cifar10_deepsmote_0.17" 
+    source_logs = "train/cifar10_lava0.7_mixup_drw_exp0.01_seed42_20260403_134214" 
     results_output = "plot"
     
     print(f"Looking for logs in: {os.path.abspath(source_logs)}")

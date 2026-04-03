@@ -1,18 +1,19 @@
 import logging
 import os
 
-def setup_logger(exp_name):
-    os.makedirs("results", exist_ok=True)
+def setup_logger(log_path):
+    """
+    log_path: full path to the log file (e.g., 'results/train/xxx.log')
+    """
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
     
-    log_filename = f"results/{exp_name}.log"
-    
-    logger = logging.getLogger(exp_name)
+    logger = logging.getLogger(log_path)  # unique logger per file
     logger.propagate = False
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     
-    fh = logging.FileHandler(log_filename, mode='a', delay=True)
-    fh.setFormatter(logging.Formatter("%(message)s")) 
+    fh = logging.FileHandler(log_path, mode='w', delay=True)  # 'w' overwrites per run
+    fh.setFormatter(logging.Formatter("%(message)s"))
     
     ch = logging.StreamHandler()
     ch.setFormatter(logging.Formatter("%(asctime)s | %(message)s", datefmt='%H:%M:%S'))
@@ -20,7 +21,7 @@ def setup_logger(exp_name):
     logger.addHandler(fh)
     logger.addHandler(ch)
     
-    return logger, log_filename 
+    return logger, log_path
 
 def create_distribution_table(logger, counts_original, counts_selection=None):
     sep = "-" * 52
