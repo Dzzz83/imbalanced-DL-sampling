@@ -106,7 +106,7 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                                tgt_embedding = embedder,
                                tgt_dim = (3,resize,resize),
                                p = 2,
-                               device='cuda')
+                               device=device)
 
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method = 'exact',
@@ -117,7 +117,7 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                            sqrt_niters=10,
                            precision='single',
                            p = 2, entreg = 1e-1,
-                           device='cuda')
+                           device=device)
 
 
 
