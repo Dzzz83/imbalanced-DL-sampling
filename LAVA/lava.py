@@ -142,9 +142,7 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
 # Which can be considered as data values (more in paper...)
 def values(dual_sol, training_size):
     dualsol = dual_sol
-    
     f1k = np.array(dual_sol[0].squeeze())
-
     trainGradient = [0]*training_size
     trainGradient = (1+1/(training_size-1))*f1k - sum(f1k)/(training_size-1)
     return list(trainGradient)

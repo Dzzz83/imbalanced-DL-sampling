@@ -2,25 +2,19 @@ import sys
 import os
 from unittest.mock import MagicMock
 
-# Compute the repository root based on the location of this file
-# This file is at: imbalanced-DL-sampling/imbalanceddl/strategy/selection_method/lava_selection.py
-# So the project root is 3 levels up.
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, "../../.."))
 
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Add the LAVA folder (which contains the local otdd) to sys.path
 lava_folder = os.path.join(project_root, 'LAVA')
 if lava_folder not in sys.path:
     sys.path.insert(0, lava_folder)
 
-# Now import the local otdd (must be done before any other import that might pull a global one)
 import otdd
 print("otdd location:", otdd.__file__)
 
-# Import LAVA modules
 from LAVA import lava
 from LAVA.lava import compute_dual, PreActResNet18, values
 print("Successfully imported LAVA.lava")
@@ -54,7 +48,7 @@ def get_saved_scores(file_key, training_size, recompute=False):
             return scores, score_file
         else:
             print(f"Cached scores length {len(scores)} != training size {training_size}. Recomputing.")
-    return None, score_file  # score_file is the path where we should save later
+    return None, score_file 
 
 def save_lava_scores(scores, score_file):
     """Save scores to the given file path."""
@@ -63,10 +57,12 @@ def save_lava_scores(scores, score_file):
 
 # replace the original compute_dual with the new compute_dual_1 
 def compute_dual_1(feature_extractor, trainloader, testloader, training_size, shuffle_ind, p=2, resize=32, device='cuda'):
-    # train_indices = lava.get_indices(trainloader)
+    # Use sequential indices because the DataLoader returns samples in dataset order.
     train_indices = list(range(training_size))
+    # not used in selection, pnly not to cause errors
     trained_with_flag = lava.train_with_corrupt_flag(trainloader, shuffle_ind, train_indices)
 
+    # compute OT dual potentials
     dual_sol = lava.get_OT_dual_sol(
         feature_extractor,
         trainloader,
@@ -77,7 +73,6 @@ def compute_dual_1(feature_extractor, trainloader, testloader, training_size, sh
         device=device
     )
     return dual_sol, trained_with_flag
-
 lava.compute_dual = compute_dual_1
 
 # wrap the ResNet model to extract the features
@@ -90,6 +85,7 @@ class FeatureExtractor(nn.Module):
     def forward(self, x):
         features = self.base_model(x)
         return features
+    
 # OTDD expects (image, label) | PyTorch returns (image, label, index)
 # this class wraps the dataset and returns (image, label)
 class OTDDWrapper(Dataset):
@@ -130,33 +126,32 @@ def get_feature_extractor(device):
     model.eval()
     return model.to(device)
 
-def select_indices(lava_values, training_size, keep_ratio):
-    train_scores = lava_values[:training_size]          # only training duals
-    selected_sample_size = int(len(train_scores) * keep_ratio)
-    # sort ascending, take first selected_sample_size (smallest scores)
-    selected_indices = np.argsort(train_scores)[:selected_sample_size]
-    return selected_indices.tolist()
-
 def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda', file_key=None):
+    # get training size
     training_size = len(train_dataset)
+    # get the lava scores from the file
     lava_values, saved_file = get_saved_scores(file_key, training_size)
 
+    # if no scores available
     if lava_values is None:
+        # prepare the dataset, shuffle=False to map correctly scores to each sample
         train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
         train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
         val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
 
+        # load the feature extractor
         extractor = get_feature_extractor(device)
 
         print(f"--- LAVA Selection Started ---")
         print(f"Total training samples to evaluate: {training_size}")
 
+        # compute the scores
         dual_sol, _ = lava.compute_dual(
             feature_extractor=extractor,
             trainloader=train_loader,
             testloader=val_loader,
             training_size=training_size,
-            shuffle_ind=[],
+            shuffle_ind=[], # passs in empty array
             device=device
         )
 
@@ -164,13 +159,13 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
         calibrated = values(dual_sol, training_size)
         lava_values = np.array(calibrated)
 
-        # Save to cache if a saved_file path was provided
+        # save the computation
         if saved_file is not None:
             save_lava_scores(lava_values, saved_file)
     else:
         print("Using cached LAVA scores.")
 
-    # Select lowest scores (best quality)
+    # select lowest scores (best quality)
     selected_sample_size = int(training_size * keep_ratio)
     selected_indices = np.argsort(lava_values)[:selected_sample_size].tolist()
     print(f"Selected {len(selected_indices)} samples (keep_ratio = {keep_ratio})")
