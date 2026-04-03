@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset, Subset
 import numpy as np
+import os
 
 # Updated imports to match your new package structure
 from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
@@ -33,15 +34,15 @@ class LavaDataset(Dataset):
         if method_str == 'lava':
             file_key = f"{self.config.dataset}_{self.config.imb_type}_{self.config.imb_factor}_{self.config.rand_number}"
             if (len(train_ds) > 30000):
-                device='cpu'
+                os.environ["CUDA_VISIBLE_DEVICES"] = ""
             else:
-                device = self.device
+                os.environ.pop("CUDA_VISIBLE_DEVICES", None)
 
             indices = get_lava_selection_indices(
                 train_ds, 
                 val_ds,
                 keep_ratio=self.ratio, 
-                device=device,
+                device=self.device,
                 file_key=file_key
             )
         elif method_str == 'random':
