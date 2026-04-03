@@ -14,25 +14,18 @@ def silence_torchtext():
         if mod not in sys.modules:
             sys.modules[mod] = MagicMock()
 
-# Execute the bypass before LAVA or OTDD can be loaded
 silence_torchtext()
-
-# NOW you can safely import your project modules
-from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
-
 
 import numpy as np
 import torch
 import os
 
-# Update these to include the package prefix
 from imbalanceddl.utils.utils import fix_all_seed, prepare_store_name, prepare_folders
 from imbalanceddl.net.network import build_model
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.strategy.build_trainer import build_trainer
 from imbalanceddl.utils.config import get_args
 
-# Note the change in path for selection_method, which is inside strategy
 from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
 from imbalanceddl.strategy.selection_method.random_selection import random_selection
 from imbalanceddl.dataset.lava_dataset import LavaDataset
@@ -58,6 +51,7 @@ def main():
     model = build_model(config)
 
     # 5. Build Initial Dataset
+    print("Creating training dataset with weak augmentation...")
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset)
 
     if config.selection_ratio < 1.0:

@@ -13,7 +13,7 @@ from imbalanceddl.utils.bsampler import SamplerFactory
 from imbalanceddl.utils.logging import setup_logger, create_distribution_table
 from collections import Counter
 import torch
-
+import datetime  
 
 
 class BaseTrainer(metaclass=abc.ABCMeta):
@@ -26,6 +26,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         self.cfg = cfg
         self._dataset = dataset
         self._parse_train_val(dataset)
+        self.custom_base_name = getattr(cfg, 'store_name', f"{cfg.dataset}_{cfg.strategy}")
         self._prepare_logger()
 
     @property
@@ -210,7 +211,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         #     num_workers=self.cfg.workers,
         #     pin_memory=True)
     
-
+    
     def _prepare_logger(self):
         """Logger for records
 
@@ -218,23 +219,39 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         and a tensorboard writer for visualization.
         """
 
-        self.results_dir = 'results'
-        if not os.path.exists(self.results_dir):
-            os.makedirs(self.results_dir)
+        log_base = self.cfg.root_log  
+        os.makedirs(log_base, exist_ok=True)
 
-        self.custom_base_name = (
+        log_name = (
             f"{self.cfg.dataset}_"
-            f"{self.cfg.selection_method}_"
-            f"{self.cfg.selection_ratio}_"
-            f"{self.cfg.imb_type}_"
-            f"{self.cfg.imb_factor}_"
-            f"{self.cfg.strategy}_"
-            f"{self.cfg.epochs}_seed"
+            f"{self.cfg.selection_method}{self.cfg.selection_ratio}_"
+            f"{self.cfg.strategy.lower()}_"
+            f"exp{self.cfg.imb_factor}_"
+            f"seed{self.cfg.seed}"
         )
 
-        self.logger, self.log_filename = setup_logger(self.custom_base_name)
-        self.logger.info("=> Preparing logger and tensorboard writer !")
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        full_log_path = os.path.join(log_base, f"{log_name}_{timestamp}.log")
 
+        self.logger, self.log_filename = setup_logger(full_log_path)
+
+        header = (
+            f"Log file: {os.path.basename(full_log_path)}\n"
+            f"Run started: {datetime.datetime.now()}\n"
+            f"Dataset: {self.cfg.dataset}\n"
+            f"Imbalance type: {self.cfg.imb_type}, factor: {self.cfg.imb_factor}\n"
+            f"Selection method: {self.cfg.selection_method}, ratio: {self.cfg.selection_ratio}\n"
+            f"Strategy: {self.cfg.strategy}, epochs: {self.cfg.epochs}\n"
+            f"Seed: {self.cfg.seed}, rand_number: {self.cfg.rand_number}\n"
+            f"Augmentation: {self.cfg.augmentation}\n"
+        )
+        if hasattr(self.cfg, 'mixup_alpha'):
+            header += f"mixup_alpha: {self.cfg.mixup_alpha}\n"
+        header += "="*60 + "\n"
+
+        self.logger.info(header)
+        self.logger.info("=> Preparing logger and tensorboard writer !")
+        
         current_counts = self.train_dataset.get_cls_num_list()
         selected_dict = {i: count for i, count in enumerate(current_counts)}
 

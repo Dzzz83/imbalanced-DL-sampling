@@ -65,10 +65,22 @@ def get_args():
     parser.add_argument('--kind', default='random', type=str, help='For Balance - Kind of sampler')
 
     # Data Selection Method (Random, LAVA, None)
-    parser.add_argument('--selection_method', default=None, type=str, choices=['lava', 'random', None], 
+    parser.add_argument('--selection_method', default='none', type=str, choices=['lava', 'random', 'none'], 
                         help='Method for data selection/filtering')
     parser.add_argument('--selection_ratio', default=1.0, type=float, 
                         help='Ratio of data to keep after selection')
+    
+    # Augmentation
+    parser.add_argument('--augmentation', default='none', type=str, 
+                        help='Select the augmentation')
+    
+    # Rand Number
+    parser.add_argument('--rand_number', default=0, type=int, 
+                        help='Rand Number')
+    
+    # Device
+    parser.add_argument('--device', default='cuda', type=str,
+                    help='Device for computation (cuda/cpu)')
     
     # update config from command line
     parser.set_defaults(**config)

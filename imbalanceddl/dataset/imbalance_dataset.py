@@ -8,14 +8,16 @@ from imbalanceddl.dataset import IMBALANCECIFAR100
 from imbalanceddl.dataset import IMBALANCECINIC10
 from imbalanceddl.dataset import IMBALANCETINY
 from imbalanceddl.dataset import IMBALANCESVHN
+from imbalanceddl.utils import get_weak_augmentation, get_trivial_augmentation
 
 
 class ImbalancedDataset:
-    def __init__(self, cfg, dataset_name):
+    def __init__(self, cfg, dataset_name, augmentation='weak'):
         self.cfg = cfg
         self.dataset_name = dataset_name
         self.imb_type = cfg.imb_type
         self.imb_factor = cfg.imb_factor
+        self.augmentation = augmentation
         self.data_transform = self._get_data_transform()
 
     def _get_data_transform(self):
@@ -27,18 +29,36 @@ class ImbalancedDataset:
 
         if self.dataset_name in ['cifar10', 'cifar100']:
             print("=> Get {} data transform".format(self.dataset_name))
-            data_transform['train'] = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465),
-                                     (0.2023, 0.1994, 0.2010)),
-            ])
-            data_transform['val'] = transform_val = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465),
-                                     (0.2023, 0.1994, 0.2010)),
-            ])
+            if self.augmentation == 'weak':
+                print(f"Applying Weak Augmentation to the {self.dataset_name}")
+                train_transform, val_transform = get_weak_augmentation()
+            elif self.augmentation == 'trivial':
+                print(f"Applying Trivial Augmentation to the {self.dataset_name}")
+                train_transform, val_transform = get_trivial_augmentation()
+            elif self.augmentation == 'none':
+                print(f"Not applying augmentation to the {self.dataset_name}")
+                train_transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.4914, 0.4822, 0.4465),
+                                        (0.2023, 0.1994, 0.2010)),
+                ])
+                val_transform = train_transform
+            else:
+                raise NotImplementedError(f"The augmentation '{self.augmentation}' is not implemented")
+            data_transform['train'] = train_transform
+            data_transform['val'] = val_transform
+            # data_transform['train'] = transforms.Compose([
+            #     transforms.RandomCrop(32, padding=4),
+            #     transforms.RandomHorizontalFlip(),
+            #     transforms.ToTensor(),
+            #     transforms.Normalize((0.4914, 0.4822, 0.4465),
+            #                          (0.2023, 0.1994, 0.2010)),
+            # ])
+            # data_transform['val'] = transform_val = transforms.Compose([
+            #     transforms.ToTensor(),
+            #     transforms.Normalize((0.4914, 0.4822, 0.4465),
+            #                          (0.2023, 0.1994, 0.2010)),
+            # ])
         elif self.dataset_name == "cinic10":
             print("=> Get {} data transform".format(self.dataset_name))
             data_transform['train'] = transforms.Compose([

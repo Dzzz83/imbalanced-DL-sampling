@@ -8,8 +8,7 @@ from .m2m_imbalance_tinyimagenet import M2M_TINYIMAGENET200_LT
 from .m2m_imbalance_svhn import M2M_SVHN_LT
 from .m2m_imbalance_cifar10 import M2M_CIFAR10_LT
 from .m2m_imbalance_cifar100 import M2M_CIFAR100_LT
-
-
+from .imbalance_dataset import ImbalancedDataset
 __all__ = [
     "IMBALANCECIFAR10", "IMBALANCECIFAR100", "IMBALANCECINIC10",
     "IMBALANCETINY", "IMBALANCESVHN", "M2M_CINIC10_LT", "M2M_TINYIMAGENET200_LT", "M2M_SVHN_LT", "M2M_CIFAR10_LT", "M2M_CIFAR100_LT"

@@ -96,3 +96,35 @@ def get_balanced_deep_smote(dataset, batch_size, imb_type, imb_factor, num_worke
     train_smote_loader = torch.utils.data.DataLoader(balance_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
 
     return train_smote_loader
+
+# def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None):
+#     # define path
+#     deepsmote_folder = 'deepsmote_models'
+#     path_prefix = f'./{deepsmote_folder}/{dataset}/{dataset}_{imb_type}_R{int(1/imb_factor)}_'
+#     # get the files
+#     data_file = path_prefix + "train_data.txt"
+#     label_file = path_prefix + "train_label.txt"
+
+#     if not os.path.exists(data_file):
+#         raise FileNotFoundError(f"DeepSMOTE data not found at {os.path.abspath(data_file)}")
+    
+#     # load the file
+#     X = np.loadtxt(data_file)
+#     Y = np.loadtxt(label_file)
+
+#     # reshape to (C, H, W) then transpose to (H, W, C)
+#     X = X.reshape(-1, 3, 32, 32)
+#     X = np.transpose(X(0, 2, 3, 1))
+#     X = np.clip(X*255, 0, 255).astype(np.uint8)
+
+#     if transform is None:
+#         if dataset == 'cifar10':
+#             transform = transform.Compose([
+#                 transform.toTensor(),
+#                 transform.toNormalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+#             ])
+#         elif dataset == 'cifar100':
+#             transform = transform.Compose([
+#                 transform.toTensor(),
+#                 transform.toNormalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+#             ])

@@ -2,17 +2,18 @@
 dataset: cifar10
 num_classes: 10
 imb_type: exp        # Exponential imbalance
-imb_factor: 1.0     # balanced dataset
+imb_factor: 0.01     # 100:1 ratio between head and tail classes
 data_path: ./data
 classifier: 'dot_product_classifier'
 
 # Selection Settings (LAVA)
-selection_method: random         # Options: lava, random, none
+selection_method: lava         # Options: lava, random, none
 selection_ratio: 0.7           # Keep 70% of the data based on LAVA scores
 device: cuda
+augmentation: weak
 
 # Training Strategy
-strategy: ERM
+strategy: Mixup
 loss_type: CE        # Cross Entropy (can be LDAM or CB)
 train_rule: None     # Can be 'DRW' to trigger re-weighting mid-training
 
@@ -34,9 +35,9 @@ mixup_alpha: 1.0     # Strength of the mixup interpolation
 workers: 4
 optimizer: sgd
 # Logging & Checkpoints
-root_log: results_lava/train
+root_log: results/train
 root_model: ./example/checkpoint_cifar10
-store_name: cifar10_random_selection_0.7_exp0.01
+store_name: cifar10_lava_selection_0.7_mixup_exp0.01
 cifar_root: ./data
 gpu: 0
 
