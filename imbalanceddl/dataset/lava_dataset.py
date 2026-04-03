@@ -32,11 +32,16 @@ class LavaDataset(Dataset):
 
         if method_str == 'lava':
             file_key = f"{self.config.dataset}_{self.config.imb_type}_{self.config.imb_factor}_{self.config.rand_number}"
+            if (len(train_ds) > 30000):
+                device='cpu'
+            else:
+                device = self.device
+
             indices = get_lava_selection_indices(
                 train_ds, 
                 val_ds,
                 keep_ratio=self.ratio, 
-                device=self.device,
+                device=device,
                 file_key=file_key
             )
         elif method_str == 'random':
