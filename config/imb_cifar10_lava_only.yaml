@@ -5,10 +5,11 @@ imb_type: exp        # Exponential imbalance
 imb_factor: 0.01     # 100:1 ratio between head and tail classes
 data_path: ./data
 classifier: 'dot_product_classifier'
+augmentation: none
 
 # Selection Settings (LAVA)
 selection_method: lava         # Options: lava, random, none
-selection_ratio: 0.7           # Keep 70% of the data based on LAVA scores
+selection_ratio: 0.9           
 device: cuda
 
 # Training Strategy

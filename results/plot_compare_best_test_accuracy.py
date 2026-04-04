@@ -93,7 +93,7 @@ def plot_comparison(lava_file, random_file, output_dir):
 
     # Formatting
     ax.set_ylabel('Accuracy (%)', fontweight='bold')
-    ax.set_title('Comparison between Lava Selection and Random Selection', fontsize=14, fontweight='bold')
+    ax.set_title('Comparison between Lava + Mix_DRW and Random + Mix_DRW', fontsize=14, fontweight='bold')
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontweight='bold', fontsize=12)
     
@@ -112,8 +112,8 @@ def plot_comparison(lava_file, random_file, output_dir):
 
 if __name__ == "__main__":
     # --- UPDATE THESE PATHS ---
-    file_lava = "train/cifar10_lava_0.7_exp_0.01_ERM_200_seed.log"
-    file_random = "train/cifar10_random_0.7_exp_0.01_ERM_200_seed.log"
+    file_lava = "train/cifar10_lava0.7_mixup_drw_exp0.01_seed42/cifar10_lava0.7_mixup_drw_exp0.01_seed42_20260404_034240.log"
+    file_random = "train/cifar10_random0.7_mixup_drw_exp0.01_seed42/cifar10_random0.7_mixup_drw_exp0.01_seed42_20260404_034857.log"
     results_output = "plot"
     
     plot_comparison(file_lava, file_random, results_output)
