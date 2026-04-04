@@ -51,8 +51,8 @@ def main():
     model = build_model(config)
 
     # 5. Build Initial Dataset
-    print("Creating training dataset with weak augmentation...")
-    imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset)
+    print(f"Creating training dataset with {config.augmentation} augmentation...")
+    imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation=config.augmentation)
 
     if config.selection_ratio < 1.0:
         print(f"=> Applying Data Selection: {config.selection_method} (Ratio: {config.selection_ratio})")
