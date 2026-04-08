@@ -75,16 +75,6 @@ def compute_dual_1(feature_extractor, trainloader, testloader, training_size, sh
     return dual_sol, trained_with_flag
 lava.compute_dual = compute_dual_1
 
-# wrap the ResNet model to extract the features
-class FeatureExtractor(nn.Module):
-    def __init__(self, base_model):
-        super().__init__()
-        self.base_model = base_model
-        self.base_model.fc = nn.Identity()
-
-    def forward(self, x):
-        features = self.base_model(x)
-        return features
     
 # OTDD expects (image, label) | PyTorch returns (image, label, index)
 # this class wraps the dataset and returns (image, label)
@@ -116,16 +106,27 @@ def dataset_prep(train_dataset, val_dataset):
     
     return OTDDWrapper(train_dataset), OTDDWrapper(val_dataset)
 
-# load the ResNet18 model to extract feature
-def get_feature_extractor(device):
-    print("Using PreActResnet18 as a feature extractor")
-    model = PreActResNet18()
-    checkpoint = torch.load('models/cifar10_embedder_preact_resnet18.pth', map_location='cpu')
-    model.load_state_dict(checkpoint)
-    model = FeatureExtractor(model)
-    model = model.to(device)
-    model.eval()
-    return model.to(device)
+def get_feature_extractor(device, dataset_name):
+    if dataset_name == "cifar10":
+        print("Using PreActResnet18-Cifar10 as a feature extractor")
+        model = PreActResNet18(num_classes=10)
+        checkpoint = torch.load('models/cifar10_embedder_preact_resnet18.pth', map_location='cpu')
+        model.load_state_dict(checkpoint)
+        model = torch.nn.Sequential(*(list(model.children())[:-1]))
+        model = model.to(device)
+        model.eval()
+        return model
+    elif dataset_name == "cifar100":
+        print("Using PreActResnet18-Cifar100 as a feature extractor")
+        model = PreActResNet18()
+        in_features = model.linear.in_features
+        model.linear = nn.Linear(in_features, 100)
+        checkpoint = torch.load('models/cifar100_embedder_preact_resnet18.pth', map_location='cpu')
+        model.load_state_dict(checkpoint)
+        model = torch.nn.Sequential(*(list(model.children())[:-1]))
+        model = model.to(device)
+        model.eval()
+        return model
 
 def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda', file_key=None):
     # get training size
@@ -141,7 +142,10 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
         val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
 
         # load the feature extractor
-        extractor = get_feature_extractor(device)
+        if file_key is None:
+            raise ValueError("file_key must be provided to determine dataset name")
+        dataset_name = file_key.split('_')[0] 
+        extractor = get_feature_extractor(device, dataset_name)
 
         print(f"--- LAVA Selection Started ---")
         print(f"Total training samples to evaluate: {training_size}")
