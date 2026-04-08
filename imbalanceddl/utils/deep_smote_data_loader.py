@@ -11,6 +11,8 @@ class CustomImageDataset(Dataset):
         self.X = X
         self.Y = Y
         self.transform = transform
+        self.targets = Y
+        self.cls_num_list = np.bincount(Y, minlength=len(np.unique(Y))).tolist()
 
     def __len__(self):
         return len(self.X)
