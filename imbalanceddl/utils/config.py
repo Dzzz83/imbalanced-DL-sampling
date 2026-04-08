@@ -19,8 +19,14 @@ def get_args():
     parser.add_argument('--imb_type', default="exp", type=str, choices=['exp', 'step'], help='imbalance type')
     parser.add_argument('--imb_factor', default=0.01, type=float, help='imbalance factor')
     # Strategy
-    parser.add_argument('--strategy', default="ERM", type=str,  choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW','Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE'
-                        ], help='select strategy for trainer')
+    parser.add_argument('--strategy', default="ERM", type=str, 
+                        choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW',
+                                'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE', 
+                                'DeepSMOTE_LAVA'], 
+                        help='select strategy for trainer')
+    parser.add_argument('--base_strategy', default='ERM', type=str,
+                        choices=['ERM', 'Mixup', 'DRW', 'LDAM_DRW', 'Reweight_CB'],
+                        help='Base training strategy used after DeepSMOTE+LAVA (only for DeepSMOTE_LAVA)')
     parser.add_argument('--learning_rate', default=0.1, type=float, metavar='LR', help='initial learning rate', dest='lr')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
     parser.add_argument('--wd', '--weight_decay', default=2e-4, type=float, metavar='W', help='weight decay (default: 1e-4)', dest='weight_decay')

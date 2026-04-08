@@ -7,7 +7,6 @@ from imbalanceddl.strategy import LDAMDRWTrainer
 from imbalanceddl.strategy import ReweightCBTrainer
 from imbalanceddl.strategy import M2mTrainer
 from imbalanceddl.strategy import DeepSMOTETrainer
-from imbalanceddl.strategy import DeepSMOTELAVATrainer
 
 
 
@@ -76,6 +75,7 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
                                     model=model,
                                     strategy=strategy)
     elif strategy == "DeepSMOTE_LAVA":
+        from imbalanceddl.strategy._deepsmote_lava import DeepSMOTELAVATrainer  # <-- add this
         print("=> DeepSMOTE_LAVA Trainer !")
         trainer = DeepSMOTELAVATrainer(cfg,
                                        imbalance_dataset,

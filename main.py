@@ -29,7 +29,6 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
 from imbalanceddl.strategy.selection_method.random_selection import random_selection
 from imbalanceddl.dataset.lava_dataset import LavaDataset
-from imbalanceddl.dataset.deepsmote_wrapper import DeepSMOTEWrapper
 
 def main():
     # 1. Load Configuration
