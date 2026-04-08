@@ -13,7 +13,8 @@ device: cuda
 augmentation: weak
 
 # Training Strategy
-strategy: DeepSMOTE
+strategy: DeepSMOTE_LAVA
+base_strategy: ERM
 loss_type: CE        # Cross Entropy (can be LDAM or CB)
 train_rule: None     # Can be 'DRW' to trigger re-weighting mid-training
 

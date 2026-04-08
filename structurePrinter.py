@@ -33,6 +33,8 @@ if __name__ == "__main__":
         '.vscode',
         'my_venv'
         'wandb'
+        'imbalanced-DL-sampling/log_cifar10/'
+        'example'
     }
 
     project_root = "." 
