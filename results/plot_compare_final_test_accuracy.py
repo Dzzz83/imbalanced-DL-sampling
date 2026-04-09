@@ -78,7 +78,7 @@ def plot_final_comparison(lava_file, random_file, output_dir):
 
     # Formatting
     ax.set_ylabel('Accuracy (%)', fontweight='bold')
-    ax.set_title('Comparison between Lava Selection and Random Selection', fontsize=14, fontweight='bold')
+    ax.set_title('Comparison between Lava + Mixup_DRW and Random + MixupDRW', fontsize=14, fontweight='bold')
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontweight='bold', fontsize=12)
     
@@ -89,15 +89,15 @@ def plot_final_comparison(lava_file, random_file, output_dir):
     ax.legend(loc='lower right')
 
     plt.tight_layout()
-    save_path = os.path.join(output_dir, 'comparison_lava_vs_random_final.png')
+    save_path = os.path.join(output_dir, 'comparison_lava+Mixup_DRW_vs_random+Mixup_DRW.png')
     plt.savefig(save_path, dpi=300)
     print(f"🎉 Successfully saved bar chart to: {save_path}")
     plt.show()
 
 if __name__ == "__main__":
     # --- UPDATE THESE PATHS ---
-    file_lava = "train/cifar10_lava_0.7_exp_0.01_ERM_200_seed.log"
-    file_random = "train/cifar10_random_0.7_exp_0.01_ERM_200_seed.log"
+    file_lava = "train/cifar10_lava0.7_mixup_drw_exp0.01_seed42/cifar10_lava0.7_mixup_drw_exp0.01_seed42_20260403_134214.log"
+    file_random = "train/cifar10_random0.7_mixup_drw_exp0.01_seed42/cifar10_random0.7_mixup_drw_exp0.01_seed42_20260403_142354.log"
     results_output = "plot"
     
     plot_final_comparison(file_lava, file_random, results_output)
