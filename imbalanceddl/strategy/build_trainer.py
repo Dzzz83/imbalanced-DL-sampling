@@ -74,10 +74,10 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
                                     imbalance_dataset,
                                     model=model,
                                     strategy=strategy)
-    elif strategy == "DeepSMOTE_LAVA":
-        from imbalanceddl.strategy._deepsmote_lava import DeepSMOTELAVATrainer  # <-- add this
-        print("=> DeepSMOTE_LAVA Trainer !")
-        trainer = DeepSMOTELAVATrainer(cfg,
+    elif strategy == "DeepSMOTE_Selection":
+        from imbalanceddl.strategy._deepsmote_lava import DeepSMOTESelectionTrainer
+        print("=> DeepSMOTE_Selection Trainer !")
+        trainer = DeepSMOTESelectionTrainer(cfg,
                                        imbalance_dataset,
                                        model=model,
                                        strategy=strategy)
