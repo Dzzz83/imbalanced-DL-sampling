@@ -5,9 +5,10 @@ imb_type: exp        # Exponential imbalance
 imb_factor: 0.01     # 100:1 ratio between head and tail classes
 data_path: ./data
 classifier: 'dot_product_classifier'
+augmentation: weak
 
 # Selection Settings (LAVA)
-selection_method: lava         # Options: lava, random, none
+selection_method: random         # Options: lava, random, none
 selection_ratio: 0.7           # Keep 70% of the data based on LAVA scores
 device: cuda
 
@@ -36,7 +37,7 @@ optimizer: sgd
 # Logging & Checkpoints
 root_log: results_lava/train
 root_model: ./example/checkpoint_cifar100
-store_name: cifar100_lava_0.7_exp0.01
+store_name: cifar100_random_0.7_weakAug_exp0.01
 cifar_root: ./data
 gpu: 0
 seed: 42
