@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import torchvision.transforms as transforms
 from torch.utils.data import Subset
 from .trainer import Trainer
@@ -8,7 +9,7 @@ from imbalanceddl.utils._augmentation import get_weak_augmentation, get_trivial_
 from imbalanceddl.strategy.build_trainer import build_trainer
 from torchvision import datasets
 
-class DeepSMOTELAVATrainer(Trainer):
+class DeepSMOTESelectionTrainer(Trainer):
     def __init__(self, cfg, dataset, model, strategy="DeepSMOTELAVA"):
         # 1. Validation dataset
         _, val_transform = get_weak_augmentation()
@@ -49,16 +50,24 @@ class DeepSMOTELAVATrainer(Trainer):
             transform=train_transform
         )
 
-        # 3. Apply LAVA selection on the plain dataset
-        if cfg.selection_ratio < 1.0 and cfg.selection_method == 'lava':
-            print(f"Computing LAVA scores and selecting top {cfg.selection_ratio*100}%...")
-            indices = get_lava_selection_indices(
-                deepsmote_plain,          # training set (plain)
-                val_ds,                   # validation set
-                keep_ratio=cfg.selection_ratio,
-                device=cfg.device,
-                file_key=f"{cfg.dataset}_deepsmote_{cfg.imb_type}_{cfg.imb_factor}_{cfg.rand_number}"
-            )
+        
+        if cfg.selection_ratio < 1.0:
+            if cfg.selection_method == 'lava':
+                print(f"Computing LAVA scores and selecting top {cfg.selection_ratio*100}%...")
+                indices = get_lava_selection_indices(
+                    deepsmote_plain,          
+                    val_ds,                   
+                    keep_ratio=cfg.selection_ratio,
+                    device=cfg.device,
+                    file_key=f"{cfg.dataset}_deepsmote_{cfg.imb_type}_{cfg.imb_factor}_{cfg.rand_number}"
+                )
+            elif cfg.selection_method == 'random':
+                print(f"Randomly selecting {cfg.selection_ratio*100}% of samples...")
+                total = len(deepsmote_plain)
+                n_keep = int(total * cfg.selection_ratio)
+                indices = random.sample(range(total), n_keep)
+            else:
+                raise ValueError(f"Unknown selection_method: {cfg.selection_method}")
             final_train = Subset(deepsmote_aug, indices)
             print(f"Selected {len(final_train)} samples out of {len(deepsmote_aug)}")
         else:
