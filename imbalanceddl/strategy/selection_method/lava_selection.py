@@ -110,7 +110,7 @@ def get_feature_extractor(device, dataset_name):
     if dataset_name == "cifar10":
         print("Using PreActResnet18-Cifar10 as a feature extractor")
         model = PreActResNet18(num_classes=10)
-        checkpoint = torch.load('models/cifar10_embedder_preact_resnet18.pth', map_location='cpu')
+        checkpoint = torch.load('models/cifar10_embedder_preact_resnet18_2.pth', map_location='cpu')
         model.load_state_dict(checkpoint)
         model = torch.nn.Sequential(*(list(model.children())[:-1]))
         model = model.to(device)
