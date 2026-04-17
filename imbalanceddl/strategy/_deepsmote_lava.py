@@ -20,7 +20,7 @@ class DeepSMOTESelectionTrainer(Trainer):
         else:
             raise NotImplementedError
 
-        # 2. Load DeepSMOTE datasets: plain (for scoring) and augmented (for training)
+        # 2. Load DeepSMOTE datasets: plain (for scoring)
         print("Loading pre-generated DeepSMOTE balanced dataset (plain, no augmentation)...")
         deepsmote_plain = load_deepsmote_dataset(
             dataset=cfg.dataset,
@@ -41,7 +41,8 @@ class DeepSMOTESelectionTrainer(Trainer):
             ])
         else:
             raise NotImplementedError(f"Augmentation {cfg.augmentation} not supported")
-
+        
+        # load the dataset with augmentation
         print("Loading same dataset with training augmentation...")
         deepsmote_aug = load_deepsmote_dataset(
             dataset=cfg.dataset,
@@ -50,7 +51,6 @@ class DeepSMOTESelectionTrainer(Trainer):
             transform=train_transform
         )
 
-        
         if cfg.selection_ratio < 1.0:
             if cfg.selection_method == 'lava':
                 print(f"Computing LAVA scores and selecting top {cfg.selection_ratio*100}%...")
