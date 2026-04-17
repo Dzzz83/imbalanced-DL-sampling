@@ -2,6 +2,7 @@
 """
 Run multiple experiments with different selection_ratio values for each YAML config.
 Works on both local machine and Kaggle.
+Prints training output in real time.
 Usage: python run_ratio_sweep.py
 """
 
@@ -9,63 +10,57 @@ import os
 import sys
 import yaml
 import subprocess
-import shutil
 from pathlib import Path
 
 # ========== ENVIRONMENT DETECTION ==========
 def get_project_root():
     """Determine project root based on environment (local or Kaggle)."""
-    # If running on Kaggle, the working directory is usually /kaggle/working
     if os.path.exists('/kaggle/working'):
-        # Assume the project is placed inside /kaggle/working/imbalanced-DL-sampling
         kaggle_project = '/kaggle/working/imbalanced-DL-sampling'
         if os.path.exists(kaggle_project):
             return kaggle_project
         else:
-            # If not, fallback to current working directory (where script is run)
             return os.getcwd()
     else:
-        # Local: use the directory where this script is located (assumed to be project root)
         return os.path.dirname(os.path.abspath(__file__))
 
 PROJECT_ROOT = get_project_root()
-CONFIG_DIR = os.path.join(PROJECT_ROOT, "config1", "cifar10")   # adjust if needed
+CONFIG_DIR = os.path.join(PROJECT_ROOT, "config1", "cifar10")
 TEMP_CONFIG_DIR = os.path.join(PROJECT_ROOT, "temp_ratio_configs")
 ERROR_LOG = os.path.join(PROJECT_ROOT, "ratio_sweep_errors.log")
-RATIOS = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]   # modify as needed
+RATIOS = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
 
 # ========== HELPER FUNCTIONS ==========
 def setup_directories():
-    """Create temporary config directory if it doesn't exist."""
     os.makedirs(TEMP_CONFIG_DIR, exist_ok=True)
 
 def log_error(message):
-    """Append error message to the log file."""
     with open(ERROR_LOG, "a") as f:
         f.write(message + "\n")
-    print(message)
+    print(f"\n[ERROR LOGGED] {message.splitlines()[0]}...")
 
-def run_command(cmd, cwd):
-    """Run a shell command and return (returncode, stdout, stderr)."""
-    result = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True)
-    return result.returncode, result.stdout, result.stderr
+def run_command_stream_output(cmd, cwd):
+    """
+    Run a command and stream its stdout/stderr to the terminal in real time.
+    Returns the return code.
+    """
+    process = subprocess.Popen(cmd, shell=True, cwd=cwd,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               universal_newlines=True, bufsize=1)
+    # Print output line by line as it comes
+    for line in process.stdout:
+        print(line, end='')
+    process.wait()
+    return process.returncode
 
 def modify_config_for_ratio(original_config_path, ratio, temp_dir):
-    """
-    Load the original YAML, modify selection_ratio and store_name,
-    write a temporary config file, and return its path.
-    """
     with open(original_config_path, 'r') as f:
         config = yaml.safe_load(f)
 
-    # Modify selection_ratio
     config['selection_ratio'] = ratio
-
-    # Modify store_name to include the ratio (avoid overwriting)
     original_store_name = config.get('store_name', 'model')
     config['store_name'] = f"{original_store_name}_ratio{ratio}"
 
-    # Create a unique filename for this ratio
     base_name = os.path.basename(original_config_path).replace('.yaml', '')
     temp_filename = f"{base_name}_ratio{ratio}.yaml"
     temp_path = os.path.join(temp_dir, temp_filename)
@@ -77,17 +72,13 @@ def modify_config_for_ratio(original_config_path, ratio, temp_dir):
 
 def main():
     setup_directories()
-    # Clear old error log
     if os.path.exists(ERROR_LOG):
         os.remove(ERROR_LOG)
 
-    # Check if config directory exists
     if not os.path.isdir(CONFIG_DIR):
         print(f"Config directory not found: {CONFIG_DIR}")
-        print("Please adjust CONFIG_DIR in the script.")
         sys.exit(1)
 
-    # Find all YAML files in CONFIG_DIR
     yaml_files = list(Path(CONFIG_DIR).glob("*.yaml"))
     if not yaml_files:
         print(f"No YAML files found in {CONFIG_DIR}")
@@ -97,7 +88,7 @@ def main():
     print(f"Config directory: {CONFIG_DIR}")
     print(f"Found {len(yaml_files)} config files.")
     print(f"Will run for ratios: {RATIOS}")
-    print(f"Temporary configs will be stored in: {TEMP_CONFIG_DIR}")
+    print(f"Temporary configs stored in: {TEMP_CONFIG_DIR}")
     print(f"Errors logged to: {ERROR_LOG}")
     print("=" * 80)
 
@@ -105,36 +96,29 @@ def main():
     experiment_counter = 0
 
     for config_file in yaml_files:
-        config_name = config_file.stem
         print(f"\n>>> Processing config: {config_file.name}")
 
         for ratio in RATIOS:
             experiment_counter += 1
-            print(f"  [{experiment_counter}/{total_experiments}] Running ratio={ratio} ...")
+            print(f"\n--- [{experiment_counter}/{total_experiments}] Running ratio={ratio} ---")
 
             try:
-                # Create temporary config with this ratio
                 temp_config = modify_config_for_ratio(config_file, ratio, TEMP_CONFIG_DIR)
-
-                # Build the command
                 cmd = f"python main.py --config {temp_config}"
-                print(f"    Command: {cmd}")
+                print(f"Command: {cmd}\n")
 
-                # Run the command from the project root
-                returncode, stdout, stderr = run_command(cmd, PROJECT_ROOT)
+                returncode = run_command_stream_output(cmd, PROJECT_ROOT)
 
                 if returncode != 0:
                     error_msg = (f"ERROR in {config_file.name} with ratio={ratio}\n"
                                  f"Return code: {returncode}\n"
-                                 f"STDERR:\n{stderr}\n"
-                                 f"STDOUT (last 500 chars):\n{stdout[-500:]}\n"
                                  f"{'-'*60}")
                     log_error(error_msg)
-                    print(f"    ❌ Failed (see log for details)")
+                    print(f"❌ Failed with return code {returncode}")
                 else:
-                    print(f"    ✅ Success")
+                    print(f"✅ Success")
 
-                # Optionally remove temporary config file (uncomment if desired)
+                # Optional: remove temp config file (uncomment if desired)
                 # os.remove(temp_config)
 
             except Exception as e:
@@ -142,7 +126,7 @@ def main():
                              f"Exception: {str(e)}\n"
                              f"{'-'*60}")
                 log_error(error_msg)
-                print(f"    ❌ Exception: {e}")
+                print(f"❌ Exception: {e}")
 
     print("\n" + "=" * 80)
     print("All experiments finished.")
