@@ -59,7 +59,7 @@ def save_lava_scores(scores, score_file):
 def compute_dual_1(feature_extractor, trainloader, testloader, training_size, shuffle_ind, p=2, resize=32, device='cuda'):
     # Use sequential indices because the DataLoader returns samples in dataset order.
     train_indices = list(range(training_size))
-    # not used in selection, pnly not to cause errors
+    # not used in selection
     trained_with_flag = lava.train_with_corrupt_flag(trainloader, shuffle_ind, train_indices)
 
     # compute OT dual potentials
@@ -112,6 +112,7 @@ def get_feature_extractor(device, dataset_name):
         model = PreActResNet18(num_classes=10)
         checkpoint = torch.load('models/exp2_lr0.05_wd5e-4_clipTrue_mil120.pth', map_location='cpu')
         model.load_state_dict(checkpoint)
+        # remove the final linear layer
         model = torch.nn.Sequential(*(list(model.children())[:-1]))
         model = model.to(device)
         model.eval()
@@ -123,6 +124,7 @@ def get_feature_extractor(device, dataset_name):
         model.linear = nn.Linear(in_features, 100)
         checkpoint = torch.load('models/cifar100_embedder_preact_resnet18.pth', map_location='cpu')
         model.load_state_dict(checkpoint)
+        # remove the final linear layer
         model = torch.nn.Sequential(*(list(model.children())[:-1]))
         model = model.to(device)
         model.eval()

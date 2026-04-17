@@ -1,0 +1,41 @@
+# Dataset Settings
+dataset: cifar10
+num_classes: 10
+imb_type: exp        
+imb_factor: 0.01     
+data_path: ./data
+classifier: 'dot_product_classifier'
+augmentation: weak
+
+selection_method: lava         
+selection_ratio: 0.9          
+device: cuda
+
+strategy: ERM
+loss_type: CE        
+train_rule: None    
+
+# Hyperparameters
+epochs: 200
+start_epoch: 0
+print_freq: 10
+
+batch_size: 128
+learning_rate: 0.1
+momentum: 0.9
+weight_decay: 2e-4
+lr_steps: [120, 160] 
+gamma: 0.1
+
+rand_number: 0
+
+mixup_alpha: 1.0    
+workers: 4
+optimizer: sgd
+
+root_log: experiments/train
+root_model: ./example/checkpoint_cifar10
+store_name: cifar10_model
+cifar_root: ./data
+gpu: 0
+seed: 42
