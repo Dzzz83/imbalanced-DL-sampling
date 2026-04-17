@@ -37,10 +37,19 @@ class ImbalancedDataset:
                 train_transform, val_transform = get_trivial_augmentation()
             elif self.augmentation == 'none':
                 print(f"Not applying augmentation to the {self.dataset_name}")
+                if self.dataset_name == 'cifar10':
+                    mean = (0.4914, 0.4822, 0.4465)
+                    std = (0.2023, 0.1994, 0.2010)
+                elif self.dataset_name == 'cifar100':
+                    mean = (0.5071, 0.4867, 0.4408)
+                    std = (0.2675, 0.2565, 0.2761)
+                else:
+                    # fallback or raise error
+                    mean = (0.5, 0.5, 0.5)
+                    std = (0.5, 0.5, 0.5)
                 train_transform = transforms.Compose([
                     transforms.ToTensor(),
-                    transforms.Normalize((0.4914, 0.4822, 0.4465),
-                                        (0.2023, 0.1994, 0.2010)),
+                    transforms.Normalize(mean, std)
                 ])
                 val_transform = train_transform
             else:

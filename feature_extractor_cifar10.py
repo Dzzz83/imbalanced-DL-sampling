@@ -4,6 +4,8 @@ import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 import sys
+import os
+
 sys.path.append('./LAVA')
 from models.preact_resnet import PreActResNet18
 
@@ -12,11 +14,13 @@ def train_feature_extractor(config, gpu=1):
     batch_size = 128
     epochs = config.get('epochs', 200)
 
+    # Standard CIFAR-10 normalization (used for both training and validation of the feature extractor)
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     ])
 
+    # Use the CIFAR-10 test set as training data for the feature extractor (balanced, 10k images)
     train_dataset = torchvision.datasets.CIFAR10(
         root='./data', train=False, download=True, transform=transform
     )
@@ -24,6 +28,7 @@ def train_feature_extractor(config, gpu=1):
         train_dataset, batch_size=batch_size, shuffle=True, num_workers=4
     )
 
+    # PreActResNet18 with 10 output classes (CIFAR-10)
     model = PreActResNet18(num_classes=10).to(device)
 
     criterion = nn.CrossEntropyLoss()
@@ -35,28 +40,36 @@ def train_feature_extractor(config, gpu=1):
         running_loss = 0.0
         correct = 0
         total = 0
-        for i, (inputs, labels) in enumerate(train_loader):
+        for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels)
+            
+            loss.backward()
+            
             if config.get('clip', True):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            loss.backward()
+                
             optimizer.step()
+            
             running_loss += loss.item()
             _, pred = outputs.max(1)
             total += labels.size(0)
             correct += pred.eq(labels).sum().item()
+            
         scheduler.step()
         avg_loss = running_loss / len(train_loader)
         acc = 100. * correct / total
         print(f"[{config['name']}] Epoch {epoch+1}/{epochs} | Loss: {avg_loss:.4f} | Acc: {acc:.2f}%")
+        
         if torch.isnan(torch.tensor(avg_loss)):
             print(f"[{config['name']}] NaN detected – stopping early.")
             break
 
-    out_file = f"models/{config['name']}.pth"
+    # Ensure models directory exists
+    os.makedirs('models1', exist_ok=True)
+    out_file = f"models1/{config['name']}.pth"
     torch.save(model.state_dict(), out_file)
     print(f"[{config['name']}] Saved to {out_file}\n")
 
@@ -114,4 +127,4 @@ if __name__ == "__main__":
 
     for config in experiments:
         print(f"\n=== Starting experiment: {config['name']} ===")
-        train_feature_extractor(config, gpu=1)   # use GPU 1
+        train_feature_extractor(config, gpu=1)   # Use GPU 1 (adjust if needed)
