@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Run multiple experiments with different selection_ratio values for each YAML config.
+Works on both local machine and Kaggle.
 Usage: python run_ratio_sweep.py
 """
 
@@ -11,12 +12,27 @@ import subprocess
 import shutil
 from pathlib import Path
 
-# ========== CONFIGURATION ==========
-CONFIG_DIR = "/home/phatht/phat/imbalanced-DL-sampling/config1/cifar10"
-PROJECT_ROOT = "/home/phatht/phat/imbalanced-DL-sampling"   # where main.py lives
+# ========== ENVIRONMENT DETECTION ==========
+def get_project_root():
+    """Determine project root based on environment (local or Kaggle)."""
+    # If running on Kaggle, the working directory is usually /kaggle/working
+    if os.path.exists('/kaggle/working'):
+        # Assume the project is placed inside /kaggle/working/imbalanced-DL-sampling
+        kaggle_project = '/kaggle/working/imbalanced-DL-sampling'
+        if os.path.exists(kaggle_project):
+            return kaggle_project
+        else:
+            # If not, fallback to current working directory (where script is run)
+            return os.getcwd()
+    else:
+        # Local: use the directory where this script is located (assumed to be project root)
+        return os.path.dirname(os.path.abspath(__file__))
+
+PROJECT_ROOT = get_project_root()
+CONFIG_DIR = os.path.join(PROJECT_ROOT, "config1", "cifar10")   # adjust if needed
 TEMP_CONFIG_DIR = os.path.join(PROJECT_ROOT, "temp_ratio_configs")
 ERROR_LOG = os.path.join(PROJECT_ROOT, "ratio_sweep_errors.log")
-RATIOS = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]   # you can modify this list
+RATIOS = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]   # modify as needed
 
 # ========== HELPER FUNCTIONS ==========
 def setup_directories():
@@ -49,10 +65,6 @@ def modify_config_for_ratio(original_config_path, ratio, temp_dir):
     original_store_name = config.get('store_name', 'model')
     config['store_name'] = f"{original_store_name}_ratio{ratio}"
 
-    # Optionally adjust root_log or root_model to separate runs (optional)
-    # config['root_log'] = f"experiments/train/ratio_{ratio}"
-    # config['root_model'] = f"./checkpoints/ratio_{ratio}"
-
     # Create a unique filename for this ratio
     base_name = os.path.basename(original_config_path).replace('.yaml', '')
     temp_filename = f"{base_name}_ratio{ratio}.yaml"
@@ -69,12 +81,20 @@ def main():
     if os.path.exists(ERROR_LOG):
         os.remove(ERROR_LOG)
 
+    # Check if config directory exists
+    if not os.path.isdir(CONFIG_DIR):
+        print(f"Config directory not found: {CONFIG_DIR}")
+        print("Please adjust CONFIG_DIR in the script.")
+        sys.exit(1)
+
     # Find all YAML files in CONFIG_DIR
     yaml_files = list(Path(CONFIG_DIR).glob("*.yaml"))
     if not yaml_files:
         print(f"No YAML files found in {CONFIG_DIR}")
         return
 
+    print(f"Project root: {PROJECT_ROOT}")
+    print(f"Config directory: {CONFIG_DIR}")
     print(f"Found {len(yaml_files)} config files.")
     print(f"Will run for ratios: {RATIOS}")
     print(f"Temporary configs will be stored in: {TEMP_CONFIG_DIR}")
@@ -114,7 +134,7 @@ def main():
                 else:
                     print(f"    ✅ Success")
 
-                # Clean up the temporary config file (optional)
+                # Optionally remove temporary config file (uncomment if desired)
                 # os.remove(temp_config)
 
             except Exception as e:
