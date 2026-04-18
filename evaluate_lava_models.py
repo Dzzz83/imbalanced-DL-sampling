@@ -10,9 +10,20 @@ for mod in lib:
     if mod not in sys.modules:
         sys.modules[mod] = MagicMock()
 
-# Add paths
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(current_dir)
+# ---------- Environment detection ----------
+def get_project_root():
+    """Determine project root based on environment (local or Kaggle)."""
+    if os.path.exists('/kaggle/working'):
+        kaggle_project = '/kaggle/working/imbalanced-DL-sampling'
+        if os.path.exists(kaggle_project):
+            return kaggle_project
+        else:
+            return os.getcwd()
+    else:
+        # Local: assume this script is in the project root
+        return os.path.dirname(os.path.abspath(__file__))
+
+project_root = get_project_root()
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -123,10 +134,11 @@ def main():
     all_classes = list(range(cfg.num_classes))
     orig_dict = {c: original_counts.get(c, 0) for c in all_classes}
 
-    # Directory containing the trained models
-    models_dir = "/home/phatht/phat/imbalanced-DL-sampling/models1"
+    # Directory containing the trained models – relative to project root
+    models_dir = os.path.join(project_root, "models1")
     if not os.path.isdir(models_dir):
         print(f"Directory not found: {models_dir}")
+        print("Please ensure the 'models1' folder exists in the project root.")
         return
 
     # Find all .pth files in that directory
@@ -137,7 +149,7 @@ def main():
 
     device = f"cuda:{cfg.gpu}" if torch.cuda.is_available() else "cpu"
     keep_ratio = 0.7
-    out_dir = 'lava_test'
+    out_dir = os.path.join(project_root, 'lava_test')
     os.makedirs(out_dir, exist_ok=True)
 
     for model_file in model_files:
