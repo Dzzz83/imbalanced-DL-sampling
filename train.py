@@ -28,7 +28,7 @@ PROJECT_ROOT = get_project_root()
 CONFIG_DIR = os.path.join(PROJECT_ROOT, "config1", "cifar10")
 TEMP_CONFIG_DIR = os.path.join(PROJECT_ROOT, "temp_ratio_configs")
 ERROR_LOG = os.path.join(PROJECT_ROOT, "ratio_sweep_errors.log")
-RATIOS = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
+RATIOS = [0.9, 0.7, 0.5, 0.3, 0.1]
 
 # ========== HELPER FUNCTIONS ==========
 def setup_directories():
