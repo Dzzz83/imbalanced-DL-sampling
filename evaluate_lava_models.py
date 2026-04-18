@@ -31,13 +31,13 @@ import torch
 import numpy as np
 from torch.utils.data import DataLoader
 from collections import Counter
+from torchvision import datasets
 
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.logging import setup_logger, create_distribution_table
 from imbalanceddl.utils._augmentation import get_weak_augmentation
-from torchvision import datasets
 
-# ---------- Copy necessary functions from lava_selection (to avoid import loops) ----------
+# ---------- Helper functions (copied from lava_selection) ----------
 class OTDDWrapper(torch.utils.data.Dataset):
     def __init__(self, dataset):
         self.dataset = dataset
@@ -60,6 +60,7 @@ def get_custom_feature_extractor(device, checkpoint_path, num_classes=10):
     model = PreActResNet18(num_classes=num_classes)
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
     model.load_state_dict(checkpoint)
+    # Remove the final linear layer to obtain a pure feature extractor
     model = torch.nn.Sequential(*(list(model.children())[:-1]))
     model = model.to(device)
     model.eval()
@@ -92,75 +93,84 @@ def compute_lava_scores(train_dataset, val_dataset, feature_extractor, device='c
 
 # ---------- Main ----------
 def main():
-    # Configuration
+    # Configuration – adjust for your dataset
     class Config:
-        dataset = 'cifar10'
+        dataset = 'cifar10'          # CIFAR-10
         imb_type = 'exp'
         imb_factor = 0.01
         num_classes = 10
         rand_number = 0
-        augmentation = 'none'
+        augmentation = 'none'        # LAVA scoring uses no augmentation
         root = './data'
         workers = 4
-        gpu = 1   # use GPU 1
+        gpu = 1                      # Use GPU 1 (change if needed)
     cfg = Config()
 
-    # Load validation set
+    # Load validation set (balanced CIFAR-10 test set)
     _, val_transform = get_weak_augmentation()
     val_ds = datasets.CIFAR10(root='./data', train=False, download=True, transform=val_transform)
 
-    # Load imbalanced training set (no augmentation)
+    # Load imbalanced training set (no augmentation, because LAVA scoring uses raw images)
     train_ds_raw = ImbalancedDataset(cfg, cfg.dataset, augmentation='none')
     train_dataset, _ = train_ds_raw.train_val_sets
 
-    # Original class counts
-    original_targets = train_dataset.targets if hasattr(train_dataset, 'targets') else [train_dataset[i][1] for i in range(len(train_dataset))]
+    # Original class counts (for the distribution table)
+    if hasattr(train_dataset, 'targets'):
+        original_targets = train_dataset.targets
+    else:
+        original_targets = [train_dataset[i][1] for i in range(len(train_dataset))]
     original_counts = Counter(original_targets)
     all_classes = list(range(cfg.num_classes))
     orig_dict = {c: original_counts.get(c, 0) for c in all_classes}
 
-    # List of models
-    models = [
-        ('exp1_baseline_lr0.01_wd1e-4_clipTrue_mil120', 'models/exp1_baseline_lr0.01_wd1e-4_clipTrue_mil120.pth'),
-        ('exp2_lr0.05_wd5e-4_clipTrue_mil120', 'models/exp2_lr0.05_wd5e-4_clipTrue_mil120.pth'),
-        ('exp3_lr0.05_wd1e-3_clipTrue_mil120', 'models/exp3_lr0.05_wd1e-3_clipTrue_mil120.pth'),
-        ('exp4_lr0.02_wd5e-4_clipTrue_mil120', 'models/exp4_lr0.02_wd5e-4_clipTrue_mil120.pth'),
-        ('exp5_lr0.05_wd5e-4_clipTrue_mil100_150', 'models/exp5_lr0.05_wd5e-4_clipTrue_mil100_150.pth'),
-        ('exp6_lr0.01_wd5e-4_clipFalse_mil120', 'models/exp6_lr0.01_wd5e-4_clipFalse_mil120.pth'),
-    ]
+    # Directory containing the trained models
+    models_dir = "/home/phatht/phat/imbalanced-DL-sampling/models1"
+    if not os.path.isdir(models_dir):
+        print(f"Directory not found: {models_dir}")
+        return
+
+    # Find all .pth files in that directory
+    model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
+    if not model_files:
+        print(f"No .pth files found in {models_dir}")
+        return
 
     device = f"cuda:{cfg.gpu}" if torch.cuda.is_available() else "cpu"
     keep_ratio = 0.7
     out_dir = 'lava_test'
     os.makedirs(out_dir, exist_ok=True)
 
-    for name, path in models:
-        if not os.path.exists(path):
-            print(f"Warning: {path} not found, skipping.")
+    for model_file in model_files:
+        model_path = os.path.join(models_dir, model_file)
+        model_name = os.path.splitext(model_file)[0]   # remove .pth extension
+
+        print(f"\n========== Evaluating {model_name} ==========")
+        try:
+            extractor = get_custom_feature_extractor(device, model_path, num_classes=10)
+
+            # Compute LAVA scores (no caching)
+            lava_values = compute_lava_scores(train_dataset, val_ds, extractor, device=device)
+
+            # Select top 70% samples (lowest scores = best quality)
+            selected_sample_size = int(len(train_dataset) * keep_ratio)
+            indices = np.argsort(lava_values)[:selected_sample_size].tolist()
+
+            # Compute selected class counts
+            selected_targets = [original_targets[i] for i in indices]
+            selected_counts = Counter(selected_targets)
+            sel_dict = {c: selected_counts.get(c, 0) for c in all_classes}
+
+            # Log distribution table
+            log_path = os.path.join(out_dir, f"{model_name}_distribution.log")
+            logger, _ = setup_logger(log_path)
+            logger.info(f"Model: {model_name}\n")
+            create_distribution_table(logger, orig_dict, sel_dict)
+            logger.info("\n" + "="*60 + "\n")
+            print(f"Distribution table saved to {log_path}")
+
+        except Exception as e:
+            print(f"Error processing {model_name}: {e}")
             continue
-
-        print(f"\n========== Evaluating {name} ==========")
-        extractor = get_custom_feature_extractor(device, path, num_classes=10)
-
-        # Compute LAVA scores (no caching)
-        lava_values = compute_lava_scores(train_dataset, val_ds, extractor, device=device)
-
-        # Select indices
-        selected_sample_size = int(len(train_dataset) * keep_ratio)
-        indices = np.argsort(lava_values)[:selected_sample_size].tolist()
-
-        # Compute selected class counts
-        selected_targets = [original_targets[i] for i in indices]
-        selected_counts = Counter(selected_targets)
-        sel_dict = {c: selected_counts.get(c, 0) for c in all_classes}
-
-        # Log results
-        log_path = os.path.join(out_dir, f"{name}_distribution.log")
-        logger, _ = setup_logger(log_path)
-        logger.info(f"Model: {name}\n")
-        create_distribution_table(logger, orig_dict, sel_dict)
-        logger.info("\n" + "="*60 + "\n")
-        print(f"Distribution table saved to {log_path}")
 
 if __name__ == "__main__":
     main()
