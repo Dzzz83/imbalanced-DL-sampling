@@ -44,8 +44,7 @@ class Network(nn.Module):
             raise ValueError("[Warning] Backbone not supported !")
 
     def _get_num_classes(self):
-        if self.cfg.dataset == 'cifar10' or self.cfg.dataset == 'cinic10' \
-                or self.cfg.dataset == 'svhn10':
+        if self.cfg.dataset in ['cifar10', 'cinic10', 'svhn10', 'cifar10_noisy']:
             return 10
         elif self.cfg.dataset == 'cifar100':
             return 100
