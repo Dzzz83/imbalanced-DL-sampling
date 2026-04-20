@@ -28,7 +28,7 @@ class ImbalancedDataset:
         """
         data_transform = dict()
 
-        if self.dataset_name in ['cifar10', 'cifar100']:
+        if self.dataset_name in ['cifar10', 'cifar100', 'cifar10_noisy']:
             print("=> Get {} data transform".format(self.dataset_name))
             if self.augmentation == 'weak':
                 print(f"Applying Weak Augmentation to the {self.dataset_name}")
