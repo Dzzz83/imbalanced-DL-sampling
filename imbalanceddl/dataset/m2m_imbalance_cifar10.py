@@ -10,7 +10,6 @@ from .m2m_dataset_base import M2mBaseDataset
 from imbalanceddl.utils.config import get_args
 # from imbalanceddl.utils.stratifiedSampler import StratifiedSampler
 
-
 cfg = get_args()
 cudnn.benchmark = True
 if torch.cuda.is_available():

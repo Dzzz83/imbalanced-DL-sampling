@@ -8,6 +8,7 @@ from imbalanceddl.dataset import IMBALANCECIFAR100
 from imbalanceddl.dataset import IMBALANCECINIC10
 from imbalanceddl.dataset import IMBALANCETINY
 from imbalanceddl.dataset import IMBALANCESVHN
+from imbalanceddl.dataset import IMBALANCECIFAR10_NOISY
 from imbalanceddl.utils import get_weak_augmentation, get_trivial_augmentation
 
 
@@ -119,6 +120,8 @@ class ImbalancedDataset:
             return self._cifar10()
         elif self.dataset_name == 'cifar100':
             return self._cifar100()
+        elif self.dataset_name == 'cifar10_noisy':
+            return self._cifar10_noisy()
         elif self.dataset_name == 'cinic10':
             return self._cinic10()
         elif self.dataset_name == 'tiny200':
@@ -167,6 +170,26 @@ class ImbalancedDataset:
                                         transform=self.data_transform['val'])
 
         return train_dataset, val_dataset
+
+    def _cifar10_noisy(self):
+        print("=> Preparing IMBALANCECIFAR10_NOISY {} | {} with noise_ratio={}".format(
+            self.imb_type, self.imb_factor, getattr(self.cfg, 'noise_ratio', 0.25)))
+        train_dataset = IMBALANCECIFAR10_NOISY(
+            root='./data',
+            imb_type=self.imb_type,
+            imb_factor=self.imb_factor,
+            rand_number=self.cfg.rand_number,
+            train=True,
+            download=True,
+            transform=self.data_transform['train'],
+            noise_ratio=getattr(self.cfg, 'noise_ratio', 0.25),
+            num_classes=self.cfg.num_classes,
+            seed=self.cfg.rand_number
+        )
+        self.cfg.cls_num_list = train_dataset.get_cls_num_list()
+        val_dataset = datasets.CIFAR10(root='./data', train=False, download=True,
+                                    transform=self.data_transform['val'])
+        return train_dataset, val_dataset 
 
     def _cinic10(self):
         print("=> Preparing IMBALANCECINIC100 {} | {} !".format(
@@ -223,3 +246,4 @@ class ImbalancedDataset:
                                     transform=self.data_transform['val'])
 
         return train_dataset, val_dataset
+
