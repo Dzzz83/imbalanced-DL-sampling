@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Run multiple experiments with different selection_ratio values for each YAML config.
+Run multiple experiments with different selection_ratio values for a single YAML config.
 Works on both local machine and Kaggle.
 Prints training output in real time.
 Usage: python run_ratio_sweep.py
@@ -25,10 +25,13 @@ def get_project_root():
         return os.path.dirname(os.path.abspath(__file__))
 
 PROJECT_ROOT = get_project_root()
-CONFIG_DIR = os.path.join(PROJECT_ROOT, "config1", "cifar10")
+
+# ========== CONFIGURATION ==========
+# Only this specific config file will be used
+CONFIG_FILE = os.path.join(PROJECT_ROOT, "config1", "cifar10", "model_2.yaml")
 TEMP_CONFIG_DIR = os.path.join(PROJECT_ROOT, "temp_ratio_configs")
 ERROR_LOG = os.path.join(PROJECT_ROOT, "ratio_sweep_errors.log")
-RATIOS = [0.9, 0.5, 0.1]
+RATIOS = [0.9, 0.7, 0.5, 0.4, 0.3, 0.1]
 
 # ========== HELPER FUNCTIONS ==========
 def setup_directories():
@@ -47,7 +50,6 @@ def run_command_stream_output(cmd, cwd):
     process = subprocess.Popen(cmd, shell=True, cwd=cwd,
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                universal_newlines=True, bufsize=1)
-    # Print output line by line as it comes
     for line in process.stdout:
         print(line, end='')
     process.wait()
@@ -75,58 +77,53 @@ def main():
     if os.path.exists(ERROR_LOG):
         os.remove(ERROR_LOG)
 
-    if not os.path.isdir(CONFIG_DIR):
-        print(f"Config directory not found: {CONFIG_DIR}")
+    # Check if the specific config file exists
+    if not os.path.isfile(CONFIG_FILE):
+        print(f"Config file not found: {CONFIG_FILE}")
         sys.exit(1)
 
-    yaml_files = list(Path(CONFIG_DIR).glob("*.yaml"))
-    if not yaml_files:
-        print(f"No YAML files found in {CONFIG_DIR}")
-        return
-
     print(f"Project root: {PROJECT_ROOT}")
-    print(f"Config directory: {CONFIG_DIR}")
-    print(f"Found {len(yaml_files)} config files.")
+    print(f"Config file: {CONFIG_FILE}")
     print(f"Will run for ratios: {RATIOS}")
     print(f"Temporary configs stored in: {TEMP_CONFIG_DIR}")
     print(f"Errors logged to: {ERROR_LOG}")
     print("=" * 80)
 
-    total_experiments = len(yaml_files) * len(RATIOS)
+    total_experiments = len(RATIOS)
     experiment_counter = 0
 
-    for config_file in yaml_files:
-        print(f"\n>>> Processing config: {config_file.name}")
+    config_name = os.path.basename(CONFIG_FILE)
+    print(f"\n>>> Processing config: {config_name}")
 
-        for ratio in RATIOS:
-            experiment_counter += 1
-            print(f"\n--- [{experiment_counter}/{total_experiments}] Running ratio={ratio} ---")
+    for ratio in RATIOS:
+        experiment_counter += 1
+        print(f"\n--- [{experiment_counter}/{total_experiments}] Running ratio={ratio} ---")
 
-            try:
-                temp_config = modify_config_for_ratio(config_file, ratio, TEMP_CONFIG_DIR)
-                cmd = f"python main.py --config {temp_config}"
-                print(f"Command: {cmd}\n")
+        try:
+            temp_config = modify_config_for_ratio(CONFIG_FILE, ratio, TEMP_CONFIG_DIR)
+            cmd = f"python main.py --config {temp_config}"
+            print(f"Command: {cmd}\n")
 
-                returncode = run_command_stream_output(cmd, PROJECT_ROOT)
+            returncode = run_command_stream_output(cmd, PROJECT_ROOT)
 
-                if returncode != 0:
-                    error_msg = (f"ERROR in {config_file.name} with ratio={ratio}\n"
-                                 f"Return code: {returncode}\n"
-                                 f"{'-'*60}")
-                    log_error(error_msg)
-                    print(f"❌ Failed with return code {returncode}")
-                else:
-                    print(f"✅ Success")
-
-                # Optional: remove temp config file (uncomment if desired)
-                # os.remove(temp_config)
-
-            except Exception as e:
-                error_msg = (f"EXCEPTION in {config_file.name} with ratio={ratio}\n"
-                             f"Exception: {str(e)}\n"
+            if returncode != 0:
+                error_msg = (f"ERROR in {config_name} with ratio={ratio}\n"
+                             f"Return code: {returncode}\n"
                              f"{'-'*60}")
                 log_error(error_msg)
-                print(f"❌ Exception: {e}")
+                print(f"❌ Failed with return code {returncode}")
+            else:
+                print(f"✅ Success")
+
+            # Optional: remove temp config file (uncomment if desired)
+            # os.remove(temp_config)
+
+        except Exception as e:
+            error_msg = (f"EXCEPTION in {config_name} with ratio={ratio}\n"
+                         f"Exception: {str(e)}\n"
+                         f"{'-'*60}")
+            log_error(error_msg)
+            print(f"❌ Exception: {e}")
 
     print("\n" + "=" * 80)
     print("All experiments finished.")
