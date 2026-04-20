@@ -75,6 +75,9 @@ def get_args():
                         help='Method for data selection/filtering')
     parser.add_argument('--selection_ratio', default=1.0, type=float, 
                         help='Ratio of data to keep after selection')
+    # noise ratio
+    parser.add_argument('--noise_ratio', default=0.25, type=float,
+                    help='Ratio of label noise (0.0 to 1.0) for noisy datasets')
     
     # Augmentation
     parser.add_argument('--augmentation', default='none', type=str, 

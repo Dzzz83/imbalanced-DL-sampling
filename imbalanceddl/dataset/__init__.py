@@ -9,7 +9,8 @@ from .m2m_imbalance_svhn import M2M_SVHN_LT
 from .m2m_imbalance_cifar10 import M2M_CIFAR10_LT
 from .m2m_imbalance_cifar100 import M2M_CIFAR100_LT
 from .imbalance_dataset import ImbalancedDataset
+from .imbalance_cifar_nosiy import IMBALANCECIFAR10_NOISY
 __all__ = [
-    "IMBALANCECIFAR10", "IMBALANCECIFAR100", "IMBALANCECINIC10",
+    "IMBALANCECIFAR10", "IMBALANCECIFAR100", "IMBALANCECINIC10", "IMBALANCECIFAR10_NOISY", 
     "IMBALANCETINY", "IMBALANCESVHN", "M2M_CINIC10_LT", "M2M_TINYIMAGENET200_LT", "M2M_SVHN_LT", "M2M_CIFAR10_LT", "M2M_CIFAR100_LT"
 ]
