@@ -8,7 +8,7 @@ from imbalanceddl.dataset import IMBALANCECIFAR100
 from imbalanceddl.dataset import IMBALANCECINIC10
 from imbalanceddl.dataset import IMBALANCETINY
 from imbalanceddl.dataset import IMBALANCESVHN
-from imbalanceddl.dataset import IMBALANCECIFAR10_NOISY
+from imbalanceddl.dataset.imbalance_cifar_noisy import IMBALANCECIFAR10_NOISY
 from imbalanceddl.utils import get_weak_augmentation, get_trivial_augmentation
 
 
