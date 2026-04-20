@@ -186,6 +186,14 @@ class ImbalancedDataset:
             num_classes=self.cfg.num_classes,
             seed=self.cfg.rand_number
         )
+
+        print(f"[VERIFY] Dataset size: {len(train_dataset)}")
+        if hasattr(train_dataset, 'targets'):
+            unique, counts = np.unique(train_dataset.targets, return_counts=True)
+            print(f"[VERIFY] Final class distribution: {dict(zip(unique, counts))}")
+        # Optional: print first 10 labels
+        print(f"[VERIFY] First 10 labels: {train_dataset.targets[:10]}")
+
         self.cfg.cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = datasets.CIFAR10(root='./data', train=False, download=True,
                                     transform=self.data_transform['val'])

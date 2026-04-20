@@ -14,9 +14,15 @@ class IMBALANCECIFAR10_NOISY(IMBALANCECIFAR10):
         self._add_label_noise()
 
     def _add_label_noise(self):
+        # Print original class distribution
+        original_counts = dict(Counter(self.targets))
+        print(f"[NOISY] Original class distribution: {original_counts}")
+
         targets = np.array(self.targets)
         # get the number of intended noisy samples
         noisy_sample_num = int(len(targets) * self.noise_ratio)
+        print(f"[NOISY] Flipping {noisy_sample_num} out of {len(targets)} labels (ratio={self.noise_ratio})")
+
         # get a list of random indexs to choose samples to inject noise without replacement
         noisy_idx = self.rng.choice(len(targets), noisy_sample_num, replace=False)
         for idx in noisy_idx:
@@ -34,4 +40,7 @@ class IMBALANCECIFAR10_NOISY(IMBALANCECIFAR10):
 
         # recompute per-class counts
         self.num_per_cls_dict = dict(Counter(self.targets))
+
+        # Print new class distribution
+        print(f"[NOISY] New class distribution: {self.num_per_cls_dict}")
         
