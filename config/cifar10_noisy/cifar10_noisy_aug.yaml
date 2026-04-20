@@ -1,0 +1,44 @@
+# Dataset Settings
+dataset: cifar10_noisy
+num_classes: 10
+imb_type: exp        # Exponential imbalance
+imb_factor: 1.0     # 100:1 ratio between head and tail classes
+data_path: ./data
+classifier: 'dot_product_classifier'
+augmentation: weak
+
+# Selection Settings (LAVA)
+selection_method: none         # Options: lava, random, none
+selection_ratio: 1.0           # Keep 70% of the data based on LAVA scores
+noise_ratio: 0.25              # noise ratio
+device: cuda
+
+# Training Strategy
+strategy: ERM
+loss_type: CE        # Cross Entropy (can be LDAM or CB)
+train_rule: None     # Can be 'DRW' to trigger re-weighting mid-training
+
+# Hyperparameters
+epochs: 200
+start_epoch: 0
+print_freq: 10
+
+batch_size: 128
+learning_rate: 0.1
+momentum: 0.9
+weight_decay: 2e-4
+lr_steps: [120, 160] # Epochs where the learning rate drops
+gamma: 0.1
+
+rand_number: 0
+# Augmentation
+mixup_alpha: 1.0     # Strength of the mixup interpolation
+workers: 4
+optimizer: sgd
+# Logging & Checkpoints
+root_log: experiments
+root_model: ./example/checkpoint_cifar10
+store_name: cifar10_noisy_lava_0.7_weakAug_exp0.01
+cifar_root: ./data
+gpu: 1
+seed: 42
