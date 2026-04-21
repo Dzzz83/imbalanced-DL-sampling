@@ -140,8 +140,8 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
     if lava_values is None:
         # prepare the dataset, shuffle=False to map correctly scores to each sample
         train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
-        train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
-        val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
+        train_loader = DataLoader(train_wrapper, batch_size=64, shuffle=False, num_workers=4)
+        val_loader = DataLoader(val_wrapper, batch_size=64, shuffle=False)
 
         # load the feature extractor
         if file_key is None:
