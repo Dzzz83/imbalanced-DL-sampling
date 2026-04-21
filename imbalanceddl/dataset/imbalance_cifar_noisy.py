@@ -40,7 +40,8 @@ class IMBALANCECIFAR10_NOISY(IMBALANCECIFAR10):
 
         # recompute per-class counts
         self.num_per_cls_dict = dict(Counter(self.targets))
-
+        # update
+        self.cls_num_list = [self.num_per_cls_dict[i] for i in range(self.num_classes)]
         # Print new class distribution
         print(f"[NOISY] New class distribution: {self.num_per_cls_dict}")
         
