@@ -217,10 +217,12 @@ def main():
 
     # Optionally, also show boxplot per class for noisy dataset
     class_names = ['airplane', 'automobile', 'bird', 'cat', 'deer',
-                   'dog', 'frog', 'horse', 'ship', 'truck']
+                'dog', 'frog', 'horse', 'ship', 'truck']
     scores_per_class = {i: [] for i in range(10)}
     for idx, label in enumerate(noisy_dataset.targets):
-        scores_per_class[label].append(noisy_scores[idx])
+        # Convert label to int if it's a tensor
+        lbl = int(label) if hasattr(label, 'item') else label
+        scores_per_class[lbl].append(noisy_scores[idx])
     data_to_plot = [scores_per_class[i] for i in range(10)]
     plt.figure(figsize=(12, 6))
     bp = plt.boxplot(data_to_plot, labels=class_names, patch_artist=True,
