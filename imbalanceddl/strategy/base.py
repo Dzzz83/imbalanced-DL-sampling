@@ -245,7 +245,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             f"Seed: {self.cfg.seed}, rand_number: {self.cfg.rand_number}\n"
             f"Augmentation: {self.cfg.augmentation}\n"
         )
-        if hasattr(self.cfg, 'noise_ratio') and self.cfg.noise_ratio is not None:
+        if self.cfg.dataset == 'cifar10_noisy' and hasattr(self.cfg, 'noise_ratio') and self.cfg.noise_ratio is not None:
             header += f"Noise ratio: {self.cfg.noise_ratio}\n"
         if hasattr(self.cfg, 'mixup_alpha'):
             header += f"mixup_alpha: {self.cfg.mixup_alpha}\n"
