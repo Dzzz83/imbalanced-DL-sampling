@@ -129,7 +129,8 @@ def load_and_cap_deepsmote(dataset, imb_type, imb_factor, class_caps=None):
     num_classes = len(np.unique(Y))
     # Determine per-class caps
     if class_caps is None:
-        caps = [5000] + [4000] * (num_classes - 1)
+        # NEW DEFAULT: all classes capped to 4000
+        caps = [4000] * num_classes
     elif isinstance(class_caps, list):
         caps = class_caps
     elif isinstance(class_caps, dict):
@@ -151,8 +152,7 @@ def load_and_cap_deepsmote(dataset, imb_type, imb_factor, class_caps=None):
     keep = np.array(keep)
     X = X[keep]
     Y = Y[keep].astype(int)
-    print(f"Capped dataset size: {len(X)} samples")
-
+    print(f"Capped dataset size: {len(X)} samples (all classes capped to {caps[0] if caps else '?'})")
     return X, Y
 
 def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None, class_caps=None):
@@ -175,7 +175,8 @@ def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None, class_
 
     num_classes = len(np.unique(Y))
     if class_caps is None:
-        num_per_class = [5000] + [4000] * (num_classes - 1) # [5000, 4000, ...., 4000]
+        # num_per_class = [5000] + [4000] * (num_classes - 1) # [5000, 4000, ...., 4000]
+        num_per_class = [4000] * num_classes
     elif isinstance(class_caps, list):
         num_per_class = class_caps  
     elif isinstance(class_caps, dict):
