@@ -54,15 +54,19 @@ def main():
     print(f"Creating training dataset with {config.augmentation} augmentation...")
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation=config.augmentation)
 
-    if config.selection_ratio < 1.0:
-        print(f"=> Applying Data Selection: {config.selection_method} (Ratio: {config.selection_ratio})")
-        imbalance_dataset = LavaDataset(
-            config, 
-            imbalance_dataset, 
-            config.selection_ratio, 
-            config.selection_method, 
-            device=device
-        )
+    # Skip automatic data selection for DeepSMOTE_Selection (handles it internally)
+    if config.strategy == "DeepSMOTE_Selection":
+        print("=> DeepSMOTE_Selection handles selection internally. Skipping main script selection.")
+    else:
+        if config.selection_ratio < 1.0:
+            print(f"=> Applying Data Selection: {config.selection_method} (Ratio: {config.selection_ratio})")
+            imbalance_dataset = LavaDataset(
+                config, 
+                imbalance_dataset, 
+                config.selection_ratio, 
+                config.selection_method, 
+                device=device
+            )
 
     # 7. Build Trainer
     trainer = build_trainer(config,

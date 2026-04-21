@@ -5,7 +5,6 @@ import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 
-
 class CustomImageDataset(Dataset):
     def __init__(self, X, Y, transform=None):
         self.X = X
@@ -105,7 +104,58 @@ def get_balanced_deep_smote(dataset, batch_size, imb_type, imb_factor, num_worke
 
     return train_smote_loader
 
-def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None):
+def load_and_cap_deepsmote(dataset, imb_type, imb_factor, class_caps=None):
+    """
+    Load raw DeepSMOTE data and apply class capping.
+    Returns (X_capped, Y_capped) as numpy arrays.
+    """
+    deepsmote_folder = 'deepsmote_models'
+    path_prefix = f'./{deepsmote_folder}/{dataset}/{dataset}_{imb_type}_R{int(1/imb_factor)}_'
+    data_file = path_prefix + "train_data.txt"
+    label_file = path_prefix + "train_label.txt"
+
+    if not os.path.exists(data_file):
+        raise FileNotFoundError(f"DeepSMOTE data not found at {os.path.abspath(data_file)}")
+
+    X = np.loadtxt(data_file)   # (N, 3072)
+    Y = np.loadtxt(label_file)  # (N,)
+
+    # Reshape to (N, 3, 32, 32)
+    X = X.reshape(-1, 3, 32, 32)
+    # Convert to HWC for PIL compatibility (uint8)
+    X = np.transpose(X, (0, 2, 3, 1))
+    X = np.clip(X * 255, 0, 255).astype(np.uint8)
+
+    num_classes = len(np.unique(Y))
+    # Determine per-class caps
+    if class_caps is None:
+        caps = [5000] + [4000] * (num_classes - 1)
+    elif isinstance(class_caps, list):
+        caps = class_caps
+    elif isinstance(class_caps, dict):
+        caps = []
+        for c in range(num_classes):
+            caps.append(class_caps.get(c, len(np.where(Y == c)[0])))
+    else:
+        raise TypeError("class_caps must be None, list, or dict")
+
+    # Subsample each class
+    keep = []
+    for c in range(num_classes):
+        idx = np.where(Y == c)[0]
+        cap = caps[c]
+        if len(idx) > cap:
+            idx = np.random.choice(idx, cap, replace=False)
+        keep.extend(idx)
+
+    keep = np.array(keep)
+    X = X[keep]
+    Y = Y[keep].astype(int)
+    print(f"Capped dataset size: {len(X)} samples")
+
+    return X, Y
+
+def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None, class_caps=None):
     """Load pre‑generated DeepSMOTE balanced dataset as a CustomImageDataset."""
     deepsmote_folder = 'deepsmote_models'
     path_prefix = f'./{deepsmote_folder}/{dataset}/{dataset}_{imb_type}_R{int(1/imb_factor)}_'
@@ -122,6 +172,40 @@ def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None):
     X = X.reshape(-1, 3, 32, 32)               # (N, 3, 32, 32)
     X = np.transpose(X, (0, 2, 3, 1))          # (N, 32, 32, 3) for PIL
     X = np.clip(X * 255, 0, 255).astype(np.uint8)
+
+    num_classes = len(np.unique(Y))
+    if class_caps is None:
+        num_per_class = [5000] + [4000] * (num_classes - 1) # [5000, 4000, ...., 4000]
+    elif isinstance(class_caps, list):
+        num_per_class = class_caps  
+    elif isinstance(class_caps, dict):
+        num_per_class = []
+        for i in range(num_classes):
+            if i in class_caps:
+                num_per_class.append(class_caps[i])
+            else:
+                num_per_class.append(len(np.where(Y == i)[0]))
+    else:
+        raise TypeError("class_caps must be None, list, or dict")
+    
+    keep_indices = []
+    for c in range(num_classes):
+        # find all positions where the label equals c
+        class_idx = np.where(Y == c)[0] # Y is array of labels
+        cap = num_per_class[c]
+        # if there are more samples in that class, cap it down
+        if len(class_idx) > cap:
+            # choose randomly without replacement
+            selected = np.random.choice(class_idx, cap, replace=False)
+        else:
+            selected = class_idx
+        keep_indices.extend(selected)
+
+    keep_indices = np.array(keep_indices)
+    X = X[keep_indices]
+    Y = Y[keep_indices].astype(int)
+
+    print(f"Dataset size after capping: {len(keep_indices)} samples")  
 
     # Default transform if none provided
     if transform is None:
