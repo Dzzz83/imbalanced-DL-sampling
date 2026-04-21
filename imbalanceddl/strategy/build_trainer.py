@@ -8,8 +8,6 @@ from imbalanceddl.strategy import ReweightCBTrainer
 from imbalanceddl.strategy import M2mTrainer
 from imbalanceddl.strategy import DeepSMOTETrainer
 
-
-
 def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
     """
     Build various strategy (trainer) specified by users
