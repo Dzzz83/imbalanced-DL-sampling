@@ -18,7 +18,7 @@ loss_type: CE        # Cross Entropy (can be LDAM or CB)
 train_rule: None     # Can be 'DRW' to trigger re-weighting mid-training
 
 # Hyperparameters
-epochs: 400
+epochs: 200
 start_epoch: 0
 print_freq: 10
 
@@ -35,7 +35,7 @@ mixup_alpha: 1.0     # Strength of the mixup interpolation
 workers: 4
 optimizer: sgd
 # Logging & Checkpoints
-root_log: results/train
+root_log: experiments
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_lava_selection_0.7_mixup_drw_exp0.01
 cifar_root: ./data
