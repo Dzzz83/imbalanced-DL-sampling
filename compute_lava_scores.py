@@ -29,6 +29,7 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
 from torchvision import datasets
 from imbalanceddl.utils._augmentation import get_weak_augmentation
+from imbalanceddl.utils.key_generation import LavaCacheKey
 
 def main():
     # 1. Load Configuration
@@ -47,15 +48,26 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.cuda.empty_cache()
 
-    # 4. Build the dataset WITHOUT AUGMENTATION (for scoring)
-    #    We need the plain training set and the validation set.
-    #    We use the same ImbalancedDataset with augmentation='none'.
-    print(f"Creating plain dataset (no augmentation) for LAVA scoring...")
-    plain_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation='none')
-    train_ds, _ = plain_dataset.train_val_sets   # training set (plain)
-
-    # 5. Build validation set (balanced test set) – same as in ImbalancedDataset
+    # 4. Build the training dataset (plain, no augmentation) based on strategy
     _, val_transform = get_weak_augmentation()
+
+    if config.strategy == 'DeepSMOTE_Selection':
+        print("Loading DeepSMOTE data (capped) for LAVA scoring...")
+        from imbalanceddl.utils.deep_smote_data_loader import load_and_cap_deepsmote, CustomImageDataset
+        X_capped, Y_capped = load_and_cap_deepsmote(
+            dataset=config.dataset,
+            imb_type=config.imb_type,
+            imb_factor=config.imb_factor,
+            class_caps=None  # default [5000,4000,...]
+        )
+        # Use validation transform (ToTensor + Normalize) for plain scoring
+        train_ds = CustomImageDataset(X_capped, Y_capped, transform=val_transform)
+    else:
+        print("Creating plain dataset (no augmentation) for LAVA scoring...")
+        plain_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation='none')
+        train_ds, _ = plain_dataset.train_val_sets
+
+    # 5. Build validation set (balanced test set)
     if config.dataset == 'cifar10' or config.dataset == 'cifar10_noisy':
         val_ds = datasets.CIFAR10(root='./data', train=False, download=True, transform=val_transform)
     elif config.dataset == 'cifar100':
@@ -63,13 +75,17 @@ def main():
     else:
         raise NotImplementedError(f"Validation set for {config.dataset} not implemented")
 
-    # 6. Compute LAVA scores (cached automatically)
-    file_key = f"{config.dataset}_{config.imb_type}_{config.imb_factor}_{config.rand_number}"
+    # 6. Generate cache key using LavaCacheKey
+    is_deepsmote = (config.strategy == 'DeepSMOTE_Selection')
+    key_gen = LavaCacheKey(config=config, is_deepsmote=is_deepsmote)
+    file_key = key_gen.generate()
     print(f"Computing LAVA scores with file_key = {file_key}")
+
+    # 7. Compute LAVA scores (cached automatically)
     indices = get_lava_selection_indices(
         train_dataset=train_ds,
         val_dataset=val_ds,
-        keep_ratio=config.selection_ratio,   # still needed for the function, but scores are saved regardless
+        keep_ratio=config.selection_ratio,
         device=device,
         file_key=file_key
     )

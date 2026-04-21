@@ -5,6 +5,7 @@ import os
 from imbalanceddl.dataset import ImbalancedDataset 
 from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
 from imbalanceddl.strategy.selection_method.random_selection import random_selection
+from imbalanceddl.utils.key_generation import LavaCacheKey
 
 class LavaDataset(Dataset):
     def __init__(self, config, base_dataset, ratio, method, device='cuda'):
@@ -30,7 +31,8 @@ class LavaDataset(Dataset):
         method_str = str(method).lower()
 
         if method_str == 'lava':
-            file_key = f"{self.config.dataset}_{self.config.imb_type}_{self.config.imb_factor}_{self.config.rand_number}"
+            key_gen = LavaCacheKey(config=self.config, is_deepsmote=False)
+            file_key = key_gen.generate()
             print("Creating dataset (no augmentation) for LAVA scoring...")
             no_aug_dataset = ImbalancedDataset(self.config, self.config.dataset, augmentation='none')
             no_aug_train_dataset, _ = no_aug_dataset.train_val_sets
