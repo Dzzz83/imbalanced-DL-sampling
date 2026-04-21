@@ -57,7 +57,7 @@ class MixupTrainer(Trainer):
             if self.cfg.epochs == 300:
                 idx = self.epoch // 250
             else:
-                idx = self.epoch // 130
+                idx = self.epoch // 140
             betas = [0, 0.9999]
             effective_num = 1.0 - np.power(betas[idx], self.cls_num_list)
             per_cls_weights = (1.0 - betas[idx]) / np.array(effective_num)
