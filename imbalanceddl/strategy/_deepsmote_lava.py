@@ -42,7 +42,10 @@ class DeepSMOTESelectionTrainer(Trainer):
         # Create plain dataset (no augmentation, only normalization)
         plain_transform = val_transform   # ToTensor + Normalize
         plain_dataset = CustomImageDataset(X_capped, Y_capped, transform=plain_transform)
+        #NOTE : DOWN TRAINING SIZE TO 5000 FOR FASTER LAVA SCORING, CAN BE INCREASED IF MORE COMPUTE AVAILABLE TEST
+        sub_plain = Subset(plain_dataset, list(range(min(len(plain_dataset), 5000))))  # Use a subset for scoring to speed up LAVA    
         print(f"\n3. Plain dataset (for scoring) created with {len(plain_dataset)} samples")
+        print(f"DOWN CLASS SIZE TO 5000 FOR FASTER LAVA SCORING, CAN BE INCREASED IF MORE COMPUTE AVAILABLE")
         print(f"   Transform: ToTensor + Normalize (no augmentation)")
 
         # Determine training transform
@@ -67,6 +70,8 @@ class DeepSMOTESelectionTrainer(Trainer):
         
         # Create augmented dataset (with augmentation)
         aug_dataset = CustomImageDataset(X_capped, Y_capped, transform=train_transform)
+        
+      
         print(f"\n5. Augmented dataset (for training) created with {len(aug_dataset)} samples")
 
         # Apply selection (LAVA or random) on the plain dataset
@@ -83,6 +88,7 @@ class DeepSMOTESelectionTrainer(Trainer):
                     device=cfg.device,
                     file_key=file_key
                 )
+                # NOTE: TEST FOR SMALL DATASET HALF TRAINING SIZE TO SPEED UP LAVA SCORING, CAN BE INCREASED IF MORE COMPUTE AVAILABLE
                 print(f"   LAVA selection completed. Kept {len(indices)} indices.")
             elif cfg.selection_method == 'random':
                 print("   Randomly selecting samples...")
