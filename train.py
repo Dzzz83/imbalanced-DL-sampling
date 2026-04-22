@@ -28,7 +28,7 @@ PROJECT_ROOT = get_project_root()
 
 # ========== CONFIGURATION ==========
 # Only this specific config file will be used
-CONFIG_FILE = os.path.join(PROJECT_ROOT, "config1", "cifar10", "model_2.yaml")
+CONFIG_FILE = os.path.join(PROJECT_ROOT, "config1", "cifar10", "model_1.yaml")
 TEMP_CONFIG_DIR = os.path.join(PROJECT_ROOT, "temp_ratio_configs")
 ERROR_LOG = os.path.join(PROJECT_ROOT, "ratio_sweep_errors.log")
 RATIOS = [0.9, 0.7, 0.5, 0.3, 0.1]
@@ -111,9 +111,9 @@ def main():
                              f"Return code: {returncode}\n"
                              f"{'-'*60}")
                 log_error(error_msg)
-                print(f"❌ Failed with return code {returncode}")
+                print(f"Failed with return code {returncode}")
             else:
-                print(f"✅ Success")
+                print(f"Success")
 
             # Optional: remove temp config file (uncomment if desired)
             # os.remove(temp_config)
@@ -123,7 +123,7 @@ def main():
                          f"Exception: {str(e)}\n"
                          f"{'-'*60}")
             log_error(error_msg)
-            print(f"❌ Exception: {e}")
+            print(f"Exception: {e}")
 
     print("\n" + "=" * 80)
     print("All experiments finished.")
