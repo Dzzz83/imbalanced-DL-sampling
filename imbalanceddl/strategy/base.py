@@ -254,12 +254,26 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         self.logger.info(header)
         self.logger.info("=> Preparing logger and tensorboard writer !")
         
-        current_counts = self.train_dataset.get_cls_num_list()
+        def get_cls_num_list(dataset):
+            if hasattr(dataset, 'get_cls_num_list'):
+                return dataset.get_cls_num_list()
+            elif hasattr(dataset, 'dataset') and hasattr(dataset.dataset, 'get_cls_num_list'):
+                return dataset.dataset.get_cls_num_list()
+            elif hasattr(dataset, 'targets'):
+                targets = dataset.targets
+            else:
+                # Fallback: iterate over dataset (slow, but only once)
+                targets = [dataset[i][1] for i in range(len(dataset))]
+            return np.bincount(targets, minlength=self.cfg.num_classes).tolist()
+
+        current_counts = get_cls_num_list(self.train_dataset)
         selected_dict = {i: count for i, count in enumerate(current_counts)}
 
         if hasattr(self.train_dataset, 'base_dataset'):
-            # This reaches: LavaDataset -> ImbalancedDataset -> IMBALANCECIFAR10.cls_num_list
             original_counts = self.train_dataset.base_dataset.train_val_sets[0].cls_num_list
+        elif hasattr(self.train_dataset, 'dataset') and hasattr(self.train_dataset.dataset, 'base_dataset'):
+            orig_ds = self.train_dataset.dataset.base_dataset.train_val_sets[0]
+            original_counts = orig_ds.cls_num_list
         else:
             original_counts = current_counts
             
