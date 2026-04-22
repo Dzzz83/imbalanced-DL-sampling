@@ -42,8 +42,6 @@ class DeepSMOTESelectionTrainer(Trainer):
         # Create plain dataset (no augmentation, only normalization)
         plain_transform = val_transform   # ToTensor + Normalize
         plain_dataset = CustomImageDataset(X_capped, Y_capped, transform=plain_transform)
-        #NOTE : DOWN TRAINING SIZE TO 5000 FOR FASTER LAVA SCORING, CAN BE INCREASED IF MORE COMPUTE AVAILABLE TEST
-        sub_plain = Subset(plain_dataset, list(range(min(len(plain_dataset), 5000))))  # Use a subset for scoring to speed up LAVA    
         print(f"\n3. Plain dataset (for scoring) created with {len(plain_dataset)} samples")
         print(f"DOWN CLASS SIZE TO 5000 FOR FASTER LAVA SCORING, CAN BE INCREASED IF MORE COMPUTE AVAILABLE")
         print(f"   Transform: ToTensor + Normalize (no augmentation)")
@@ -70,8 +68,9 @@ class DeepSMOTESelectionTrainer(Trainer):
         
         # Create augmented dataset (with augmentation)
         aug_dataset = CustomImageDataset(X_capped, Y_capped, transform=train_transform)
-        
-      
+        original_cls_num_list = aug_dataset.get_cls_num_list()   
+        cfg.original_cls_num_list = original_cls_num_list
+
         print(f"\n5. Augmented dataset (for training) created with {len(aug_dataset)} samples")
 
         # Apply selection (LAVA or random) on the plain dataset

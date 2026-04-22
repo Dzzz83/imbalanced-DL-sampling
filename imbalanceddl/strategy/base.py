@@ -14,6 +14,7 @@ from imbalanceddl.utils.logging import setup_logger, create_distribution_table
 from collections import Counter
 import torch
 import datetime  
+from torch.utils.data import Subset
 
 
 class BaseTrainer(metaclass=abc.ABCMeta):
@@ -257,19 +258,24 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         def get_cls_num_list(dataset):
             if hasattr(dataset, 'get_cls_num_list'):
                 return dataset.get_cls_num_list()
+            elif isinstance(dataset, Subset):
+                # Count labels in the subset
+                targets = [dataset.dataset[i][1] for i in dataset.indices]  # slow but one-time
+                return np.bincount(targets, minlength=self.cfg.num_classes).tolist()
             elif hasattr(dataset, 'dataset') and hasattr(dataset.dataset, 'get_cls_num_list'):
                 return dataset.dataset.get_cls_num_list()
             elif hasattr(dataset, 'targets'):
                 targets = dataset.targets
             else:
-                # Fallback: iterate over dataset (slow, but only once)
                 targets = [dataset[i][1] for i in range(len(dataset))]
             return np.bincount(targets, minlength=self.cfg.num_classes).tolist()
 
         current_counts = get_cls_num_list(self.train_dataset)
         selected_dict = {i: count for i, count in enumerate(current_counts)}
 
-        if hasattr(self.train_dataset, 'base_dataset'):
+        if hasattr(self.cfg, 'original_cls_num_list') and self.cfg.original_cls_num_list is not None:
+            original_counts = self.cfg.original_cls_num_list
+        elif hasattr(self.train_dataset, 'base_dataset'):
             original_counts = self.train_dataset.base_dataset.train_val_sets[0].cls_num_list
         elif hasattr(self.train_dataset, 'dataset') and hasattr(self.train_dataset.dataset, 'base_dataset'):
             orig_ds = self.train_dataset.dataset.base_dataset.train_val_sets[0]
