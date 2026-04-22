@@ -133,13 +133,17 @@ def get_feature_extractor(device, dataset_name):
 def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, device='cuda', file_key=None):
     # get training size
     training_size = len(train_dataset)
+    print(f"[DEBUG] training_size = {training_size}", flush=True)
     # get the lava scores from the file
     lava_values, saved_file = get_saved_scores(file_key, training_size)
+    print(f"[DEBUG] saved_file = {saved_file}", flush=True)
 
     # if no scores available
     if lava_values is None:
         # prepare the dataset, shuffle=False to map correctly scores to each sample
+        print("[DEBUG] Preparing train_wrapper, val_wrapper...", flush=True)
         train_wrapper, val_wrapper = dataset_prep(train_dataset, val_dataset)
+        print("[DEBUG] Creating DataLoaders...", flush=True)
         train_loader = DataLoader(train_wrapper, batch_size=128, shuffle=False, num_workers=4)
         val_loader = DataLoader(val_wrapper, batch_size=128, shuffle=False)
 
@@ -147,12 +151,15 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
         if file_key is None:
             raise ValueError("file_key must be provided to determine dataset name")
         dataset_name = file_key.split('_')[0] 
+        print(f"[DEBUG] Loading feature extractor for {dataset_name}...", flush=True)
         extractor = get_feature_extractor(device, dataset_name)
+        print("[DEBUG] Feature extractor loaded.", flush=True)
 
         print(f"--- LAVA Selection Started ---")
         print(f"Total training samples to evaluate: {training_size}")
 
         # compute the scores
+        print("[DEBUG] Calling lava.compute_dual (this may take a long time)...", flush=True)
         dual_sol, _ = lava.compute_dual(
             feature_extractor=extractor,
             trainloader=train_loader,
@@ -161,19 +168,25 @@ def get_lava_selection_indices(train_dataset, val_dataset, keep_ratio=0.7, devic
             shuffle_ind=[], # passs in empty array
             device=device
         )
+        print("[DEBUG] lava.compute_dual finished.", flush=True)
 
         # dual_sol[0] is f (source potentials)
+        print("[DEBUG] Computing calibrated values...", flush=True)
         calibrated = values(dual_sol, training_size)
         lava_values = np.array(calibrated)
+        print("[DEBUG] Calibration done.", flush=True)
 
         # save the computation
         if saved_file is not None:
+            print(f"[DEBUG] Saving scores to {saved_file}...", flush=True)
             save_lava_scores(lava_values, saved_file)
+            print("[DEBUG] Scores saved.", flush=True)
     else:
         print("Using cached LAVA scores.")
 
     # select lowest scores (best quality)
     selected_sample_size = int(training_size * keep_ratio)
+    print(f"[DEBUG] Selecting top {selected_sample_size} samples...", flush=True)
     selected_indices = np.argsort(lava_values)[:selected_sample_size].tolist()
     print(f"Selected {len(selected_indices)} samples (keep_ratio = {keep_ratio})")
 

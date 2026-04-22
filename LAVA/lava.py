@@ -94,7 +94,8 @@ def load_pretrained_feature_extractor(feature_extractor_name, device):
     
     
 # Get dual solution of OT problem
-def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10000, p=2, resize=32, device='cuda'):
+#NOTE: DOWN TRAINING SIZE TO 5000 FOR FASTER COMPUTATION, CAN BE INCREASED IF MORE COMPUTE AVAILABLE
+def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=5000, p=2, resize=32, device='cuda'):
     embedder = feature_extractor.to(device)
     embedder.fc = torch.nn.Identity()
     for p in embedder.parameters():
@@ -107,7 +108,7 @@ def get_OT_dual_sol(feature_extractor, trainloader, testloader, training_size=10
                                tgt_dim = (3,resize,resize),
                                p = 2,
                                device=device)
-
+    
     dist = DatasetDistance(trainloader, testloader,
                            inner_ot_method = 'exact',
                            debiased_loss = True,
