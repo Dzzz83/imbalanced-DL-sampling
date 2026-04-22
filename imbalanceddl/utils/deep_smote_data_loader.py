@@ -35,7 +35,7 @@ class CustomImageDataset(Dataset):
         return _input, target
     
     def get_cls_num_list(self):
-        return self._cls_num_list
+        return self.cls_num_list
     
     def targets(self):
         return self.Y

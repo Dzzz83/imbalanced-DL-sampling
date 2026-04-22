@@ -116,6 +116,7 @@ class DeepSMOTESelectionTrainer(Trainer):
                 self.cls_num_list = np.bincount(targets, minlength=cfg.num_classes).tolist()
                 print(f"   Wrapper class counts: {self.cls_num_list}")
         wrapper = SimpleWrapper(final_train, val_ds, cfg)
+        cfg.cls_num_list = wrapper.cls_num_list   
 
         # Inner trainer
         base_strategy = getattr(cfg, 'base_strategy', 'ERM')
@@ -131,7 +132,6 @@ class DeepSMOTESelectionTrainer(Trainer):
         self.train_loader = self.inner_trainer.train_loader
         self.val_loader = self.inner_trainer.val_loader
         self.optimizer = self.inner_trainer.optimizer
-        self.criterion = self.inner_trainer.criterion
         self.logger = self.inner_trainer.logger
         self.log_training = self.inner_trainer.log_training
         self.log_testing = self.inner_trainer.log_testing
