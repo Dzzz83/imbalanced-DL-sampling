@@ -4,6 +4,7 @@ import collections
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
+from PIL import Image
 
 class CustomImageDataset(Dataset):
     def __init__(self, X, Y, transform=None):
@@ -12,6 +13,8 @@ class CustomImageDataset(Dataset):
         self.transform = transform
         self.targets = Y
         self.cls_num_list = np.bincount(Y, minlength=len(np.unique(Y))).tolist()
+        # Print class distribution on init
+        print(f"[DEBUG] CustomImageDataset initialized: {len(self.X)} samples, class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
 
     def __len__(self):
         return len(self.X)
@@ -19,8 +22,16 @@ class CustomImageDataset(Dataset):
     def __getitem__(self, idx):
         _input = self.X[idx]
         target = self.Y[idx]
+        # [DEBUG] Print type before conversion (only first few indices)
+        if idx < 3:
+            print(f"[DEBUG] __getitem__({idx}): input type before = {type(_input)}, shape = {_input.shape}")
         if self.transform:
+            _input = Image.fromarray(_input)
+            if idx < 3:
+                print(f"[DEBUG] __getitem__({idx}): after PIL conversion type = {type(_input)}")
             _input = self.transform(_input)
+            if idx < 3:
+                print(f"[DEBUG] __getitem__({idx}): after transform type = {type(_input)}")
         return _input, target
     
     def get_cls_num_list(self):
@@ -130,7 +141,7 @@ def load_and_cap_deepsmote(dataset, imb_type, imb_factor, class_caps=None):
     # Determine per-class caps
     if class_caps is None:
         # NEW DEFAULT: all classes capped to 2000
-        caps = [4500] * num_classes
+        caps = [4000] * num_classes
     elif isinstance(class_caps, list):
         caps = class_caps
     elif isinstance(class_caps, dict):
@@ -153,6 +164,8 @@ def load_and_cap_deepsmote(dataset, imb_type, imb_factor, class_caps=None):
     X = X[keep]
     Y = Y[keep].astype(int)
     print(f"Capped dataset size: {len(X)} samples (all classes capped to {caps[0] if caps else '?'})")
+    print(f"[DEBUG] X_capped dtype = {X.dtype}, min = {X.min()}, max = {X.max()}, shape = {X.shape}")
+    print(f"[DEBUG] Y_capped unique counts: {np.unique(Y, return_counts=True)}")
     return X, Y
 
 def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None, class_caps=None):
@@ -176,7 +189,7 @@ def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None, class_
     num_classes = len(np.unique(Y))
     if class_caps is None:
         # num_per_class = [5000] + [4000] * (num_classes - 1) # [5000, 4000, ...., 4000]
-        num_per_class = [4500] * num_classes
+        num_per_class = [4000] * num_classes
     elif isinstance(class_caps, list):
         num_per_class = class_caps  
     elif isinstance(class_caps, dict):
@@ -222,5 +235,6 @@ def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None, class_
             ])
         else:
             raise NotImplementedError(f"Default transform for {dataset} not defined.")
-
+        
+    print(f"[DEBUG] Returning CustomImageDataset with transform = {transform}")
     return CustomImageDataset(X, Y.astype(int), transform)
