@@ -9,7 +9,7 @@ from imbalanceddl.utils._augmentation import get_weak_augmentation, get_trivial_
 from imbalanceddl.strategy.build_trainer import build_trainer
 from torchvision import datasets
 from imbalanceddl.utils.key_generation import LavaCacheKey
-
+import pdb 
 class DeepSMOTESelectionTrainer(Trainer):
     def __init__(self, cfg, dataset, model, strategy="DeepSMOTELAVA"):
         print("\n" + "="*60)
@@ -35,6 +35,7 @@ class DeepSMOTESelectionTrainer(Trainer):
             imb_factor=cfg.imb_factor,
             class_caps=None  # Uses default [5000, 4000, ..., 4000]
         )
+        pdb.set_trace()
         print(f"   Capped data shape: X={X_capped.shape}, Y={Y_capped.shape}")
         unique, counts = np.unique(Y_capped, return_counts=True)
         print(f"   Class distribution after capping: {dict(zip(unique, counts))}")
