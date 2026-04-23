@@ -36,18 +36,12 @@ class LavaDataset(Dataset):
             print("Creating dataset (no augmentation) for LAVA scoring...")
             no_aug_dataset = ImbalancedDataset(self.config, self.config.dataset, augmentation='none')
             no_aug_train_dataset, _ = no_aug_dataset.train_val_sets
-
-            if (len(no_aug_train_dataset) > 30000):
-                the_device='cpu'
-                print("Large dataset, using CPU for OT computation")
-            else:
-                the_device=self.device
             
             indices = get_lava_selection_indices(
                 no_aug_train_dataset, 
                 val_ds,
                 keep_ratio=self.ratio, 
-                device=the_device,
+                device=self.device,
                 file_key=file_key
             )
 

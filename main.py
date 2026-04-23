@@ -18,7 +18,6 @@ silence_torchtext()
 
 import numpy as np
 import torch
-import os
 
 from imbalanceddl.utils.utils import fix_all_seed, prepare_store_name, prepare_folders
 from imbalanceddl.net.network import build_model
