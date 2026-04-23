@@ -238,3 +238,30 @@ def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None, class_
         
     print(f"[DEBUG] Returning CustomImageDataset with transform = {transform}")
     return CustomImageDataset(X, Y.astype(int), transform)
+
+def inject_label_noise(Y, noise_ratio=0.25, num_classes=10, seed=42):
+    """Injects symmetric label noise into label array Y."""
+    rng = np.random.RandomState(seed)
+    Y = np.array(Y)
+    n_noisy = int(len(Y) * noise_ratio)
+    print(f"[DEBUG] inject_label_noise: total samples = {len(Y)}, noise ratio = {noise_ratio} -> {n_noisy} samples to flip")
+    
+    # Print original class distribution
+    unique_orig, counts_orig = np.unique(Y, return_counts=True)
+    print(f"[DEBUG] Original class distribution: {dict(zip(unique_orig, counts_orig))}")
+    
+    noisy_idx = rng.choice(len(Y), n_noisy, replace=False)
+    flips = 0
+    for idx in noisy_idx:
+        cur_label = Y[idx]
+        possible = [c for c in range(num_classes) if c != cur_label]
+        new_label = rng.choice(possible)
+        if new_label != cur_label:
+            flips += 1
+        Y[idx] = new_label
+    
+    print(f"[DEBUG] Actually flipped {flips} labels (may be less if new_label == cur_label, but that's unlikely)")
+    # Print new class distribution
+    unique_new, counts_new = np.unique(Y, return_counts=True)
+    print(f"[DEBUG] New class distribution: {dict(zip(unique_new, counts_new))}")
+    return Y
