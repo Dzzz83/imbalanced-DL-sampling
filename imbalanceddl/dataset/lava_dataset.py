@@ -50,11 +50,21 @@ class LavaDataset(Dataset):
                 device=the_device,
                 file_key=file_key
             )
+
+            if hasattr(train_ds, 'targets'):
+                selected_targets = np.array(train_ds.targets)[indices]
+                unique, counts = np.unique(selected_targets, return_counts=True)
+                print(f"[LavaDataset] Selected class distribution: {dict(zip(unique, counts))}")
+
         elif method_str == 'random':
             indices = random_selection(
                 train_ds, 
                 keep_ratio=self.ratio, 
             )
+            if hasattr(train_ds, 'targets'):
+                selected_targets = np.array(train_ds.targets)[indices]
+                unique, counts = np.unique(selected_targets, return_counts=True)
+                print(f"[LavaDataset] Random selection class distribution: {dict(zip(unique, counts))}")
         elif method_str == 'none':
             indices = list(range(len(train_ds)))
             print("==> No selection method specified. Using full dataset.")
@@ -74,8 +84,9 @@ class LavaDataset(Dataset):
         self.train_dataset = self 
         self.val_dataset = val_ds
         self.cls_num_list = self._compute_new_cls_num_list(indices, train_ds)
-        self.config.cls_num_list = self.cls_num_list      
-
+        self.config.cls_num_list = self.cls_num_list    
+          
+        print(f"[LavaDataset] Final cls_num_list: {self.cls_num_list}")
         print(f"==> Selection Complete. New training size: {len(self.subset)}")
 
     @property

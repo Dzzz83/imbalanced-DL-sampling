@@ -90,6 +90,10 @@ def get_args():
     # Device
     parser.add_argument('--device', default='cuda', type=str,
                     help='Device for computation (cuda/cpu)')
+
+    # Sample Cap
+    parser.add_argument('--cap_per_class', default=None, type=int,
+                    help='Cap each class to this many samples (for balanced datasets)')
     
     # update config from command line
     parser.set_defaults(**config)
