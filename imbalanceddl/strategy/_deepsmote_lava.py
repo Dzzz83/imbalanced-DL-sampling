@@ -35,7 +35,6 @@ class DeepSMOTESelectionTrainer(Trainer):
             imb_factor=cfg.imb_factor,
             class_caps=None  # Uses default [5000, 4000, ..., 4000]
         )
-        pdb.set_trace()
         print(f"   Capped data shape: X={X_capped.shape}, Y={Y_capped.shape}")
         unique, counts = np.unique(Y_capped, return_counts=True)
         print(f"   Class distribution after capping: {dict(zip(unique, counts))}")
@@ -44,7 +43,6 @@ class DeepSMOTESelectionTrainer(Trainer):
         plain_transform = val_transform   # ToTensor + Normalize
         plain_dataset = CustomImageDataset(X_capped, Y_capped, transform=plain_transform)
         print(f"\n3. Plain dataset (for scoring) created with {len(plain_dataset)} samples")
-        print(f"DOWN CLASS SIZE TO 5000 FOR FASTER LAVA SCORING, CAN BE INCREASED IF MORE COMPUTE AVAILABLE")
         print(f"   Transform: ToTensor + Normalize (no augmentation)")
 
         # Determine training transform
