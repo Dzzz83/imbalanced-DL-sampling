@@ -4,7 +4,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import Subset
 from .trainer import Trainer
 from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
-from imbalanceddl.utils.deep_smote_data_loader import CustomImageDataset, load_and_cap_deepsmote
+from imbalanceddl.utils.deep_smote_data_loader import CustomImageDataset, load_and_cap_deepsmote, inject_label_noise
 from imbalanceddl.utils._augmentation import get_weak_augmentation, get_trivial_augmentation
 from imbalanceddl.strategy.build_trainer import build_trainer
 from torchvision import datasets
@@ -35,6 +35,10 @@ class DeepSMOTESelectionTrainer(Trainer):
             imb_factor=cfg.imb_factor,
             class_caps=None  # Uses default [5000, 4000, ..., 4000]
         )
+        if hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0:
+            print(f"Applying {cfg.noise_ratio*100}% label noise to capped dataset")
+            Y_capped = inject_label_noise(Y_capped, cfg.noise_ratio, cfg.num_classes, seed=cfg.rand_number)
+
         print(f"   Capped data shape: X={X_capped.shape}, Y={Y_capped.shape}")
         unique, counts = np.unique(Y_capped, return_counts=True)
         print(f"   Class distribution after capping: {dict(zip(unique, counts))}")
@@ -77,7 +81,8 @@ class DeepSMOTESelectionTrainer(Trainer):
         if cfg.selection_ratio < 1.0:
             if cfg.selection_method == 'lava':
                 print("   Computing LAVA scores...")
-                key_gen = LavaCacheKey(config=cfg, is_deepsmote=True)
+                is_noisy = hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0
+                key_gen = LavaCacheKey(config=cfg, is_deepsmote=True, is_noisy=is_noisy)
                 file_key = key_gen.generate()
                 indices = get_lava_selection_indices(
                     plain_dataset,
@@ -86,7 +91,6 @@ class DeepSMOTESelectionTrainer(Trainer):
                     device=cfg.device,
                     file_key=file_key
                 )
-                # NOTE: TEST FOR SMALL DATASET HALF TRAINING SIZE TO SPEED UP LAVA SCORING, CAN BE INCREASED IF MORE COMPUTE AVAILABLE
                 print(f"   LAVA selection completed. Kept {len(indices)} indices.")
             elif cfg.selection_method == 'random':
                 print("   Randomly selecting samples...")
