@@ -10,7 +10,7 @@ from imbalanceddl.dataset import IMBALANCETINY
 from imbalanceddl.dataset import IMBALANCESVHN
 from imbalanceddl.dataset.imbalance_cifar_noisy import IMBALANCECIFAR10_NOISY
 from imbalanceddl.utils import get_weak_augmentation, get_trivial_augmentation
-
+from imbalanceddl.dataset.capped_dataset import CappedDataset
 
 class ImbalancedDataset:
     def __init__(self, cfg, dataset_name, augmentation='weak'):
@@ -117,19 +117,29 @@ class ImbalancedDataset:
     @property
     def train_val_sets(self):
         if self.dataset_name == 'cifar10':
-            return self._cifar10()
+            train_dataset, val_dataset = self._cifar10()
         elif self.dataset_name == 'cifar100':
-            return self._cifar100()
+            train_dataset, val_dataset = self._cifar100()
         elif self.dataset_name == 'cifar10_noisy':
-            return self._cifar10_noisy()
+            train_dataset, val_dataset = self._cifar10_noisy()
         elif self.dataset_name == 'cinic10':
-            return self._cinic10()
+            train_dataset, val_dataset = self._cinic10()
         elif self.dataset_name == 'tiny200':
-            return self._tiny200()
+            train_dataset, val_dataset = self._tiny200()
         elif self.dataset_name == 'svhn10':
-            return self._svhn10()
+            train_dataset, val_dataset = self._svhn10()
         else:
             raise NotImplementedError
+
+        # Apply per-class capping if requested
+        if hasattr(self.cfg, 'cap_per_class') and self.cfg.cap_per_class is not None:
+            print(f"Applying per-class capping: {self.cfg.cap_per_class} samples per class")
+            train_dataset = CappedDataset(train_dataset, self.cfg.cap_per_class, num_classes=self.cfg.num_classes)
+            # Update the config class counts to reflect the capped distribution
+            self.cfg.cls_num_list = train_dataset.get_cls_num_list()
+
+        return train_dataset, val_dataset
+
 
     def _cifar10(self):
         print("=> Preparing IMBALANCECIFAR10 {} | {} !".format(
