@@ -246,9 +246,11 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             f"Seed: {self.cfg.seed}, rand_number: {self.cfg.rand_number}\n"
             f"Augmentation: {self.cfg.augmentation}\n"
         )
-        if self.cfg.dataset == 'cifar10_noisy' and hasattr(self.cfg, 'noise_ratio') and self.cfg.noise_ratio is not None:
+        if hasattr(self.cfg, 'noise_ratio') and self.cfg.noise_ratio is not None and self.cfg.noise_ratio > 0:
             header += f"Noise ratio: {self.cfg.noise_ratio}\n"
-        if hasattr(self.cfg, 'mixup_alpha'):
+        # Only add mixup_alpha if the strategy actually uses mixup
+        mixup_strategies = ['Mixup_DRW', 'Mixup', 'Remix_DRW', 'MAMix_DRW']
+        if hasattr(self.cfg, 'mixup_alpha') and self.cfg.strategy in mixup_strategies:
             header += f"mixup_alpha: {self.cfg.mixup_alpha}\n"
         header += "="*60 + "\n"
 
