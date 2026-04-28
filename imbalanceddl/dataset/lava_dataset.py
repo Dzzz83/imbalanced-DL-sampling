@@ -31,7 +31,8 @@ class LavaDataset(Dataset):
         method_str = str(method).lower()
 
         if method_str == 'lava':
-            key_gen = LavaCacheKey(config=self.config, is_deepsmote=False)
+            is_noisy = hasattr(self.config, 'noise_ratio') and self.config.noise_ratio > 0
+            key_gen = LavaCacheKey(config=self.config, is_deepsmote=False, is_noisy=is_noisy)
             file_key = key_gen.generate()
             print("Creating dataset (no augmentation) for LAVA scoring...")
             no_aug_dataset = ImbalancedDataset(self.config, self.config.dataset, augmentation='none')
