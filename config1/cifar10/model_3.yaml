@@ -10,6 +10,7 @@ augmentation: weak
 selection_method: random         
 selection_ratio: 0.9          
 device: cuda
+cap_per_class: 4000
 
 strategy: ERM
 loss_type: CE        
@@ -33,7 +34,7 @@ mixup_alpha: 1.0
 workers: 4
 optimizer: sgd
 
-root_log: experiments/train
+root_log: experiments/
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_model
 cifar_root: ./data
