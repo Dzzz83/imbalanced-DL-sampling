@@ -10,7 +10,7 @@ from imbalanceddl.strategy.build_trainer import build_trainer
 from torchvision import datasets
 from imbalanceddl.utils.key_generation import LavaCacheKey
 from imbalanceddl.dataset.imbalance_cifar import IMBALANCECIFAR10
-from imbalanceddl.dataset.imbalance_cifar_noisy import IMBALANCECIFAR10_NOISY
+from imbalanceddl.dataset.capped_dataset import CappedDataset
 import torch
 
 class RandomOversamplingSelectionTrainer(Trainer):
@@ -30,62 +30,73 @@ class RandomOversamplingSelectionTrainer(Trainer):
             raise NotImplementedError
         print(f"   Validation set size: {len(val_ds)}")
 
-        # 2. Load original imbalanced dataset (no augmentation) to get raw data and labels
+        # 2. Load original imbalanced dataset (no augmentation)
         print(f"\n2. Loading original imbalanced dataset for {cfg.dataset}, imb_type={cfg.imb_type}, imb_factor={cfg.imb_factor}")
-        if cfg.dataset == 'cifar10':
-            base_dataset = IMBALANCECIFAR10(
-                root='./data',
-                imb_type=cfg.imb_type,
-                imb_factor=cfg.imb_factor,
-                rand_number=cfg.rand_number,
-                train=True,
-                download=True,
-                transform=None
-            )
-        elif cfg.dataset == 'cifar100':
-            raise NotImplementedError("CIFAR-100 not yet supported for random oversampling")
-        else:
-            raise NotImplementedError
-
-        X = base_dataset.data            # numpy array (N, H, W, C) uint8
+        # Always use the clean dataset (cifar10) as base, even if the config says cifar10_noisy,
+        # because we will add noise ourselves after capping (matching DeepSMOTE).
+        base_dataset = IMBALANCECIFAR10(
+            root='./data',
+            imb_type=cfg.imb_type,
+            imb_factor=cfg.imb_factor,
+            rand_number=cfg.rand_number,
+            train=True,
+            download=True,
+            transform=None
+        )
+        X = base_dataset.data          # numpy array (N, H, W, C) uint8
         Y = np.array(base_dataset.targets).astype(int)
+        print(f"[DEBUG] Loaded clean dataset: X.shape={X.shape}, Y.shape={Y.shape}")
+        print(f"[DEBUG] Original class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
 
-        # Optionally inject label noise
-        if hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0:
-            print(f"Applying {cfg.noise_ratio*100}% label noise to original dataset")
-            Y = inject_label_noise(Y, cfg.noise_ratio, cfg.num_classes, seed=cfg.rand_number)
-
-        # Compute original class counts and majority size
+        # 3. Compute majority count (original, before any noise)
         original_counts = np.bincount(Y, minlength=cfg.num_classes)
         majority_count = max(original_counts)
         print(f"Original class distribution: {dict(enumerate(original_counts))}")
         print(f"Majority class size: {majority_count}")
 
-        # 3. Random oversample each class to majority_count (with replacement)
+        # 4. Random oversample each class to majority_count (with replacement)
+        print("[DEBUG] Starting random oversampling...")
         oversampled_indices = []
         for c in range(cfg.num_classes):
-            # find all indices in the original dataset that belongs to class c
             idx = np.where(Y == c)[0]
-            # get the number that this class has
-            n = len(idx)
-            if n == 0:
+            if len(idx) == 0:
                 continue
-            # Randomly choose indices with replacement to reach majority_count
             chosen = np.random.choice(idx, size=majority_count, replace=True)
             oversampled_indices.extend(chosen)
         oversampled_indices = np.array(oversampled_indices)
-        X_oversampled = X[oversampled_indices]
-        Y_oversampled = Y[oversampled_indices]
+        X_bal = X[oversampled_indices]
+        Y_bal = Y[oversampled_indices]
+        print(f"[DEBUG] Oversampled dataset size: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
+        print(f"[DEBUG] Oversampled class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
 
-        print(f"Oversampled dataset size: {len(X_oversampled)} samples (balanced to {majority_count} per class)")
+        # 5. Apply capping if requested (similar to DeepSMOTE)
+        if hasattr(cfg, 'cap_per_class') and cfg.cap_per_class is not None:
+            print(f"Capping dataset to {cfg.cap_per_class} samples per class")
+            temp_dataset = CustomImageDataset(X_bal, Y_bal, transform=None)
+            capped_dataset = CappedDataset(temp_dataset, cfg.cap_per_class, num_classes=cfg.num_classes)
+            subset_indices = capped_dataset.keep_indices
+            X_bal = X_bal[subset_indices]
+            Y_bal = Y_bal[subset_indices]
+            print(f"[DEBUG] After capping: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
+            print(f"[DEBUG] Capped class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+        else:
+            # If no capping, the balanced dataset size is majority_count * num_classes
+            pass
 
-        # 4. Create plain and augmented datasets
-        plain_transform = val_transform   # ToTensor + Normalize (no augmentation)
-        plain_dataset = CustomImageDataset(X_oversampled, Y_oversampled, transform=plain_transform)
+        # 6. Inject label noise (if configured) AFTER capping (same as DeepSMOTE)
+        if hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0:
+            print(f"Applying {cfg.noise_ratio*100}% label noise to capped/balanced dataset")
+            Y_bal = inject_label_noise(Y_bal, cfg.noise_ratio, cfg.num_classes, seed=cfg.rand_number)
+            print(f"[DEBUG] After noise injection: class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+
+        # 7. Create plain dataset (no augmentation, only normalization)
+        plain_transform = val_transform   # ToTensor + Normalize
+        plain_dataset = CustomImageDataset(X_bal, Y_bal, transform=plain_transform)
         print(f"\n3. Plain dataset (for scoring) created with {len(plain_dataset)} samples")
         print(f"   Transform: ToTensor + Normalize (no augmentation)")
+        print(f"[DEBUG] Plain dataset class distribution: {dict(zip(*np.unique(plain_dataset.Y, return_counts=True)))}")
 
-        # Determine training transform
+        # 8. Determine training transform (same as before)
         print(f"\n4. Training transform: cfg.augmentation = {cfg.augmentation}")
         if cfg.augmentation == 'weak':
             train_transform, _ = get_weak_augmentation()
@@ -105,12 +116,14 @@ class RandomOversamplingSelectionTrainer(Trainer):
         else:
             raise NotImplementedError(f"Augmentation {cfg.augmentation} not supported")
 
-        aug_dataset = CustomImageDataset(X_oversampled, Y_oversampled, transform=train_transform)
+        # Create augmented dataset (with augmentation)
+        aug_dataset = CustomImageDataset(X_bal, Y_bal, transform=train_transform)
         original_cls_num_list = aug_dataset.get_cls_num_list()
         cfg.original_cls_num_list = original_cls_num_list
         print(f"\n5. Augmented dataset (for training) created with {len(aug_dataset)} samples")
+        print(f"[DEBUG] Augmented dataset class distribution: {dict(zip(*np.unique(aug_dataset.Y, return_counts=True)))}")
 
-        # 6. Apply LAVA or random selection on the plain dataset
+        # 9. Apply selection (LAVA or random) on the plain dataset
         print(f"\n6. Selection: method={cfg.selection_method}, ratio={cfg.selection_ratio}")
         if cfg.selection_ratio < 1.0:
             if cfg.selection_method == 'lava':
@@ -118,6 +131,7 @@ class RandomOversamplingSelectionTrainer(Trainer):
                 is_noisy = hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0
                 key_gen = LavaCacheKey(config=cfg, is_deepsmote=False, is_noisy=is_noisy, is_oversampled=True)
                 file_key = key_gen.generate()
+                print(f"[DEBUG] LAVA file_key = {file_key}")
                 indices = get_lava_selection_indices(
                     plain_dataset,
                     val_ds,
@@ -125,12 +139,20 @@ class RandomOversamplingSelectionTrainer(Trainer):
                     device=cfg.device,
                     file_key=file_key
                 )
+                print(f"[DEBUG] Selected {len(indices)} indices")
+                selected_targets = [plain_dataset.Y[i] for i in indices]
+                unique, counts = np.unique(selected_targets, return_counts=True)
+                print(f"[DEBUG] Selected class distribution (from plain dataset): {dict(zip(unique, counts))}")
                 print(f"   LAVA selection completed. Kept {len(indices)} indices.")
             elif cfg.selection_method == 'random':
                 print("   Randomly selecting samples...")
                 total = len(plain_dataset)
                 n_keep = int(total * cfg.selection_ratio)
                 indices = random.sample(range(total), n_keep)
+                print(f"[DEBUG] Randomly selected {len(indices)} indices")
+                selected_targets = [plain_dataset.Y[i] for i in indices]
+                unique, counts = np.unique(selected_targets, return_counts=True)
+                print(f"[DEBUG] Random selection class distribution: {dict(zip(unique, counts))}")
                 print(f"   Random selection kept {len(indices)} samples out of {total}")
             else:
                 raise ValueError(f"Unknown selection_method: {cfg.selection_method}")
@@ -140,7 +162,7 @@ class RandomOversamplingSelectionTrainer(Trainer):
             final_train = aug_dataset
             print(f"\n7. Final training set: all {len(final_train)} samples (no selection)")
 
-        # 8. Wrap for inner trainer
+        # 10. Wrap for inner trainer
         class SimpleWrapper:
             def __init__(self, train, val, cfg):
                 self.train_val_sets = (train, val)
@@ -154,7 +176,7 @@ class RandomOversamplingSelectionTrainer(Trainer):
         wrapper = SimpleWrapper(final_train, val_ds, cfg)
         cfg.cls_num_list = wrapper.cls_num_list
 
-        # 9. Inner trainer
+        # 11. Inner trainer
         base_strategy = getattr(cfg, 'base_strategy', 'ERM')
         print(f"\n8. Building inner trainer with base_strategy={base_strategy}")
         self.inner_trainer = build_trainer(cfg, wrapper, model, base_strategy)
