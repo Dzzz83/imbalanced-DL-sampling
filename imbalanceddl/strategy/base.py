@@ -252,6 +252,8 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         mixup_strategies = ['Mixup_DRW', 'Mixup', 'Remix_DRW', 'MAMix_DRW']
         if hasattr(self.cfg, 'mixup_alpha') and self.cfg.strategy in mixup_strategies:
             header += f"mixup_alpha: {self.cfg.mixup_alpha}\n"
+        if hasattr(self.cfg, 'mamix_ratio') and self.cfg.mamix_ratio is not None:
+            header += f"mamix_ratio: {self.cfg.mamix_ratio}\n"
         header += "="*60 + "\n"
 
         self.logger.info(header)

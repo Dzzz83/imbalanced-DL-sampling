@@ -29,7 +29,7 @@ PROJECT_ROOT = get_project_root()
 
 # ========== DEFAULT CONFIGURATION ==========
 DEFAULT_CONFIG_FILE = os.path.join(PROJECT_ROOT, "config1", "cifar10_noisy", "model_1.yaml")
-DEFAULT_RATIOS = [0.9, 0.7, 0.5, 0.3, 0.1]
+DEFAULT_RATIOS = [1.0, 0.9, 0.7, 0.5, 0.3, 0.1]
 
 # ========== HELPER FUNCTIONS ==========
 def setup_directories(temp_dir):

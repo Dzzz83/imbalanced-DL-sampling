@@ -79,7 +79,10 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
                                        imbalance_dataset,
                                        model=model,
                                        strategy=strategy)
-
+    elif strategy == "RandomOversampling_Selection":
+        from imbalanceddl.strategy._random_oversampling_lava import RandomOversamplingSelectionTrainer
+        print("=> RandomOversampling_Selection Trainer !")
+        trainer = RandomOversamplingSelectionTrainer(cfg, imbalance_dataset, model, strategy)
     else:
         raise NotImplementedError
 
