@@ -7,6 +7,7 @@ Usage: python train.py --config /path/to/config.yaml [--ratios 0.9 0.7 0.5]
 """
 
 import os
+import time
 import sys
 import yaml
 import subprocess
