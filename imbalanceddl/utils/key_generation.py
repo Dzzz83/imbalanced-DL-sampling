@@ -2,7 +2,7 @@ class LavaCacheKey:
     """
     Generates a unique cache key for LAVA scores based on dataset configuration.
     """
-    def __init__(self, config, is_deepsmote=False, is_noisy=False):
+    def __init__(self, config, is_deepsmote=False, is_noisy=False, is_oversampled=False):
         """
         Args:
             config: The configuration object (e.g., from get_args()).
@@ -12,6 +12,7 @@ class LavaCacheKey:
         self.config = config
         self.is_deepsmote = is_deepsmote
         self.is_noisy = is_noisy
+        self.is_oversampled = is_oversampled
 
     def generate(self) -> str:
         """
@@ -25,6 +26,9 @@ class LavaCacheKey:
 
         if self.is_deepsmote:
             parts.append("deepsmote")
+
+        if self.is_oversampled:
+            parts.append("oversampled")
 
         parts.append(str(self.config.rand_number))
 

@@ -8,8 +8,8 @@ from ._reweight_cb import ReweightCBTrainer
 from ._m2m import M2mTrainer
 from ._deepsmote import DeepSMOTETrainer
 from ._deepsmote_lava import DeepSMOTESelectionTrainer
-
+from ._random_oversampling_lava import RandomOversamplingSelectionTrainer
 __all__ = [
-    "MixupTrainer", "RemixTrainer", "ERMTrainer", "DRWTrainer",
+    "MixupTrainer", "RemixTrainer", "ERMTrainer", "DRWTrainer", "RandomOversamplingSelectionTrainer",
     "LDAMDRWTrainer", "ReweightCBTrainer", "MAMixTrainer", "M2mTrainer", "DeepSMOTETrainer", "DeepSMOTESelectionTrainer"
 ]
