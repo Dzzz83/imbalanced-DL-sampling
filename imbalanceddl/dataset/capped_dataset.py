@@ -56,5 +56,3 @@ class CappedDataset(Dataset):
     def train_val_sets(self):
         # For compatibility with ImbalancedDataset interface
         return self, None  # only training set; validation must be handled separately
-
-    # Add other methods as needed (e.g., get_class_idxs2)
