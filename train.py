@@ -62,7 +62,10 @@ def modify_config_for_ratio(original_config_path, ratio, temp_dir):
     config['store_name'] = f"{original_store_name}_ratio{ratio}"
 
     base_name = os.path.basename(original_config_path).replace('.yaml', '')
-    temp_filename = f"{base_name}_ratio{ratio}.yaml"
+    # Add timestamp (and optional process ID) for uniqueness
+    timestamp = int(time.time() * 1000)  # milliseconds
+    pid = os.getpid()
+    temp_filename = f"{base_name}_ratio{ratio}_{timestamp}_{pid}.yaml"
     temp_path = os.path.join(temp_dir, temp_filename)
 
     with open(temp_path, 'w') as f:
