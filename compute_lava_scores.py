@@ -45,13 +45,15 @@ def main():
         config.seed = np.random.randint(10000)
     fix_all_seed(config.seed)
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    if hasattr(config, 'gpu') and config.gpu is not None and torch.cuda.is_available():
+        device = f'cuda:{config.gpu}'
+    else:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.cuda.empty_cache()
 
     # 4. Build the training dataset (plain, no augmentation) based on strategy
     _, val_transform = get_weak_augmentation()
 
-    # --- Branch for DeepSMOTE_Selection (unchanged) ---
     if config.strategy == 'DeepSMOTE_Selection':
         print("Loading DeepSMOTE data (capped) for LAVA scoring...")
         from imbalanceddl.utils.deep_smote_data_loader import load_and_cap_deepsmote, CustomImageDataset
@@ -63,14 +65,12 @@ def main():
         )
         train_ds = CustomImageDataset(X_capped, Y_capped, transform=val_transform)
 
-    # --- Branch for RandomOversampling_Selection (fixed order) ---
     elif config.strategy == 'RandomOversampling_Selection':
         print("Loading original imbalanced dataset for random oversampling...")
         from imbalanceddl.dataset.imbalance_cifar import IMBALANCECIFAR10
         from imbalanceddl.utils.deep_smote_data_loader import inject_label_noise, CustomImageDataset
         from imbalanceddl.dataset.capped_dataset import CappedDataset
 
-        # Always load the clean IMBALANCECIFAR10 (the trainer does the same)
         base_dataset = IMBALANCECIFAR10(
             root='./data',
             imb_type=config.imb_type,
@@ -85,7 +85,6 @@ def main():
         print(f"[DEBUG] Loaded clean dataset: X.shape={X.shape}, Y.shape={Y.shape}")
         print(f"[DEBUG] Original class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
 
-        # 1. Compute majority count (original, before any noise)
         original_counts = np.bincount(Y, minlength=config.num_classes)
         majority_count = max(original_counts)
         print(f"Majority class size: {majority_count}")
@@ -122,7 +121,6 @@ def main():
         # Create plain dataset (ToTensor + Normalize)
         train_ds = CustomImageDataset(X_bal, Y_bal, transform=val_transform)
 
-    # --- Default: plain ImbalancedDataset ---
     else:
         print("Creating plain dataset (no augmentation) for LAVA scoring...")
         plain_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation='none')

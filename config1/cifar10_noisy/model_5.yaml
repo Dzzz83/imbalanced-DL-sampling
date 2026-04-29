@@ -12,7 +12,6 @@ selection_ratio: 1.0           # Keep 70% of the data based on LAVA scores
 device: cuda
 augmentation: weak
 cap_per_class: 4000     
-noise_ratio: 0.25
 
 # Training Strategy
 strategy: DeepSMOTE_Selection
@@ -34,14 +33,13 @@ gamma: 0.1
 
 rand_number: 0
 # Augmentation
-mixup_alpha: 1.0     # Strength of the mixup interpolation
 workers: 4
 optimizer: sgd
 # Logging & Checkpoints
-root_log: experiments
+root_log: experiments/cifar10_exp0.01_deepSMOTE/random
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_lava_selection_0.7_deepSMOTE_exp0.01
 cifar_root: ./data
-gpu: 1
+gpu: 0
 
 seed: 42
