@@ -93,15 +93,16 @@ def main():
             # ------------------------------------------------------------
             # Pipeline A: Noise -> Oversample -> Cap
             # ------------------------------------------------------------
+            clean_counts = np.bincount(Y, minlength=config.num_classes)
+            orig_majority = max(clean_counts)
+
             if hasattr(config, 'noise_ratio') and config.noise_ratio > 0:
                 print(f"Applying {config.noise_ratio*100}% label noise to original dataset (before oversampling)")
                 Y = inject_label_noise(Y, config.noise_ratio, config.num_classes, seed=config.rand_number)
                 print(f"[DEBUG] After noise: class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
 
-            # Compute majority count from noisy labels
-            original_counts = np.bincount(Y, minlength=config.num_classes)
-            majority_count = max(original_counts)
-            print(f"Majority class size (after noise): {majority_count}")
+            majority_count = orig_majority
+            print(f"Majority class size (original): {majority_count}")
 
             # Oversample to majority_count
             oversampled_indices = []
