@@ -7,15 +7,15 @@ data_path: ./data
 classifier: 'dot_product_classifier'
 
 # Selection Settings (LAVA)
-selection_method: random         # Options: lava, random, none
-selection_ratio: 1.0           # Keep 70% of the data based on LAVA scores
+selection_method: lava         # Options: lava, random, none
+selection_ratio: 0.7           # Keep 70% of the data based on LAVA scores
+noise_ratio: 0.25
 device: cuda
 augmentation: weak
-cap_per_class: 4000     
-
+noise_first: true
 
 # Training Strategy
-strategy: DeepSMOTE_Selection
+strategy: RandomOversampling_Selection
 base_strategy: ERM
 loss_type: CE        # Cross Entropy (can be LDAM or CB)
 train_rule: None     # Can be 'DRW' to trigger re-weighting mid-training
@@ -33,14 +33,14 @@ lr_steps: [120, 160] # Epochs where the learning rate drops
 gamma: 0.1
 
 rand_number: 0
-# Augmentation
-mixup_alpha: 1.0     # Strength of the mixup interpolation
+cap_per_class: 4000
+
 workers: 4
 optimizer: sgd
 # Logging & Checkpoints
-root_log: experiments/cifar10_exp0.01_deepSMOTE/random
+root_log: experiments/cifar10_exp0.01_noisy_randOversamp/lava
 root_model: ./example/checkpoint_cifar10
-store_name: cifar10_lava_selection_0.7_deepSMOTE_exp0.01
+store_name: cifar10_lava_selection_0.7_mixup_exp0.01
 cifar_root: ./data
 gpu: 1
 

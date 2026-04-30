@@ -30,10 +30,8 @@ class RandomOversamplingSelectionTrainer(Trainer):
             raise NotImplementedError
         print(f"   Validation set size: {len(val_ds)}")
 
-        # 2. Load original imbalanced dataset (no augmentation)
+        # 2. Load original clean imbalanced dataset (always clean as base)
         print(f"\n2. Loading original imbalanced dataset for {cfg.dataset}, imb_type={cfg.imb_type}, imb_factor={cfg.imb_factor}")
-        # Always use the clean dataset (cifar10) as base, even if the config says cifar10_noisy,
-        # because we will add noise ourselves after capping (matching DeepSMOTE).
         base_dataset = IMBALANCECIFAR10(
             root='./data',
             imb_type=cfg.imb_type,
@@ -48,46 +46,95 @@ class RandomOversamplingSelectionTrainer(Trainer):
         print(f"[DEBUG] Loaded clean dataset: X.shape={X.shape}, Y.shape={Y.shape}")
         print(f"[DEBUG] Original class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
 
-        # 3. Compute majority count (original, before any noise)
-        original_counts = np.bincount(Y, minlength=cfg.num_classes)
-        majority_count = max(original_counts)
-        print(f"Original class distribution: {dict(enumerate(original_counts))}")
-        print(f"Majority class size: {majority_count}")
+        # Determine the pipeline order based on cfg.noise_first
+        noise_first = hasattr(cfg, 'noise_first') and cfg.noise_first
+        print(f"[DEBUG] noise_first = {noise_first}")
 
-        # 4. Random oversample each class to majority_count (with replacement)
-        print("[DEBUG] Starting random oversampling...")
-        oversampled_indices = []
-        for c in range(cfg.num_classes):
-            idx = np.where(Y == c)[0]
-            if len(idx) == 0:
-                continue
-            chosen = np.random.choice(idx, size=majority_count, replace=True)
-            oversampled_indices.extend(chosen)
-        oversampled_indices = np.array(oversampled_indices)
-        X_bal = X[oversampled_indices]
-        Y_bal = Y[oversampled_indices]
-        print(f"[DEBUG] Oversampled dataset size: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
-        print(f"[DEBUG] Oversampled class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+        if noise_first:
+            # ------------------------------------------------------------
+            # Pipeline A: Noise → Oversample → Cap
+            # ------------------------------------------------------------
+            # 3a. Inject noise first (if requested)
+            if hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0:
+                print(f"Applying {cfg.noise_ratio*100}% label noise to original dataset (before oversampling)")
+                Y = inject_label_noise(Y, cfg.noise_ratio, cfg.num_classes, seed=cfg.rand_number)
+                print(f"[DEBUG] After noise injection: class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
+            else:
+                # If noise_ratio not set or zero, just use original Y (no change)
+                pass
 
-        # 5. Apply capping if requested (similar to DeepSMOTE)
-        if hasattr(cfg, 'cap_per_class') and cfg.cap_per_class is not None:
-            print(f"Capping dataset to {cfg.cap_per_class} samples per class")
-            temp_dataset = CustomImageDataset(X_bal, Y_bal, transform=None)
-            capped_dataset = CappedDataset(temp_dataset, cfg.cap_per_class, num_classes=cfg.num_classes)
-            subset_indices = capped_dataset.keep_indices
-            X_bal = X_bal[subset_indices]
-            Y_bal = Y_bal[subset_indices]
-            print(f"[DEBUG] After capping: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
-            print(f"[DEBUG] Capped class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+            # 4a. Compute majority count from the (potentially noisy) labels
+            original_counts = np.bincount(Y, minlength=cfg.num_classes)
+            majority_count = max(original_counts)
+            print(f"Original class distribution (after noise): {dict(enumerate(original_counts))}")
+            print(f"Majority class size: {majority_count}")
+
+            # 5a. Random oversample each class to majority_count (with replacement)
+            print("[DEBUG] Starting random oversampling...")
+            oversampled_indices = []
+            for c in range(cfg.num_classes):
+                idx = np.where(Y == c)[0]
+                if len(idx) == 0:
+                    continue
+                chosen = np.random.choice(idx, size=majority_count, replace=True)
+                oversampled_indices.extend(chosen)
+            oversampled_indices = np.array(oversampled_indices)
+            X_bal = X[oversampled_indices]
+            Y_bal = Y[oversampled_indices]
+            print(f"[DEBUG] Oversampled dataset size: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
+            print(f"[DEBUG] Oversampled class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+
+            # 6a. Apply capping if requested (after oversampling)
+            if hasattr(cfg, 'cap_per_class') and cfg.cap_per_class is not None:
+                print(f"Capping dataset to {cfg.cap_per_class} samples per class")
+                temp_dataset = CustomImageDataset(X_bal, Y_bal, transform=None)
+                capped_dataset = CappedDataset(temp_dataset, cfg.cap_per_class, num_classes=cfg.num_classes)
+                subset_indices = capped_dataset.keep_indices
+                X_bal = X_bal[subset_indices]
+                Y_bal = Y_bal[subset_indices]
+                print(f"[DEBUG] After capping: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
+                print(f"[DEBUG] Capped class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
         else:
-            # If no capping, the balanced dataset size is majority_count * num_classes
-            pass
+            # ------------------------------------------------------------
+            # Pipeline B: Oversample → Cap → Noise (original order)
+            # ------------------------------------------------------------
+            # 3b. Compute majority count from original clean labels
+            original_counts = np.bincount(Y, minlength=cfg.num_classes)
+            majority_count = max(original_counts)
+            print(f"Original class distribution: {dict(enumerate(original_counts))}")
+            print(f"Majority class size: {majority_count}")
 
-        # 6. Inject label noise (if configured) AFTER capping (same as DeepSMOTE)
-        if hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0:
-            print(f"Applying {cfg.noise_ratio*100}% label noise to capped/balanced dataset")
-            Y_bal = inject_label_noise(Y_bal, cfg.noise_ratio, cfg.num_classes, seed=cfg.rand_number)
-            print(f"[DEBUG] After noise injection: class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+            # 4b. Random oversample each class to majority_count (with replacement)
+            print("[DEBUG] Starting random oversampling...")
+            oversampled_indices = []
+            for c in range(cfg.num_classes):
+                idx = np.where(Y == c)[0]
+                if len(idx) == 0:
+                    continue
+                chosen = np.random.choice(idx, size=majority_count, replace=True)
+                oversampled_indices.extend(chosen)
+            oversampled_indices = np.array(oversampled_indices)
+            X_bal = X[oversampled_indices]
+            Y_bal = Y[oversampled_indices]
+            print(f"[DEBUG] Oversampled dataset size: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
+            print(f"[DEBUG] Oversampled class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+
+            # 5b. Apply capping if requested
+            if hasattr(cfg, 'cap_per_class') and cfg.cap_per_class is not None:
+                print(f"Capping dataset to {cfg.cap_per_class} samples per class")
+                temp_dataset = CustomImageDataset(X_bal, Y_bal, transform=None)
+                capped_dataset = CappedDataset(temp_dataset, cfg.cap_per_class, num_classes=cfg.num_classes)
+                subset_indices = capped_dataset.keep_indices
+                X_bal = X_bal[subset_indices]
+                Y_bal = Y_bal[subset_indices]
+                print(f"[DEBUG] After capping: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
+                print(f"[DEBUG] Capped class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+
+            # 6b. Inject label noise after capping (if configured)
+            if hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0:
+                print(f"Applying {cfg.noise_ratio*100}% label noise to capped/balanced dataset")
+                Y_bal = inject_label_noise(Y_bal, cfg.noise_ratio, cfg.num_classes, seed=cfg.rand_number)
+                print(f"[DEBUG] After noise injection: class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
 
         # 7. Create plain dataset (no augmentation, only normalization)
         plain_transform = val_transform   # ToTensor + Normalize
@@ -129,7 +176,10 @@ class RandomOversamplingSelectionTrainer(Trainer):
             if cfg.selection_method == 'lava':
                 print("   Computing LAVA scores...")
                 is_noisy = hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0
-                key_gen = LavaCacheKey(config=cfg, is_deepsmote=False, is_noisy=is_noisy, is_oversampled=True)
+                # Include noise_first in cache key if applicable
+                is_noise_first = noise_first and is_noisy
+                key_gen = LavaCacheKey(config=cfg, is_deepsmote=False, is_noisy=is_noisy,
+                                       is_oversampled=True, is_noise_first=is_noise_first)
                 file_key = key_gen.generate()
                 print(f"[DEBUG] LAVA file_key = {file_key}")
                 indices = get_lava_selection_indices(
