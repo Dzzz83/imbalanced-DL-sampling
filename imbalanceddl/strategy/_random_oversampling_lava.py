@@ -54,20 +54,17 @@ class RandomOversamplingSelectionTrainer(Trainer):
             # ------------------------------------------------------------
             # Pipeline A: Noise → Oversample → Cap
             # ------------------------------------------------------------
+            clean_counts = np.bincount(Y, minlength=cfg.num_classes)
+            orig_majority = max(clean_counts)
+
             # 3a. Inject noise first (if requested)
             if hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0:
                 print(f"Applying {cfg.noise_ratio*100}% label noise to original dataset (before oversampling)")
                 Y = inject_label_noise(Y, cfg.noise_ratio, cfg.num_classes, seed=cfg.rand_number)
                 print(f"[DEBUG] After noise injection: class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
-            else:
-                # If noise_ratio not set or zero, just use original Y (no change)
-                pass
 
-            # 4a. Compute majority count from the (potentially noisy) labels
-            original_counts = np.bincount(Y, minlength=cfg.num_classes)
-            majority_count = max(original_counts)
-            print(f"Original class distribution (after noise): {dict(enumerate(original_counts))}")
-            print(f"Majority class size: {majority_count}")
+            majority_count = orig_majority
+            print(f"Majority class size (original): {majority_count}")
 
             # 5a. Random oversample each class to majority_count (with replacement)
             print("[DEBUG] Starting random oversampling...")
