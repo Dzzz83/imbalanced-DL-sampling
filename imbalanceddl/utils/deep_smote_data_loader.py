@@ -168,6 +168,31 @@ def load_and_cap_deepsmote(dataset, imb_type, imb_factor, class_caps=None):
     print(f"[DEBUG] Y_capped unique counts: {np.unique(Y, return_counts=True)}")
     return X, Y
 
+def load_deepsmote_raw(dataset, imb_type, imb_factor):
+    """
+    Load raw DeepSMOTE balanced dataset (before any capping).
+    Returns (X_raw, Y_raw) as numpy arrays, where each class has 5000 samples.
+    """
+    deepsmote_folder = 'deepsmote_models'
+    path_prefix = f'./{deepsmote_folder}/{dataset}/{dataset}_{imb_type}_R{int(1/imb_factor)}_'
+    data_file = path_prefix + "train_data.txt"
+    label_file = path_prefix + "train_label.txt"
+
+    if not os.path.exists(data_file):
+        raise FileNotFoundError(f"DeepSMOTE data not found at {os.path.abspath(data_file)}")
+
+    X = np.loadtxt(data_file)   # (N, 3072)
+    Y = np.loadtxt(label_file)  # (N,)
+
+    # Reshape to (N, 3, 32, 32)
+    X = X.reshape(-1, 3, 32, 32)
+    # Convert to HWC for PIL compatibility (uint8)
+    X = np.transpose(X, (0, 2, 3, 1))
+    X = np.clip(X * 255, 0, 255).astype(np.uint8)
+
+    print(f"Loaded raw DeepSMOTE dataset: {len(X)} samples, class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
+    return X, Y
+
 def load_deepsmote_dataset(dataset, imb_type, imb_factor, transform=None, class_caps=None):
     """Load pre‑generated DeepSMOTE balanced dataset as a CustomImageDataset."""
     deepsmote_folder = 'deepsmote_models'
