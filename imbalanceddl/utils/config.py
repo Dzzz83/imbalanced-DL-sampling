@@ -95,6 +95,10 @@ def get_args():
     parser.add_argument('--cap_per_class', default=None, type=int,
                     help='Cap each class to this many samples (for balanced datasets)')
     
+    # Noise order flag
+    parser.add_argument('--noise_first', action='store_true',
+                    help='Inject label noise before oversampling (instead of after)')
+    
     # update config from command line
     parser.set_defaults(**config)
     args = parser.parse_args()
