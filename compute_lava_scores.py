@@ -33,6 +33,7 @@ from imbalanceddl.utils.key_generation import LavaCacheKey
 from imbalanceddl.dataset.imbalance_cifar import IMBALANCECIFAR10
 from imbalanceddl.utils.deep_smote_data_loader import inject_label_noise, CustomImageDataset
 from imbalanceddl.dataset.capped_dataset import CappedDataset
+from imbalanceddl.utils.deep_smote_data_loader import load_and_cap_deepsmote
 
 def main():
     # 1. Load Configuration
@@ -59,7 +60,6 @@ def main():
 
     if config.strategy == 'DeepSMOTE_Selection':
         print("Loading DeepSMOTE data (capped) for LAVA scoring...")
-        from imbalanceddl.utils.deep_smote_data_loader import load_and_cap_deepsmote, CustomImageDataset
         X_capped, Y_capped = load_and_cap_deepsmote(
             dataset=config.dataset,
             imb_type=config.imb_type,
