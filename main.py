@@ -53,9 +53,9 @@ def main():
     print(f"Creating training dataset with {config.augmentation} augmentation...")
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation=config.augmentation)
 
-    # Skip automatic data selection for DeepSMOTE_Selection (handles it internally)
-    if config.strategy == "DeepSMOTE_Selection":
-        print("=> DeepSMOTE_Selection handles selection internally. Skipping main script selection.")
+    # Skip automatic data selection for DeepSMOTE_Selection and RandomOversampling_Selection (both handle selection internally)
+    if config.strategy in ["DeepSMOTE_Selection", "RandomOversampling_Selection"]:
+        print(f"=> {config.strategy} handles selection internally. Skipping main script selection.")
     else:
         if config.selection_ratio < 1.0:
             print(f"=> Applying Data Selection: {config.selection_method} (Ratio: {config.selection_ratio})")
