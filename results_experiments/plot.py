@@ -95,8 +95,8 @@ def plot_and_save(log_dir, output_dir):
         plt.close()
 
 if __name__ == "__main__":
-    source_logs = "../experiments/cifar10_noisy_exp0.01_MaMix_drw/random" 
-    results_output = "cifar10_noisy_exp0.01_MaMix_drw/random"
+    source_logs = "../experiments/cifar10_exp0.01_noisy_randOversamp_2/random" 
+    results_output = "cifar10_exp0.01_noisy_randOversamp_2/random"
     
     print(f"Looking for logs in: {os.path.abspath(source_logs)}")
     plot_and_save(source_logs, results_output)

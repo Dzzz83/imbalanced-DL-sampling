@@ -8,7 +8,7 @@ classifier: 'dot_product_classifier'
 augmentation: weak
 
 # Selection Settings (LAVA)
-selection_method: lava         # Options: lava, random, none
+selection_method: random         # Options: lava, random, none
 selection_ratio: 0.9           # Keep 70% of the data based on LAVA scores
 noise_ratio: 0.25              # noise ratio
 cap_per_class: 4000            
@@ -41,5 +41,5 @@ root_log: experiments/cifar10_exp0.01_deepSMOTE_2/random
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_noisy_lava_0.7_weakAug_exp0.01
 cifar_root: ./data
-gpu: 0
+gpu: 1
 seed: 42
