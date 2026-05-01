@@ -8,6 +8,7 @@ from PIL import Image
 
 class CustomImageDataset(Dataset):
     def __init__(self, X, Y, transform=None):
+        Y = np.array(Y, dtype=int)
         self.X = X
         self.Y = Y
         self.transform = transform
