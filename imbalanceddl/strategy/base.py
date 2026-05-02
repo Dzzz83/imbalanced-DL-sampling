@@ -274,8 +274,12 @@ class BaseTrainer(metaclass=abc.ABCMeta):
                 targets = [dataset[i][1] for i in range(len(dataset))]
             return np.bincount(targets, minlength=self.cfg.num_classes).tolist()
 
-        current_counts = get_cls_num_list(self.train_dataset)
-        selected_dict = {i: count for i, count in enumerate(current_counts)}
+        # If the trainer has stored a special selected distribution (e.g., before oversampling), use it.
+        if hasattr(self.cfg, 'selected_cls_num_list') and self.cfg.selected_cls_num_list is not None:
+            selected_counts = self.cfg.selected_cls_num_list
+        else:
+            selected_counts = get_cls_num_list(self.train_dataset)
+        selected_dict = {i: count for i, count in enumerate(selected_counts)}
 
         if hasattr(self.cfg, 'original_cls_num_list') and self.cfg.original_cls_num_list is not None:
             original_counts = self.cfg.original_cls_num_list
@@ -285,7 +289,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             orig_ds = self.train_dataset.dataset.base_dataset.train_val_sets[0]
             original_counts = orig_ds.cls_num_list
         else:
-            original_counts = current_counts
+            original_counts = selected_counts
             
         orig_dict = {i: count for i, count in enumerate(original_counts)}
         create_distribution_table(self.logger, orig_dict, selected_dict)    
