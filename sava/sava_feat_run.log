@@ -1,0 +1,1274 @@
+/home/phatht/.conda/envs/my_env/lib/python3.10/site-packages/requests/__init__.py:86: RequestsDependencyWarning: Unable to find acceptable character detection dependency (chardet or charset_normalizer).
+  warnings.warn(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/phatht/.netrc.
+wandb: W&B API key is configured. Use `wandb login --relogin` to force relogin
+wandb: setting up run kn5i16yd
+wandb: Tracking run with wandb version 0.25.1
+wandb: Run data is saved locally in /home/phatht/phat/sava/wandb/run-20260520_153657-kn5i16yd
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run hot_tr_sz_10000_sava_test_feat
+wandb: ⭐️ View project at https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection
+wandb: 🚀 View run at https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection/runs/kn5i16yd
+/home/phatht/phat/sava/models/preact_resnet.py:173: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  state_dict = torch.load("checkpoint/" + feature_extractor_name, map_location=device)
+0.20.1+cu121
+2.5.1+cu121
+0.20.1+cu121
+2.5.1+cu121
+Namespace(cuda_num=0, hierarchical=True, batchwise_lava=False, random_seed=42, tag='sava_test_feat', corruption_type='shuffle', cache_l2l=True, hot_batch_size=1024, corrupt_por=0.01, prune_perc=0.1, smoketest=False, disable_wandb=False, train_net=False, feat_repr=True, poison_frogs_feat_repr=False, train_dataset_sizes=[10000], remake_data=False, cache_tag='', data_gen_force_cpu=False, stratified=False, visualise_hot=False, val_dataset_size=100, evaluate=False)
+GPU 0
+torch.Size([1, 10])
+Files already downloaded and verified
+Files already downloaded and verified
+CIFAR TEN
+SAVA valuation:   0%|          | 0/10 [00:00<?, ?it/s]len D1: torch.Size([1024])
+len D2: torch.Size([100])
+Pre-computing pairwise label Wasserstein distances D1 <-> D1...
+Computing label-to-label (exact) wasserstein distances...
+
+  0%|          | 0/45 [00:00<?, ?it/s][A
+Computing label-to-label distances:   0%|          | 0/45 [00:00<?, ?it/s][A
+Computing label-to-label distances:   2%|▏         | 1/45 [00:00<00:27,  1.57it/s][A
+Computing label-to-label distances:   4%|▍         | 2/45 [00:00<00:14,  2.97it/s][A
+Computing label-to-label distances:   7%|▋         | 3/45 [00:00<00:09,  4.24it/s][A
+Computing label-to-label distances:   9%|▉         | 4/45 [00:01<00:07,  5.14it/s][A
+Computing label-to-label distances:  11%|█         | 5/45 [00:01<00:06,  5.93it/s][A
+Computing label-to-label distances:  13%|█▎        | 6/45 [00:01<00:05,  6.54it/s][A
+Computing label-to-label distances:  16%|█▌        | 7/45 [00:01<00:05,  6.87it/s][A
+Computing label-to-label distances:  18%|█▊        | 8/45 [00:01<00:05,  7.21it/s][A
+Computing label-to-label distances:  20%|██        | 9/45 [00:01<00:04,  7.55it/s][A
+Computing label-to-label distances:  22%|██▏       | 10/45 [00:01<00:04,  7.92it/s][A
+Computing label-to-label distances:  24%|██▍       | 11/45 [00:01<00:04,  8.12it/s][A
+Computing label-to-label distances:  29%|██▉       | 13/45 [00:02<00:03,  8.93it/s][A
+Computing label-to-label distances:  31%|███       | 14/45 [00:02<00:03,  8.82it/s][A
+Computing label-to-label distances:  33%|███▎      | 15/45 [00:02<00:03,  8.90it/s][A
+Computing label-to-label distances:  36%|███▌      | 16/45 [00:02<00:03,  8.66it/s][A
+Computing label-to-label distances:  38%|███▊      | 17/45 [00:02<00:03,  8.61it/s][A
+Computing label-to-label distances:  40%|████      | 18/45 [00:02<00:03,  8.82it/s][A
+Computing label-to-label distances:  42%|████▏     | 19/45 [00:02<00:03,  8.32it/s][A
+Computing label-to-label distances:  44%|████▍     | 20/45 [00:02<00:03,  8.33it/s][A
+Computing label-to-label distances:  47%|████▋     | 21/45 [00:02<00:02,  8.62it/s][A
+Computing label-to-label distances:  49%|████▉     | 22/45 [00:03<00:02,  8.46it/s][A
+Computing label-to-label distances:  51%|█████     | 23/45 [00:03<00:02,  8.37it/s][A
+Computing label-to-label distances:  53%|█████▎    | 24/45 [00:03<00:02,  8.68it/s][A
+Computing label-to-label distances:  56%|█████▌    | 25/45 [00:03<00:02,  8.49it/s][A
+Computing label-to-label distances:  58%|█████▊    | 26/45 [00:03<00:02,  8.58it/s][A
+Computing label-to-label distances:  60%|██████    | 27/45 [00:03<00:02,  8.61it/s][A
+Computing label-to-label distances:  62%|██████▏   | 28/45 [00:03<00:01,  8.56it/s][A
+Computing label-to-label distances:  64%|██████▍   | 29/45 [00:03<00:01,  8.43it/s][A
+Computing label-to-label distances:  67%|██████▋   | 30/45 [00:04<00:01,  8.38it/s][A
+Computing label-to-label distances:  71%|███████   | 32/45 [00:04<00:01,  8.60it/s][A
+Computing label-to-label distances:  73%|███████▎  | 33/45 [00:04<00:01,  8.38it/s][A
+Computing label-to-label distances:  76%|███████▌  | 34/45 [00:04<00:01,  8.70it/s][A
+Computing label-to-label distances:  78%|███████▊  | 35/45 [00:04<00:01,  8.46it/s][A
+Computing label-to-label distances:  80%|████████  | 36/45 [00:04<00:01,  8.54it/s][A
+Computing label-to-label distances:  84%|████████▍ | 38/45 [00:04<00:00,  9.00it/s][A
+Computing label-to-label distances:  87%|████████▋ | 39/45 [00:05<00:00,  8.97it/s][A
+Computing label-to-label distances:  89%|████████▉ | 40/45 [00:05<00:00,  8.86it/s][A
+Computing label-to-label distances:  91%|█████████ | 41/45 [00:05<00:00,  8.87it/s][A
+Computing label-to-label distances:  93%|█████████▎| 42/45 [00:05<00:00,  8.68it/s][A
+Computing label-to-label distances:  96%|█████████▌| 43/45 [00:05<00:00,  8.51it/s][A
+Computing label-to-label distances:  98%|█████████▊| 44/45 [00:05<00:00,  8.78it/s][A
+Computing label-to-label distances: 100%|██████████| 45/45 [00:05<00:00,  8.57it/s][A
+                                                                                   [ADistance size: torch.Size([10, 10])
+Pre-computing pairwise label Wasserstein distances D2 <-> D2...
+Computing label-to-label (exact) wasserstein distances...
+
+  0%|          | 0/45 [00:00<?, ?it/s][A
+Computing label-to-label distances:   0%|          | 0/45 [00:00<?, ?it/s][A
+Computing label-to-label distances:   4%|▍         | 2/45 [00:00<00:03, 12.72it/s][A
+Computing label-to-label distances:   9%|▉         | 4/45 [00:00<00:02, 14.70it/s][A
+Computing label-to-label distances:  13%|█▎        | 6/45 [00:00<00:02, 16.62it/s][A
+Computing label-to-label distances:  20%|██        | 9/45 [00:00<00:01, 18.68it/s][A
+Computing label-to-label distances:  27%|██▋       | 12/45 [00:00<00:01, 20.76it/s][A
+Computing label-to-label distances:  33%|███▎      | 15/45 [00:00<00:01, 20.89it/s][A
+Computing label-to-label distances:  40%|████      | 18/45 [00:00<00:01, 22.28it/s][A
+Computing label-to-label distances:  47%|████▋     | 21/45 [00:01<00:01, 23.27it/s][A
+Computing label-to-label distances:  53%|█████▎    | 24/45 [00:01<00:00, 23.63it/s][A
+Computing label-to-label distances:  60%|██████    | 27/45 [00:01<00:00, 24.56it/s][A
+Computing label-to-label distances:  67%|██████▋   | 30/45 [00:01<00:00, 24.10it/s][A
+Computing label-to-label distances:  73%|███████▎  | 33/45 [00:01<00:00, 23.85it/s][A
+Computing label-to-label distances:  80%|████████  | 36/45 [00:01<00:00, 23.42it/s][A
+Computing label-to-label distances:  87%|████████▋ | 39/45 [00:01<00:00, 23.01it/s][A
+Computing label-to-label distances:  93%|█████████▎| 42/45 [00:01<00:00, 22.01it/s][A
+Computing label-to-label distances: 100%|██████████| 45/45 [00:02<00:00, 22.81it/s][A
+                                                                                   [ADistance size: torch.Size([10, 10])
+Pre-computing pairwise label Wasserstein distances D1 <-> D2...
+Computing label-to-label (exact) wasserstein distances...
+
+  0%|          | 0/100 [00:00<?, ?it/s][A
+Computing label-to-label distances:   0%|          | 0/100 [00:00<?, ?it/s][A
+Computing label-to-label distances:   2%|▏         | 2/100 [00:00<00:08, 12.17it/s][A
+Computing label-to-label distances:   4%|▍         | 4/100 [00:00<00:07, 12.70it/s][A
+Computing label-to-label distances:   6%|▌         | 6/100 [00:00<00:07, 13.38it/s][A
+Computing label-to-label distances:   8%|▊         | 8/100 [00:00<00:07, 12.94it/s][A
+Computing label-to-label distances:  10%|█         | 10/100 [00:00<00:06, 13.15it/s][A
+Computing label-to-label distances:  12%|█▏        | 12/100 [00:00<00:06, 13.53it/s][A
+Computing label-to-label distances:  14%|█▍        | 14/100 [00:01<00:06, 14.11it/s][A
+Computing label-to-label distances:  16%|█▌        | 16/100 [00:01<00:05, 14.19it/s][A
+Computing label-to-label distances:  18%|█▊        | 18/100 [00:01<00:05, 14.13it/s][A
+Computing label-to-label distances:  20%|██        | 20/100 [00:01<00:05, 14.26it/s][A
+Computing label-to-label distances:  22%|██▏       | 22/100 [00:01<00:05, 13.65it/s][A
+Computing label-to-label distances:  24%|██▍       | 24/100 [00:01<00:05, 13.90it/s][A
+Computing label-to-label distances:  26%|██▌       | 26/100 [00:01<00:05, 13.64it/s][A
+Computing label-to-label distances:  28%|██▊       | 28/100 [00:02<00:05, 13.45it/s][A
+Computing label-to-label distances:  30%|███       | 30/100 [00:02<00:05, 13.92it/s][A
+Computing label-to-label distances:  32%|███▏      | 32/100 [00:02<00:04, 13.78it/s][A
+Computing label-to-label distances:  34%|███▍      | 34/100 [00:02<00:04, 14.19it/s][A
+Computing label-to-label distances:  36%|███▌      | 36/100 [00:02<00:04, 13.87it/s][A
+Computing label-to-label distances:  38%|███▊      | 38/100 [00:02<00:04, 13.73it/s][A
+Computing label-to-label distances:  40%|████      | 40/100 [00:02<00:04, 13.75it/s][A
+Computing label-to-label distances:  42%|████▏     | 42/100 [00:03<00:04, 13.23it/s][A
+Computing label-to-label distances:  44%|████▍     | 44/100 [00:03<00:04, 13.57it/s][A
+Computing label-to-label distances:  46%|████▌     | 46/100 [00:03<00:04, 13.21it/s][A
+Computing label-to-label distances:  48%|████▊     | 48/100 [00:03<00:03, 13.40it/s][A
+Computing label-to-label distances:  50%|█████     | 50/100 [00:03<00:03, 13.19it/s][A
+Computing label-to-label distances:  52%|█████▏    | 52/100 [00:03<00:03, 13.56it/s][A
+Computing label-to-label distances:  54%|█████▍    | 54/100 [00:03<00:03, 14.61it/s][A
+Computing label-to-label distances:  56%|█████▌    | 56/100 [00:04<00:03, 14.41it/s][A
+Computing label-to-label distances:  58%|█████▊    | 58/100 [00:04<00:02, 14.90it/s][A
+Computing label-to-label distances:  60%|██████    | 60/100 [00:04<00:02, 14.91it/s][A
+Computing label-to-label distances:  62%|██████▏   | 62/100 [00:04<00:02, 14.03it/s][A
+Computing label-to-label distances:  64%|██████▍   | 64/100 [00:04<00:02, 14.10it/s][A
+Computing label-to-label distances:  66%|██████▌   | 66/100 [00:04<00:02, 13.73it/s][A
+Computing label-to-label distances:  68%|██████▊   | 68/100 [00:04<00:02, 13.91it/s][A
+Computing label-to-label distances:  70%|███████   | 70/100 [00:05<00:02, 13.26it/s][A
+Computing label-to-label distances:  72%|███████▏  | 72/100 [00:05<00:02, 13.04it/s][A
+Computing label-to-label distances:  74%|███████▍  | 74/100 [00:05<00:02, 12.70it/s][A
+Computing label-to-label distances:  76%|███████▌  | 76/100 [00:05<00:01, 12.73it/s][A
+Computing label-to-label distances:  78%|███████▊  | 78/100 [00:05<00:01, 12.29it/s][A
+Computing label-to-label distances:  80%|████████  | 80/100 [00:05<00:01, 12.18it/s][A
+Computing label-to-label distances:  82%|████████▏ | 82/100 [00:06<00:01, 11.77it/s][A
+Computing label-to-label distances:  84%|████████▍ | 84/100 [00:06<00:01, 12.27it/s][A
+Computing label-to-label distances:  86%|████████▌ | 86/100 [00:06<00:01, 12.68it/s][A
+Computing label-to-label distances:  88%|████████▊ | 88/100 [00:06<00:00, 12.64it/s][A
+Computing label-to-label distances:  90%|█████████ | 90/100 [00:06<00:00, 13.14it/s][A
+Computing label-to-label distances:  92%|█████████▏| 92/100 [00:06<00:00, 12.98it/s][A
+Computing label-to-label distances:  94%|█████████▍| 94/100 [00:06<00:00, 13.41it/s][A
+Computing label-to-label distances:  96%|█████████▌| 96/100 [00:07<00:00, 13.20it/s][A
+Computing label-to-label distances:  98%|█████████▊| 98/100 [00:07<00:00, 13.13it/s][A
+Computing label-to-label distances: 100%|██████████| 100/100 [00:07<00:00, 13.40it/s][A
+                                                                                     [ASAVA valuation:  10%|█         | 1/10 [00:16<02:29, 16.61s/it]SAVA valuation:  20%|██        | 2/10 [00:17<01:00,  7.56s/it]SAVA valuation:  30%|███       | 3/10 [00:19<00:32,  4.66s/it]SAVA valuation:  40%|████      | 4/10 [00:20<00:19,  3.30s/it]SAVA valuation:  50%|█████     | 5/10 [00:21<00:12,  2.54s/it]SAVA valuation:  60%|██████    | 6/10 [00:22<00:08,  2.08s/it]SAVA valuation:  70%|███████   | 7/10 [00:23<00:05,  1.79s/it]SAVA valuation:  80%|████████  | 8/10 [00:24<00:03,  1.59s/it]SAVA valuation:  90%|█████████ | 9/10 [00:26<00:01,  1.47s/it]SAVA valuation: 100%|██████████| 10/10 [00:27<00:00,  1.33s/it]SAVA valuation: 100%|██████████| 10/10 [00:27<00:00,  2.72s/it]
+/home/phatht/.conda/envs/my_env/lib/python3.10/site-packages/ot/bregman/_sinkhorn.py:631: RuntimeWarning: overflow encountered in divide
+  u = 1.0 / nx.dot(Kp, v)
+/home/phatht/.conda/envs/my_env/lib/python3.10/site-packages/ot/bregman/_sinkhorn.py:642: UserWarning: Warning: numerical errors at iteration 300
+  warnings.warn("Warning: numerical errors at iteration %d" % ii)
+Distance size: torch.Size([10, 10])
+Finished first label distance in: 15.357044458389282 s.
+finished load datasets in 0.05227828025817871s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 1024, 3072])
+per batch cost calculation takes 16.2578 seconds
+len D1: torch.Size([1024])
+len D2: torch.Size([100])
+Finished first label distance in: 2.1457672119140625e-06 s.
+finished load datasets in 0.07469582557678223s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 1024, 3072])
+per batch cost calculation takes 0.8376 seconds
+len D1: torch.Size([1024])
+len D2: torch.Size([100])
+Finished first label distance in: 2.384185791015625e-06 s.
+finished load datasets in 0.049083709716796875s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 1024, 3072])
+per batch cost calculation takes 0.8245 seconds
+len D1: torch.Size([1024])
+len D2: torch.Size([100])
+Finished first label distance in: 3.337860107421875e-06 s.
+finished load datasets in 0.039183855056762695s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 1024, 3072])
+per batch cost calculation takes 0.8094 seconds
+len D1: torch.Size([1024])
+len D2: torch.Size([100])
+Finished first label distance in: 1.9073486328125e-06 s.
+finished load datasets in 0.03162860870361328s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 1024, 3072])
+per batch cost calculation takes 0.7999 seconds
+len D1: torch.Size([1024])
+len D2: torch.Size([100])
+Finished first label distance in: 1.6689300537109375e-06 s.
+finished load datasets in 0.038101911544799805s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 1024, 3072])
+per batch cost calculation takes 0.8086 seconds
+len D1: torch.Size([1024])
+len D2: torch.Size([100])
+Finished first label distance in: 1.6689300537109375e-06 s.
+finished load datasets in 0.056418418884277344s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 1024, 3072])
+per batch cost calculation takes 0.8268 seconds
+len D1: torch.Size([1024])
+len D2: torch.Size([100])
+Finished first label distance in: 1.6689300537109375e-06 s.
+finished load datasets in 0.052134037017822266s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 1024, 3072])
+per batch cost calculation takes 0.8107 seconds
+len D1: torch.Size([1024])
+len D2: torch.Size([100])
+Finished first label distance in: 3.814697265625e-06 s.
+finished load datasets in 0.038367271423339844s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 1024, 3072])
+per batch cost calculation takes 0.8160 seconds
+len D1: torch.Size([784])
+len D2: torch.Size([100])
+Finished first label distance in: 2.6226043701171875e-06 s.
+finished load datasets in 0.039778709411621094s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 784, 3072]), torch.Size([1, 100, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 784, 3072]), torch.Size([1, 100, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 100, 3072]), torch.Size([1, 784, 3072])
+per batch cost calculation takes 0.6818 seconds
+inspected: 10, found: 1 detection rate: 0.01 baseline: 0.1
+inspected: 20, found: 2 detection rate: 0.02 baseline: 0.2
+inspected: 30, found: 2 detection rate: 0.02 baseline: 0.3
+inspected: 40, found: 2 detection rate: 0.02 baseline: 0.4
+inspected: 50, found: 3 detection rate: 0.03 baseline: 0.5
+inspected: 60, found: 4 detection rate: 0.04 baseline: 0.6
+inspected: 70, found: 6 detection rate: 0.06 baseline: 0.7000000000000001
+inspected: 80, found: 6 detection rate: 0.06 baseline: 0.8
+inspected: 90, found: 7 detection rate: 0.07 baseline: 0.9
+inspected: 100, found: 8 detection rate: 0.08 baseline: 1.0
+inspected: 110, found: 9 detection rate: 0.09 baseline: 1.1
+inspected: 120, found: 11 detection rate: 0.11 baseline: 1.2
+inspected: 130, found: 11 detection rate: 0.11 baseline: 1.3
+inspected: 140, found: 12 detection rate: 0.12 baseline: 1.4000000000000001
+inspected: 150, found: 13 detection rate: 0.13 baseline: 1.5
+inspected: 160, found: 15 detection rate: 0.15 baseline: 1.6
+inspected: 170, found: 18 detection rate: 0.18 baseline: 1.7
+inspected: 180, found: 20 detection rate: 0.20 baseline: 1.8
+inspected: 190, found: 24 detection rate: 0.24 baseline: 1.9000000000000001
+inspected: 200, found: 26 detection rate: 0.26 baseline: 2.0
+inspected: 210, found: 30 detection rate: 0.30 baseline: 2.1
+inspected: 220, found: 32 detection rate: 0.32 baseline: 2.2
+inspected: 230, found: 33 detection rate: 0.33 baseline: 2.3000000000000003
+inspected: 240, found: 34 detection rate: 0.34 baseline: 2.4
+inspected: 250, found: 34 detection rate: 0.34 baseline: 2.5
+inspected: 260, found: 35 detection rate: 0.35 baseline: 2.6
+inspected: 270, found: 35 detection rate: 0.35 baseline: 2.7
+inspected: 280, found: 36 detection rate: 0.36 baseline: 2.8000000000000003
+inspected: 290, found: 36 detection rate: 0.36 baseline: 2.9
+inspected: 300, found: 37 detection rate: 0.37 baseline: 3.0
+inspected: 310, found: 41 detection rate: 0.41 baseline: 3.1
+inspected: 320, found: 42 detection rate: 0.42 baseline: 3.2
+inspected: 330, found: 44 detection rate: 0.44 baseline: 3.3000000000000003
+inspected: 340, found: 46 detection rate: 0.46 baseline: 3.4
+inspected: 350, found: 46 detection rate: 0.46 baseline: 3.5
+inspected: 360, found: 46 detection rate: 0.46 baseline: 3.6
+inspected: 370, found: 47 detection rate: 0.47 baseline: 3.7
+inspected: 380, found: 47 detection rate: 0.47 baseline: 3.8000000000000003
+inspected: 390, found: 47 detection rate: 0.47 baseline: 3.9
+inspected: 400, found: 47 detection rate: 0.47 baseline: 4.0
+inspected: 410, found: 48 detection rate: 0.48 baseline: 4.1
+inspected: 420, found: 50 detection rate: 0.50 baseline: 4.2
+inspected: 430, found: 50 detection rate: 0.50 baseline: 4.3
+inspected: 440, found: 50 detection rate: 0.50 baseline: 4.4
+inspected: 450, found: 50 detection rate: 0.50 baseline: 4.5
+inspected: 460, found: 51 detection rate: 0.51 baseline: 4.6000000000000005
+inspected: 470, found: 51 detection rate: 0.51 baseline: 4.7
+inspected: 480, found: 52 detection rate: 0.52 baseline: 4.8
+inspected: 490, found: 52 detection rate: 0.52 baseline: 4.9
+inspected: 500, found: 53 detection rate: 0.53 baseline: 5.0
+inspected: 510, found: 54 detection rate: 0.54 baseline: 5.1000000000000005
+inspected: 520, found: 55 detection rate: 0.55 baseline: 5.2
+inspected: 530, found: 56 detection rate: 0.56 baseline: 5.3
+inspected: 540, found: 57 detection rate: 0.57 baseline: 5.4
+inspected: 550, found: 57 detection rate: 0.57 baseline: 5.5
+inspected: 560, found: 57 detection rate: 0.57 baseline: 5.6000000000000005
+inspected: 570, found: 59 detection rate: 0.59 baseline: 5.7
+inspected: 580, found: 59 detection rate: 0.59 baseline: 5.8
+inspected: 590, found: 59 detection rate: 0.59 baseline: 5.9
+inspected: 600, found: 59 detection rate: 0.59 baseline: 6.0
+inspected: 610, found: 60 detection rate: 0.60 baseline: 6.1000000000000005
+inspected: 620, found: 60 detection rate: 0.60 baseline: 6.2
+inspected: 630, found: 60 detection rate: 0.60 baseline: 6.3
+inspected: 640, found: 60 detection rate: 0.60 baseline: 6.4
+inspected: 650, found: 61 detection rate: 0.61 baseline: 6.5
+inspected: 660, found: 62 detection rate: 0.62 baseline: 6.6000000000000005
+inspected: 670, found: 63 detection rate: 0.63 baseline: 6.7
+inspected: 680, found: 63 detection rate: 0.63 baseline: 6.8
+inspected: 690, found: 63 detection rate: 0.63 baseline: 6.9
+inspected: 700, found: 64 detection rate: 0.64 baseline: 7.0
+inspected: 710, found: 64 detection rate: 0.64 baseline: 7.1000000000000005
+inspected: 720, found: 64 detection rate: 0.64 baseline: 7.2
+inspected: 730, found: 66 detection rate: 0.66 baseline: 7.3
+inspected: 740, found: 66 detection rate: 0.66 baseline: 7.4
+inspected: 750, found: 67 detection rate: 0.67 baseline: 7.5
+inspected: 760, found: 67 detection rate: 0.67 baseline: 7.6000000000000005
+inspected: 770, found: 67 detection rate: 0.67 baseline: 7.7
+inspected: 780, found: 67 detection rate: 0.67 baseline: 7.8
+inspected: 790, found: 67 detection rate: 0.67 baseline: 7.9
+inspected: 800, found: 67 detection rate: 0.67 baseline: 8.0
+inspected: 810, found: 67 detection rate: 0.67 baseline: 8.1
+inspected: 820, found: 67 detection rate: 0.67 baseline: 8.2
+inspected: 830, found: 68 detection rate: 0.68 baseline: 8.3
+inspected: 840, found: 68 detection rate: 0.68 baseline: 8.4
+inspected: 850, found: 68 detection rate: 0.68 baseline: 8.5
+inspected: 860, found: 68 detection rate: 0.68 baseline: 8.6
+inspected: 870, found: 69 detection rate: 0.69 baseline: 8.700000000000001
+inspected: 880, found: 70 detection rate: 0.70 baseline: 8.8
+inspected: 890, found: 71 detection rate: 0.71 baseline: 8.9
+inspected: 900, found: 71 detection rate: 0.71 baseline: 9.0
+inspected: 910, found: 71 detection rate: 0.71 baseline: 9.1
+inspected: 920, found: 72 detection rate: 0.72 baseline: 9.200000000000001
+inspected: 930, found: 73 detection rate: 0.73 baseline: 9.3
+inspected: 940, found: 74 detection rate: 0.74 baseline: 9.4
+inspected: 950, found: 74 detection rate: 0.74 baseline: 9.5
+inspected: 960, found: 74 detection rate: 0.74 baseline: 9.6
+inspected: 970, found: 74 detection rate: 0.74 baseline: 9.700000000000001
+inspected: 980, found: 75 detection rate: 0.75 baseline: 9.8
+inspected: 990, found: 76 detection rate: 0.76 baseline: 9.9
+inspected: 1000, found: 78 detection rate: 0.78 baseline: 10.0
+inspected: 1010, found: 78 detection rate: 0.78 baseline: 10.1
+inspected: 1020, found: 78 detection rate: 0.78 baseline: 10.200000000000001
+inspected: 1030, found: 78 detection rate: 0.78 baseline: 10.3
+inspected: 1040, found: 78 detection rate: 0.78 baseline: 10.4
+inspected: 1050, found: 78 detection rate: 0.78 baseline: 10.5
+inspected: 1060, found: 79 detection rate: 0.79 baseline: 10.6
+inspected: 1070, found: 79 detection rate: 0.79 baseline: 10.700000000000001
+inspected: 1080, found: 80 detection rate: 0.80 baseline: 10.8
+inspected: 1090, found: 80 detection rate: 0.80 baseline: 10.9
+inspected: 1100, found: 81 detection rate: 0.81 baseline: 11.0
+inspected: 1110, found: 81 detection rate: 0.81 baseline: 11.1
+inspected: 1120, found: 82 detection rate: 0.82 baseline: 11.200000000000001
+inspected: 1130, found: 82 detection rate: 0.82 baseline: 11.3
+inspected: 1140, found: 83 detection rate: 0.83 baseline: 11.4
+inspected: 1150, found: 83 detection rate: 0.83 baseline: 11.5
+inspected: 1160, found: 83 detection rate: 0.83 baseline: 11.6
+inspected: 1170, found: 83 detection rate: 0.83 baseline: 11.700000000000001
+inspected: 1180, found: 83 detection rate: 0.83 baseline: 11.8
+inspected: 1190, found: 83 detection rate: 0.83 baseline: 11.9
+inspected: 1200, found: 83 detection rate: 0.83 baseline: 12.0
+inspected: 1210, found: 83 detection rate: 0.83 baseline: 12.1
+inspected: 1220, found: 83 detection rate: 0.83 baseline: 12.200000000000001
+inspected: 1230, found: 83 detection rate: 0.83 baseline: 12.3
+inspected: 1240, found: 83 detection rate: 0.83 baseline: 12.4
+inspected: 1250, found: 83 detection rate: 0.83 baseline: 12.5
+inspected: 1260, found: 83 detection rate: 0.83 baseline: 12.6
+inspected: 1270, found: 83 detection rate: 0.83 baseline: 12.700000000000001
+inspected: 1280, found: 83 detection rate: 0.83 baseline: 12.8
+inspected: 1290, found: 83 detection rate: 0.83 baseline: 12.9
+inspected: 1300, found: 83 detection rate: 0.83 baseline: 13.0
+inspected: 1310, found: 84 detection rate: 0.84 baseline: 13.1
+inspected: 1320, found: 84 detection rate: 0.84 baseline: 13.200000000000001
+inspected: 1330, found: 86 detection rate: 0.86 baseline: 13.3
+inspected: 1340, found: 86 detection rate: 0.86 baseline: 13.4
+inspected: 1350, found: 86 detection rate: 0.86 baseline: 13.5
+inspected: 1360, found: 86 detection rate: 0.86 baseline: 13.6
+inspected: 1370, found: 86 detection rate: 0.86 baseline: 13.700000000000001
+inspected: 1380, found: 86 detection rate: 0.86 baseline: 13.8
+inspected: 1390, found: 86 detection rate: 0.86 baseline: 13.9
+inspected: 1400, found: 86 detection rate: 0.86 baseline: 14.0
+inspected: 1410, found: 86 detection rate: 0.86 baseline: 14.1
+inspected: 1420, found: 87 detection rate: 0.87 baseline: 14.200000000000001
+inspected: 1430, found: 87 detection rate: 0.87 baseline: 14.3
+inspected: 1440, found: 87 detection rate: 0.87 baseline: 14.4
+inspected: 1450, found: 87 detection rate: 0.87 baseline: 14.5
+inspected: 1460, found: 87 detection rate: 0.87 baseline: 14.6
+inspected: 1470, found: 87 detection rate: 0.87 baseline: 14.700000000000001
+inspected: 1480, found: 87 detection rate: 0.87 baseline: 14.8
+inspected: 1490, found: 87 detection rate: 0.87 baseline: 14.9
+inspected: 1500, found: 88 detection rate: 0.88 baseline: 15.0
+inspected: 1510, found: 88 detection rate: 0.88 baseline: 15.1
+inspected: 1520, found: 88 detection rate: 0.88 baseline: 15.200000000000001
+inspected: 1530, found: 88 detection rate: 0.88 baseline: 15.3
+inspected: 1540, found: 88 detection rate: 0.88 baseline: 15.4
+inspected: 1550, found: 88 detection rate: 0.88 baseline: 15.5
+inspected: 1560, found: 88 detection rate: 0.88 baseline: 15.6
+inspected: 1570, found: 89 detection rate: 0.89 baseline: 15.700000000000001
+inspected: 1580, found: 89 detection rate: 0.89 baseline: 15.8
+inspected: 1590, found: 89 detection rate: 0.89 baseline: 15.9
+inspected: 1600, found: 89 detection rate: 0.89 baseline: 16.0
+inspected: 1610, found: 89 detection rate: 0.89 baseline: 16.1
+inspected: 1620, found: 89 detection rate: 0.89 baseline: 16.2
+inspected: 1630, found: 89 detection rate: 0.89 baseline: 16.3
+inspected: 1640, found: 89 detection rate: 0.89 baseline: 16.4
+inspected: 1650, found: 89 detection rate: 0.89 baseline: 16.5
+inspected: 1660, found: 89 detection rate: 0.89 baseline: 16.6
+inspected: 1670, found: 89 detection rate: 0.89 baseline: 16.7
+inspected: 1680, found: 89 detection rate: 0.89 baseline: 16.8
+inspected: 1690, found: 89 detection rate: 0.89 baseline: 16.9
+inspected: 1700, found: 89 detection rate: 0.89 baseline: 17.0
+inspected: 1710, found: 89 detection rate: 0.89 baseline: 17.1
+inspected: 1720, found: 90 detection rate: 0.90 baseline: 17.2
+inspected: 1730, found: 90 detection rate: 0.90 baseline: 17.3
+inspected: 1740, found: 90 detection rate: 0.90 baseline: 17.400000000000002
+inspected: 1750, found: 90 detection rate: 0.90 baseline: 17.5
+inspected: 1760, found: 90 detection rate: 0.90 baseline: 17.6
+inspected: 1770, found: 90 detection rate: 0.90 baseline: 17.7
+inspected: 1780, found: 91 detection rate: 0.91 baseline: 17.8
+inspected: 1790, found: 92 detection rate: 0.92 baseline: 17.900000000000002
+inspected: 1800, found: 92 detection rate: 0.92 baseline: 18.0
+inspected: 1810, found: 92 detection rate: 0.92 baseline: 18.1
+inspected: 1820, found: 92 detection rate: 0.92 baseline: 18.2
+inspected: 1830, found: 92 detection rate: 0.92 baseline: 18.3
+inspected: 1840, found: 92 detection rate: 0.92 baseline: 18.400000000000002
+inspected: 1850, found: 92 detection rate: 0.92 baseline: 18.5
+inspected: 1860, found: 92 detection rate: 0.92 baseline: 18.6
+inspected: 1870, found: 92 detection rate: 0.92 baseline: 18.7
+inspected: 1880, found: 92 detection rate: 0.92 baseline: 18.8
+inspected: 1890, found: 92 detection rate: 0.92 baseline: 18.900000000000002
+inspected: 1900, found: 92 detection rate: 0.92 baseline: 19.0
+inspected: 1910, found: 92 detection rate: 0.92 baseline: 19.1
+inspected: 1920, found: 92 detection rate: 0.92 baseline: 19.2
+inspected: 1930, found: 92 detection rate: 0.92 baseline: 19.3
+inspected: 1940, found: 92 detection rate: 0.92 baseline: 19.400000000000002
+inspected: 1950, found: 92 detection rate: 0.92 baseline: 19.5
+inspected: 1960, found: 92 detection rate: 0.92 baseline: 19.6
+inspected: 1970, found: 92 detection rate: 0.92 baseline: 19.7
+inspected: 1980, found: 93 detection rate: 0.93 baseline: 19.8
+inspected: 1990, found: 93 detection rate: 0.93 baseline: 19.900000000000002
+inspected: 2000, found: 93 detection rate: 0.93 baseline: 20.0
+inspected: 2010, found: 93 detection rate: 0.93 baseline: 20.1
+inspected: 2020, found: 93 detection rate: 0.93 baseline: 20.2
+inspected: 2030, found: 93 detection rate: 0.93 baseline: 20.3
+inspected: 2040, found: 93 detection rate: 0.93 baseline: 20.400000000000002
+inspected: 2050, found: 93 detection rate: 0.93 baseline: 20.5
+inspected: 2060, found: 93 detection rate: 0.93 baseline: 20.6
+inspected: 2070, found: 93 detection rate: 0.93 baseline: 20.7
+inspected: 2080, found: 93 detection rate: 0.93 baseline: 20.8
+inspected: 2090, found: 93 detection rate: 0.93 baseline: 20.900000000000002
+inspected: 2100, found: 93 detection rate: 0.93 baseline: 21.0
+inspected: 2110, found: 93 detection rate: 0.93 baseline: 21.1
+inspected: 2120, found: 94 detection rate: 0.94 baseline: 21.2
+inspected: 2130, found: 94 detection rate: 0.94 baseline: 21.3
+inspected: 2140, found: 94 detection rate: 0.94 baseline: 21.400000000000002
+inspected: 2150, found: 94 detection rate: 0.94 baseline: 21.5
+inspected: 2160, found: 94 detection rate: 0.94 baseline: 21.6
+inspected: 2170, found: 94 detection rate: 0.94 baseline: 21.7
+inspected: 2180, found: 94 detection rate: 0.94 baseline: 21.8
+inspected: 2190, found: 94 detection rate: 0.94 baseline: 21.900000000000002
+inspected: 2200, found: 94 detection rate: 0.94 baseline: 22.0
+inspected: 2210, found: 94 detection rate: 0.94 baseline: 22.1
+inspected: 2220, found: 94 detection rate: 0.94 baseline: 22.2
+inspected: 2230, found: 94 detection rate: 0.94 baseline: 22.3
+inspected: 2240, found: 94 detection rate: 0.94 baseline: 22.400000000000002
+inspected: 2250, found: 94 detection rate: 0.94 baseline: 22.5
+inspected: 2260, found: 94 detection rate: 0.94 baseline: 22.6
+inspected: 2270, found: 95 detection rate: 0.95 baseline: 22.7
+inspected: 2280, found: 95 detection rate: 0.95 baseline: 22.8
+inspected: 2290, found: 95 detection rate: 0.95 baseline: 22.900000000000002
+inspected: 2300, found: 95 detection rate: 0.95 baseline: 23.0
+inspected: 2310, found: 95 detection rate: 0.95 baseline: 23.1
+inspected: 2320, found: 95 detection rate: 0.95 baseline: 23.2
+inspected: 2330, found: 95 detection rate: 0.95 baseline: 23.3
+inspected: 2340, found: 95 detection rate: 0.95 baseline: 23.400000000000002
+inspected: 2350, found: 95 detection rate: 0.95 baseline: 23.5
+inspected: 2360, found: 95 detection rate: 0.95 baseline: 23.6
+inspected: 2370, found: 95 detection rate: 0.95 baseline: 23.7
+inspected: 2380, found: 95 detection rate: 0.95 baseline: 23.8
+inspected: 2390, found: 95 detection rate: 0.95 baseline: 23.900000000000002
+inspected: 2400, found: 95 detection rate: 0.95 baseline: 24.0
+inspected: 2410, found: 95 detection rate: 0.95 baseline: 24.1
+inspected: 2420, found: 95 detection rate: 0.95 baseline: 24.2
+inspected: 2430, found: 95 detection rate: 0.95 baseline: 24.3
+inspected: 2440, found: 95 detection rate: 0.95 baseline: 24.400000000000002
+inspected: 2450, found: 95 detection rate: 0.95 baseline: 24.5
+inspected: 2460, found: 95 detection rate: 0.95 baseline: 24.6
+inspected: 2470, found: 95 detection rate: 0.95 baseline: 24.7
+inspected: 2480, found: 95 detection rate: 0.95 baseline: 24.8
+inspected: 2490, found: 95 detection rate: 0.95 baseline: 24.900000000000002
+inspected: 2500, found: 95 detection rate: 0.95 baseline: 25.0
+inspected: 2510, found: 95 detection rate: 0.95 baseline: 25.1
+inspected: 2520, found: 95 detection rate: 0.95 baseline: 25.2
+inspected: 2530, found: 96 detection rate: 0.96 baseline: 25.3
+inspected: 2540, found: 96 detection rate: 0.96 baseline: 25.400000000000002
+inspected: 2550, found: 96 detection rate: 0.96 baseline: 25.5
+inspected: 2560, found: 96 detection rate: 0.96 baseline: 25.6
+inspected: 2570, found: 96 detection rate: 0.96 baseline: 25.7
+inspected: 2580, found: 96 detection rate: 0.96 baseline: 25.8
+inspected: 2590, found: 96 detection rate: 0.96 baseline: 25.900000000000002
+inspected: 2600, found: 96 detection rate: 0.96 baseline: 26.0
+inspected: 2610, found: 96 detection rate: 0.96 baseline: 26.1
+inspected: 2620, found: 96 detection rate: 0.96 baseline: 26.2
+inspected: 2630, found: 96 detection rate: 0.96 baseline: 26.3
+inspected: 2640, found: 96 detection rate: 0.96 baseline: 26.400000000000002
+inspected: 2650, found: 96 detection rate: 0.96 baseline: 26.5
+inspected: 2660, found: 96 detection rate: 0.96 baseline: 26.6
+inspected: 2670, found: 96 detection rate: 0.96 baseline: 26.7
+inspected: 2680, found: 96 detection rate: 0.96 baseline: 26.8
+inspected: 2690, found: 96 detection rate: 0.96 baseline: 26.900000000000002
+inspected: 2700, found: 96 detection rate: 0.96 baseline: 27.0
+inspected: 2710, found: 96 detection rate: 0.96 baseline: 27.1
+inspected: 2720, found: 96 detection rate: 0.96 baseline: 27.2
+inspected: 2730, found: 96 detection rate: 0.96 baseline: 27.3
+inspected: 2740, found: 96 detection rate: 0.96 baseline: 27.400000000000002
+inspected: 2750, found: 96 detection rate: 0.96 baseline: 27.5
+inspected: 2760, found: 96 detection rate: 0.96 baseline: 27.6
+inspected: 2770, found: 96 detection rate: 0.96 baseline: 27.7
+inspected: 2780, found: 96 detection rate: 0.96 baseline: 27.8
+inspected: 2790, found: 96 detection rate: 0.96 baseline: 27.900000000000002
+inspected: 2800, found: 96 detection rate: 0.96 baseline: 28.0
+inspected: 2810, found: 96 detection rate: 0.96 baseline: 28.1
+inspected: 2820, found: 96 detection rate: 0.96 baseline: 28.2
+inspected: 2830, found: 96 detection rate: 0.96 baseline: 28.3
+inspected: 2840, found: 96 detection rate: 0.96 baseline: 28.400000000000002
+inspected: 2850, found: 96 detection rate: 0.96 baseline: 28.5
+inspected: 2860, found: 96 detection rate: 0.96 baseline: 28.6
+inspected: 2870, found: 96 detection rate: 0.96 baseline: 28.7
+inspected: 2880, found: 96 detection rate: 0.96 baseline: 28.8
+inspected: 2890, found: 96 detection rate: 0.96 baseline: 28.900000000000002
+inspected: 2900, found: 96 detection rate: 0.96 baseline: 29.0
+inspected: 2910, found: 96 detection rate: 0.96 baseline: 29.1
+inspected: 2920, found: 96 detection rate: 0.96 baseline: 29.2
+inspected: 2930, found: 97 detection rate: 0.97 baseline: 29.3
+inspected: 2940, found: 97 detection rate: 0.97 baseline: 29.400000000000002
+inspected: 2950, found: 97 detection rate: 0.97 baseline: 29.5
+inspected: 2960, found: 97 detection rate: 0.97 baseline: 29.6
+inspected: 2970, found: 97 detection rate: 0.97 baseline: 29.7
+inspected: 2980, found: 97 detection rate: 0.97 baseline: 29.8
+inspected: 2990, found: 97 detection rate: 0.97 baseline: 29.900000000000002
+inspected: 3000, found: 97 detection rate: 0.97 baseline: 30.0
+inspected: 3010, found: 97 detection rate: 0.97 baseline: 30.1
+inspected: 3020, found: 97 detection rate: 0.97 baseline: 30.2
+inspected: 3030, found: 97 detection rate: 0.97 baseline: 30.3
+inspected: 3040, found: 97 detection rate: 0.97 baseline: 30.400000000000002
+inspected: 3050, found: 97 detection rate: 0.97 baseline: 30.5
+inspected: 3060, found: 97 detection rate: 0.97 baseline: 30.6
+inspected: 3070, found: 97 detection rate: 0.97 baseline: 30.7
+inspected: 3080, found: 97 detection rate: 0.97 baseline: 30.8
+inspected: 3090, found: 97 detection rate: 0.97 baseline: 30.900000000000002
+inspected: 3100, found: 97 detection rate: 0.97 baseline: 31.0
+inspected: 3110, found: 97 detection rate: 0.97 baseline: 31.1
+inspected: 3120, found: 97 detection rate: 0.97 baseline: 31.2
+inspected: 3130, found: 97 detection rate: 0.97 baseline: 31.3
+inspected: 3140, found: 97 detection rate: 0.97 baseline: 31.400000000000002
+inspected: 3150, found: 97 detection rate: 0.97 baseline: 31.5
+inspected: 3160, found: 97 detection rate: 0.97 baseline: 31.6
+inspected: 3170, found: 97 detection rate: 0.97 baseline: 31.7
+inspected: 3180, found: 97 detection rate: 0.97 baseline: 31.8
+inspected: 3190, found: 97 detection rate: 0.97 baseline: 31.900000000000002
+inspected: 3200, found: 97 detection rate: 0.97 baseline: 32.0
+inspected: 3210, found: 97 detection rate: 0.97 baseline: 32.1
+inspected: 3220, found: 97 detection rate: 0.97 baseline: 32.2
+inspected: 3230, found: 97 detection rate: 0.97 baseline: 32.3
+inspected: 3240, found: 97 detection rate: 0.97 baseline: 32.4
+inspected: 3250, found: 97 detection rate: 0.97 baseline: 32.5
+inspected: 3260, found: 97 detection rate: 0.97 baseline: 32.6
+inspected: 3270, found: 98 detection rate: 0.98 baseline: 32.7
+inspected: 3280, found: 98 detection rate: 0.98 baseline: 32.8
+inspected: 3290, found: 98 detection rate: 0.98 baseline: 32.9
+inspected: 3300, found: 98 detection rate: 0.98 baseline: 33.0
+inspected: 3310, found: 98 detection rate: 0.98 baseline: 33.1
+inspected: 3320, found: 98 detection rate: 0.98 baseline: 33.2
+inspected: 3330, found: 98 detection rate: 0.98 baseline: 33.3
+inspected: 3340, found: 98 detection rate: 0.98 baseline: 33.4
+inspected: 3350, found: 98 detection rate: 0.98 baseline: 33.5
+inspected: 3360, found: 98 detection rate: 0.98 baseline: 33.6
+inspected: 3370, found: 98 detection rate: 0.98 baseline: 33.7
+inspected: 3380, found: 98 detection rate: 0.98 baseline: 33.8
+inspected: 3390, found: 98 detection rate: 0.98 baseline: 33.9
+inspected: 3400, found: 98 detection rate: 0.98 baseline: 34.0
+inspected: 3410, found: 98 detection rate: 0.98 baseline: 34.1
+inspected: 3420, found: 98 detection rate: 0.98 baseline: 34.2
+inspected: 3430, found: 98 detection rate: 0.98 baseline: 34.300000000000004
+inspected: 3440, found: 98 detection rate: 0.98 baseline: 34.4
+inspected: 3450, found: 98 detection rate: 0.98 baseline: 34.5
+inspected: 3460, found: 98 detection rate: 0.98 baseline: 34.6
+inspected: 3470, found: 98 detection rate: 0.98 baseline: 34.7
+inspected: 3480, found: 98 detection rate: 0.98 baseline: 34.800000000000004
+inspected: 3490, found: 98 detection rate: 0.98 baseline: 34.9
+inspected: 3500, found: 98 detection rate: 0.98 baseline: 35.0
+inspected: 3510, found: 98 detection rate: 0.98 baseline: 35.1
+inspected: 3520, found: 98 detection rate: 0.98 baseline: 35.2
+inspected: 3530, found: 98 detection rate: 0.98 baseline: 35.300000000000004
+inspected: 3540, found: 98 detection rate: 0.98 baseline: 35.4
+inspected: 3550, found: 98 detection rate: 0.98 baseline: 35.5
+inspected: 3560, found: 98 detection rate: 0.98 baseline: 35.6
+inspected: 3570, found: 98 detection rate: 0.98 baseline: 35.7
+inspected: 3580, found: 98 detection rate: 0.98 baseline: 35.800000000000004
+inspected: 3590, found: 98 detection rate: 0.98 baseline: 35.9
+inspected: 3600, found: 98 detection rate: 0.98 baseline: 36.0
+inspected: 3610, found: 98 detection rate: 0.98 baseline: 36.1
+inspected: 3620, found: 98 detection rate: 0.98 baseline: 36.2
+inspected: 3630, found: 98 detection rate: 0.98 baseline: 36.300000000000004
+inspected: 3640, found: 98 detection rate: 0.98 baseline: 36.4
+inspected: 3650, found: 98 detection rate: 0.98 baseline: 36.5
+inspected: 3660, found: 98 detection rate: 0.98 baseline: 36.6
+inspected: 3670, found: 98 detection rate: 0.98 baseline: 36.7
+inspected: 3680, found: 98 detection rate: 0.98 baseline: 36.800000000000004
+inspected: 3690, found: 98 detection rate: 0.98 baseline: 36.9
+inspected: 3700, found: 98 detection rate: 0.98 baseline: 37.0
+inspected: 3710, found: 98 detection rate: 0.98 baseline: 37.1
+inspected: 3720, found: 98 detection rate: 0.98 baseline: 37.2
+inspected: 3730, found: 98 detection rate: 0.98 baseline: 37.300000000000004
+inspected: 3740, found: 98 detection rate: 0.98 baseline: 37.4
+inspected: 3750, found: 98 detection rate: 0.98 baseline: 37.5
+inspected: 3760, found: 98 detection rate: 0.98 baseline: 37.6
+inspected: 3770, found: 98 detection rate: 0.98 baseline: 37.7
+inspected: 3780, found: 98 detection rate: 0.98 baseline: 37.800000000000004
+inspected: 3790, found: 98 detection rate: 0.98 baseline: 37.9
+inspected: 3800, found: 98 detection rate: 0.98 baseline: 38.0
+inspected: 3810, found: 98 detection rate: 0.98 baseline: 38.1
+inspected: 3820, found: 98 detection rate: 0.98 baseline: 38.2
+inspected: 3830, found: 98 detection rate: 0.98 baseline: 38.300000000000004
+inspected: 3840, found: 98 detection rate: 0.98 baseline: 38.4
+inspected: 3850, found: 98 detection rate: 0.98 baseline: 38.5
+inspected: 3860, found: 98 detection rate: 0.98 baseline: 38.6
+inspected: 3870, found: 98 detection rate: 0.98 baseline: 38.7
+inspected: 3880, found: 98 detection rate: 0.98 baseline: 38.800000000000004
+inspected: 3890, found: 98 detection rate: 0.98 baseline: 38.9
+inspected: 3900, found: 98 detection rate: 0.98 baseline: 39.0
+inspected: 3910, found: 98 detection rate: 0.98 baseline: 39.1
+inspected: 3920, found: 98 detection rate: 0.98 baseline: 39.2
+inspected: 3930, found: 98 detection rate: 0.98 baseline: 39.300000000000004
+inspected: 3940, found: 98 detection rate: 0.98 baseline: 39.4
+inspected: 3950, found: 98 detection rate: 0.98 baseline: 39.5
+inspected: 3960, found: 98 detection rate: 0.98 baseline: 39.6
+inspected: 3970, found: 98 detection rate: 0.98 baseline: 39.7
+inspected: 3980, found: 98 detection rate: 0.98 baseline: 39.800000000000004
+inspected: 3990, found: 98 detection rate: 0.98 baseline: 39.9
+inspected: 4000, found: 98 detection rate: 0.98 baseline: 40.0
+inspected: 4010, found: 98 detection rate: 0.98 baseline: 40.1
+inspected: 4020, found: 98 detection rate: 0.98 baseline: 40.2
+inspected: 4030, found: 98 detection rate: 0.98 baseline: 40.300000000000004
+inspected: 4040, found: 98 detection rate: 0.98 baseline: 40.4
+inspected: 4050, found: 98 detection rate: 0.98 baseline: 40.5
+inspected: 4060, found: 98 detection rate: 0.98 baseline: 40.6
+inspected: 4070, found: 98 detection rate: 0.98 baseline: 40.7
+inspected: 4080, found: 98 detection rate: 0.98 baseline: 40.800000000000004
+inspected: 4090, found: 98 detection rate: 0.98 baseline: 40.9
+inspected: 4100, found: 98 detection rate: 0.98 baseline: 41.0
+inspected: 4110, found: 98 detection rate: 0.98 baseline: 41.1
+inspected: 4120, found: 98 detection rate: 0.98 baseline: 41.2
+inspected: 4130, found: 98 detection rate: 0.98 baseline: 41.300000000000004
+inspected: 4140, found: 98 detection rate: 0.98 baseline: 41.4
+inspected: 4150, found: 98 detection rate: 0.98 baseline: 41.5
+inspected: 4160, found: 98 detection rate: 0.98 baseline: 41.6
+inspected: 4170, found: 98 detection rate: 0.98 baseline: 41.7
+inspected: 4180, found: 98 detection rate: 0.98 baseline: 41.800000000000004
+inspected: 4190, found: 98 detection rate: 0.98 baseline: 41.9
+inspected: 4200, found: 98 detection rate: 0.98 baseline: 42.0
+inspected: 4210, found: 98 detection rate: 0.98 baseline: 42.1
+inspected: 4220, found: 98 detection rate: 0.98 baseline: 42.2
+inspected: 4230, found: 98 detection rate: 0.98 baseline: 42.300000000000004
+inspected: 4240, found: 98 detection rate: 0.98 baseline: 42.4
+inspected: 4250, found: 98 detection rate: 0.98 baseline: 42.5
+inspected: 4260, found: 98 detection rate: 0.98 baseline: 42.6
+inspected: 4270, found: 98 detection rate: 0.98 baseline: 42.7
+inspected: 4280, found: 98 detection rate: 0.98 baseline: 42.800000000000004
+inspected: 4290, found: 98 detection rate: 0.98 baseline: 42.9
+inspected: 4300, found: 98 detection rate: 0.98 baseline: 43.0
+inspected: 4310, found: 98 detection rate: 0.98 baseline: 43.1
+inspected: 4320, found: 98 detection rate: 0.98 baseline: 43.2
+inspected: 4330, found: 98 detection rate: 0.98 baseline: 43.300000000000004
+inspected: 4340, found: 98 detection rate: 0.98 baseline: 43.4
+inspected: 4350, found: 98 detection rate: 0.98 baseline: 43.5
+inspected: 4360, found: 98 detection rate: 0.98 baseline: 43.6
+inspected: 4370, found: 98 detection rate: 0.98 baseline: 43.7
+inspected: 4380, found: 98 detection rate: 0.98 baseline: 43.800000000000004
+inspected: 4390, found: 98 detection rate: 0.98 baseline: 43.9
+inspected: 4400, found: 98 detection rate: 0.98 baseline: 44.0
+inspected: 4410, found: 98 detection rate: 0.98 baseline: 44.1
+inspected: 4420, found: 98 detection rate: 0.98 baseline: 44.2
+inspected: 4430, found: 98 detection rate: 0.98 baseline: 44.300000000000004
+inspected: 4440, found: 98 detection rate: 0.98 baseline: 44.4
+inspected: 4450, found: 98 detection rate: 0.98 baseline: 44.5
+inspected: 4460, found: 98 detection rate: 0.98 baseline: 44.6
+inspected: 4470, found: 98 detection rate: 0.98 baseline: 44.7
+inspected: 4480, found: 98 detection rate: 0.98 baseline: 44.800000000000004
+inspected: 4490, found: 98 detection rate: 0.98 baseline: 44.9
+inspected: 4500, found: 98 detection rate: 0.98 baseline: 45.0
+inspected: 4510, found: 98 detection rate: 0.98 baseline: 45.1
+inspected: 4520, found: 98 detection rate: 0.98 baseline: 45.2
+inspected: 4530, found: 98 detection rate: 0.98 baseline: 45.300000000000004
+inspected: 4540, found: 98 detection rate: 0.98 baseline: 45.4
+inspected: 4550, found: 98 detection rate: 0.98 baseline: 45.5
+inspected: 4560, found: 98 detection rate: 0.98 baseline: 45.6
+inspected: 4570, found: 98 detection rate: 0.98 baseline: 45.7
+inspected: 4580, found: 98 detection rate: 0.98 baseline: 45.800000000000004
+inspected: 4590, found: 99 detection rate: 0.99 baseline: 45.9
+inspected: 4600, found: 99 detection rate: 0.99 baseline: 46.0
+inspected: 4610, found: 99 detection rate: 0.99 baseline: 46.1
+inspected: 4620, found: 99 detection rate: 0.99 baseline: 46.2
+inspected: 4630, found: 99 detection rate: 0.99 baseline: 46.300000000000004
+inspected: 4640, found: 99 detection rate: 0.99 baseline: 46.4
+inspected: 4650, found: 99 detection rate: 0.99 baseline: 46.5
+inspected: 4660, found: 99 detection rate: 0.99 baseline: 46.6
+inspected: 4670, found: 99 detection rate: 0.99 baseline: 46.7
+inspected: 4680, found: 99 detection rate: 0.99 baseline: 46.800000000000004
+inspected: 4690, found: 99 detection rate: 0.99 baseline: 46.9
+inspected: 4700, found: 99 detection rate: 0.99 baseline: 47.0
+inspected: 4710, found: 99 detection rate: 0.99 baseline: 47.1
+inspected: 4720, found: 99 detection rate: 0.99 baseline: 47.2
+inspected: 4730, found: 99 detection rate: 0.99 baseline: 47.300000000000004
+inspected: 4740, found: 99 detection rate: 0.99 baseline: 47.4
+inspected: 4750, found: 99 detection rate: 0.99 baseline: 47.5
+inspected: 4760, found: 99 detection rate: 0.99 baseline: 47.6
+inspected: 4770, found: 99 detection rate: 0.99 baseline: 47.7
+inspected: 4780, found: 99 detection rate: 0.99 baseline: 47.800000000000004
+inspected: 4790, found: 99 detection rate: 0.99 baseline: 47.9
+inspected: 4800, found: 99 detection rate: 0.99 baseline: 48.0
+inspected: 4810, found: 99 detection rate: 0.99 baseline: 48.1
+inspected: 4820, found: 99 detection rate: 0.99 baseline: 48.2
+inspected: 4830, found: 99 detection rate: 0.99 baseline: 48.300000000000004
+inspected: 4840, found: 99 detection rate: 0.99 baseline: 48.4
+inspected: 4850, found: 99 detection rate: 0.99 baseline: 48.5
+inspected: 4860, found: 99 detection rate: 0.99 baseline: 48.6
+inspected: 4870, found: 99 detection rate: 0.99 baseline: 48.7
+inspected: 4880, found: 99 detection rate: 0.99 baseline: 48.800000000000004
+inspected: 4890, found: 99 detection rate: 0.99 baseline: 48.9
+inspected: 4900, found: 99 detection rate: 0.99 baseline: 49.0
+inspected: 4910, found: 99 detection rate: 0.99 baseline: 49.1
+inspected: 4920, found: 99 detection rate: 0.99 baseline: 49.2
+inspected: 4930, found: 99 detection rate: 0.99 baseline: 49.300000000000004
+inspected: 4940, found: 99 detection rate: 0.99 baseline: 49.4
+inspected: 4950, found: 99 detection rate: 0.99 baseline: 49.5
+inspected: 4960, found: 99 detection rate: 0.99 baseline: 49.6
+inspected: 4970, found: 99 detection rate: 0.99 baseline: 49.7
+inspected: 4980, found: 99 detection rate: 0.99 baseline: 49.800000000000004
+inspected: 4990, found: 99 detection rate: 0.99 baseline: 49.9
+inspected: 5000, found: 100 detection rate: 1.00 baseline: 50.0
+inspected: 5010, found: 100 detection rate: 1.00 baseline: 50.1
+inspected: 5020, found: 100 detection rate: 1.00 baseline: 50.2
+inspected: 5030, found: 100 detection rate: 1.00 baseline: 50.300000000000004
+inspected: 5040, found: 100 detection rate: 1.00 baseline: 50.4
+inspected: 5050, found: 100 detection rate: 1.00 baseline: 50.5
+inspected: 5060, found: 100 detection rate: 1.00 baseline: 50.6
+inspected: 5070, found: 100 detection rate: 1.00 baseline: 50.7
+inspected: 5080, found: 100 detection rate: 1.00 baseline: 50.800000000000004
+inspected: 5090, found: 100 detection rate: 1.00 baseline: 50.9
+inspected: 5100, found: 100 detection rate: 1.00 baseline: 51.0
+inspected: 5110, found: 100 detection rate: 1.00 baseline: 51.1
+inspected: 5120, found: 100 detection rate: 1.00 baseline: 51.2
+inspected: 5130, found: 100 detection rate: 1.00 baseline: 51.300000000000004
+inspected: 5140, found: 100 detection rate: 1.00 baseline: 51.4
+inspected: 5150, found: 100 detection rate: 1.00 baseline: 51.5
+inspected: 5160, found: 100 detection rate: 1.00 baseline: 51.6
+inspected: 5170, found: 100 detection rate: 1.00 baseline: 51.7
+inspected: 5180, found: 100 detection rate: 1.00 baseline: 51.800000000000004
+inspected: 5190, found: 100 detection rate: 1.00 baseline: 51.9
+inspected: 5200, found: 100 detection rate: 1.00 baseline: 52.0
+inspected: 5210, found: 100 detection rate: 1.00 baseline: 52.1
+inspected: 5220, found: 100 detection rate: 1.00 baseline: 52.2
+inspected: 5230, found: 100 detection rate: 1.00 baseline: 52.300000000000004
+inspected: 5240, found: 100 detection rate: 1.00 baseline: 52.4
+inspected: 5250, found: 100 detection rate: 1.00 baseline: 52.5
+inspected: 5260, found: 100 detection rate: 1.00 baseline: 52.6
+inspected: 5270, found: 100 detection rate: 1.00 baseline: 52.7
+inspected: 5280, found: 100 detection rate: 1.00 baseline: 52.800000000000004
+inspected: 5290, found: 100 detection rate: 1.00 baseline: 52.9
+inspected: 5300, found: 100 detection rate: 1.00 baseline: 53.0
+inspected: 5310, found: 100 detection rate: 1.00 baseline: 53.1
+inspected: 5320, found: 100 detection rate: 1.00 baseline: 53.2
+inspected: 5330, found: 100 detection rate: 1.00 baseline: 53.300000000000004
+inspected: 5340, found: 100 detection rate: 1.00 baseline: 53.4
+inspected: 5350, found: 100 detection rate: 1.00 baseline: 53.5
+inspected: 5360, found: 100 detection rate: 1.00 baseline: 53.6
+inspected: 5370, found: 100 detection rate: 1.00 baseline: 53.7
+inspected: 5380, found: 100 detection rate: 1.00 baseline: 53.800000000000004
+inspected: 5390, found: 100 detection rate: 1.00 baseline: 53.9
+inspected: 5400, found: 100 detection rate: 1.00 baseline: 54.0
+inspected: 5410, found: 100 detection rate: 1.00 baseline: 54.1
+inspected: 5420, found: 100 detection rate: 1.00 baseline: 54.2
+inspected: 5430, found: 100 detection rate: 1.00 baseline: 54.300000000000004
+inspected: 5440, found: 100 detection rate: 1.00 baseline: 54.4
+inspected: 5450, found: 100 detection rate: 1.00 baseline: 54.5
+inspected: 5460, found: 100 detection rate: 1.00 baseline: 54.6
+inspected: 5470, found: 100 detection rate: 1.00 baseline: 54.7
+inspected: 5480, found: 100 detection rate: 1.00 baseline: 54.800000000000004
+inspected: 5490, found: 100 detection rate: 1.00 baseline: 54.9
+inspected: 5500, found: 100 detection rate: 1.00 baseline: 55.0
+inspected: 5510, found: 100 detection rate: 1.00 baseline: 55.1
+inspected: 5520, found: 100 detection rate: 1.00 baseline: 55.2
+inspected: 5530, found: 100 detection rate: 1.00 baseline: 55.300000000000004
+inspected: 5540, found: 100 detection rate: 1.00 baseline: 55.4
+inspected: 5550, found: 100 detection rate: 1.00 baseline: 55.5
+inspected: 5560, found: 100 detection rate: 1.00 baseline: 55.6
+inspected: 5570, found: 100 detection rate: 1.00 baseline: 55.7
+inspected: 5580, found: 100 detection rate: 1.00 baseline: 55.800000000000004
+inspected: 5590, found: 100 detection rate: 1.00 baseline: 55.9
+inspected: 5600, found: 100 detection rate: 1.00 baseline: 56.0
+inspected: 5610, found: 100 detection rate: 1.00 baseline: 56.1
+inspected: 5620, found: 100 detection rate: 1.00 baseline: 56.2
+inspected: 5630, found: 100 detection rate: 1.00 baseline: 56.300000000000004
+inspected: 5640, found: 100 detection rate: 1.00 baseline: 56.4
+inspected: 5650, found: 100 detection rate: 1.00 baseline: 56.5
+inspected: 5660, found: 100 detection rate: 1.00 baseline: 56.6
+inspected: 5670, found: 100 detection rate: 1.00 baseline: 56.7
+inspected: 5680, found: 100 detection rate: 1.00 baseline: 56.800000000000004
+inspected: 5690, found: 100 detection rate: 1.00 baseline: 56.9
+inspected: 5700, found: 100 detection rate: 1.00 baseline: 57.0
+inspected: 5710, found: 100 detection rate: 1.00 baseline: 57.1
+inspected: 5720, found: 100 detection rate: 1.00 baseline: 57.2
+inspected: 5730, found: 100 detection rate: 1.00 baseline: 57.300000000000004
+inspected: 5740, found: 100 detection rate: 1.00 baseline: 57.4
+inspected: 5750, found: 100 detection rate: 1.00 baseline: 57.5
+inspected: 5760, found: 100 detection rate: 1.00 baseline: 57.6
+inspected: 5770, found: 100 detection rate: 1.00 baseline: 57.7
+inspected: 5780, found: 100 detection rate: 1.00 baseline: 57.800000000000004
+inspected: 5790, found: 100 detection rate: 1.00 baseline: 57.9
+inspected: 5800, found: 100 detection rate: 1.00 baseline: 58.0
+inspected: 5810, found: 100 detection rate: 1.00 baseline: 58.1
+inspected: 5820, found: 100 detection rate: 1.00 baseline: 58.2
+inspected: 5830, found: 100 detection rate: 1.00 baseline: 58.300000000000004
+inspected: 5840, found: 100 detection rate: 1.00 baseline: 58.4
+inspected: 5850, found: 100 detection rate: 1.00 baseline: 58.5
+inspected: 5860, found: 100 detection rate: 1.00 baseline: 58.6
+inspected: 5870, found: 100 detection rate: 1.00 baseline: 58.7
+inspected: 5880, found: 100 detection rate: 1.00 baseline: 58.800000000000004
+inspected: 5890, found: 100 detection rate: 1.00 baseline: 58.9
+inspected: 5900, found: 100 detection rate: 1.00 baseline: 59.0
+inspected: 5910, found: 100 detection rate: 1.00 baseline: 59.1
+inspected: 5920, found: 100 detection rate: 1.00 baseline: 59.2
+inspected: 5930, found: 100 detection rate: 1.00 baseline: 59.300000000000004
+inspected: 5940, found: 100 detection rate: 1.00 baseline: 59.4
+inspected: 5950, found: 100 detection rate: 1.00 baseline: 59.5
+inspected: 5960, found: 100 detection rate: 1.00 baseline: 59.6
+inspected: 5970, found: 100 detection rate: 1.00 baseline: 59.7
+inspected: 5980, found: 100 detection rate: 1.00 baseline: 59.800000000000004
+inspected: 5990, found: 100 detection rate: 1.00 baseline: 59.9
+inspected: 6000, found: 100 detection rate: 1.00 baseline: 60.0
+inspected: 6010, found: 100 detection rate: 1.00 baseline: 60.1
+inspected: 6020, found: 100 detection rate: 1.00 baseline: 60.2
+inspected: 6030, found: 100 detection rate: 1.00 baseline: 60.300000000000004
+inspected: 6040, found: 100 detection rate: 1.00 baseline: 60.4
+inspected: 6050, found: 100 detection rate: 1.00 baseline: 60.5
+inspected: 6060, found: 100 detection rate: 1.00 baseline: 60.6
+inspected: 6070, found: 100 detection rate: 1.00 baseline: 60.7
+inspected: 6080, found: 100 detection rate: 1.00 baseline: 60.800000000000004
+inspected: 6090, found: 100 detection rate: 1.00 baseline: 60.9
+inspected: 6100, found: 100 detection rate: 1.00 baseline: 61.0
+inspected: 6110, found: 100 detection rate: 1.00 baseline: 61.1
+inspected: 6120, found: 100 detection rate: 1.00 baseline: 61.2
+inspected: 6130, found: 100 detection rate: 1.00 baseline: 61.300000000000004
+inspected: 6140, found: 100 detection rate: 1.00 baseline: 61.4
+inspected: 6150, found: 100 detection rate: 1.00 baseline: 61.5
+inspected: 6160, found: 100 detection rate: 1.00 baseline: 61.6
+inspected: 6170, found: 100 detection rate: 1.00 baseline: 61.7
+inspected: 6180, found: 100 detection rate: 1.00 baseline: 61.800000000000004
+inspected: 6190, found: 100 detection rate: 1.00 baseline: 61.9
+inspected: 6200, found: 100 detection rate: 1.00 baseline: 62.0
+inspected: 6210, found: 100 detection rate: 1.00 baseline: 62.1
+inspected: 6220, found: 100 detection rate: 1.00 baseline: 62.2
+inspected: 6230, found: 100 detection rate: 1.00 baseline: 62.300000000000004
+inspected: 6240, found: 100 detection rate: 1.00 baseline: 62.4
+inspected: 6250, found: 100 detection rate: 1.00 baseline: 62.5
+inspected: 6260, found: 100 detection rate: 1.00 baseline: 62.6
+inspected: 6270, found: 100 detection rate: 1.00 baseline: 62.7
+inspected: 6280, found: 100 detection rate: 1.00 baseline: 62.800000000000004
+inspected: 6290, found: 100 detection rate: 1.00 baseline: 62.9
+inspected: 6300, found: 100 detection rate: 1.00 baseline: 63.0
+inspected: 6310, found: 100 detection rate: 1.00 baseline: 63.1
+inspected: 6320, found: 100 detection rate: 1.00 baseline: 63.2
+inspected: 6330, found: 100 detection rate: 1.00 baseline: 63.300000000000004
+inspected: 6340, found: 100 detection rate: 1.00 baseline: 63.4
+inspected: 6350, found: 100 detection rate: 1.00 baseline: 63.5
+inspected: 6360, found: 100 detection rate: 1.00 baseline: 63.6
+inspected: 6370, found: 100 detection rate: 1.00 baseline: 63.7
+inspected: 6380, found: 100 detection rate: 1.00 baseline: 63.800000000000004
+inspected: 6390, found: 100 detection rate: 1.00 baseline: 63.9
+inspected: 6400, found: 100 detection rate: 1.00 baseline: 64.0
+inspected: 6410, found: 100 detection rate: 1.00 baseline: 64.1
+inspected: 6420, found: 100 detection rate: 1.00 baseline: 64.2
+inspected: 6430, found: 100 detection rate: 1.00 baseline: 64.3
+inspected: 6440, found: 100 detection rate: 1.00 baseline: 64.4
+inspected: 6450, found: 100 detection rate: 1.00 baseline: 64.5
+inspected: 6460, found: 100 detection rate: 1.00 baseline: 64.6
+inspected: 6470, found: 100 detection rate: 1.00 baseline: 64.7
+inspected: 6480, found: 100 detection rate: 1.00 baseline: 64.8
+inspected: 6490, found: 100 detection rate: 1.00 baseline: 64.9
+inspected: 6500, found: 100 detection rate: 1.00 baseline: 65.0
+inspected: 6510, found: 100 detection rate: 1.00 baseline: 65.1
+inspected: 6520, found: 100 detection rate: 1.00 baseline: 65.2
+inspected: 6530, found: 100 detection rate: 1.00 baseline: 65.3
+inspected: 6540, found: 100 detection rate: 1.00 baseline: 65.4
+inspected: 6550, found: 100 detection rate: 1.00 baseline: 65.5
+inspected: 6560, found: 100 detection rate: 1.00 baseline: 65.6
+inspected: 6570, found: 100 detection rate: 1.00 baseline: 65.7
+inspected: 6580, found: 100 detection rate: 1.00 baseline: 65.8
+inspected: 6590, found: 100 detection rate: 1.00 baseline: 65.9
+inspected: 6600, found: 100 detection rate: 1.00 baseline: 66.0
+inspected: 6610, found: 100 detection rate: 1.00 baseline: 66.1
+inspected: 6620, found: 100 detection rate: 1.00 baseline: 66.2
+inspected: 6630, found: 100 detection rate: 1.00 baseline: 66.3
+inspected: 6640, found: 100 detection rate: 1.00 baseline: 66.4
+inspected: 6650, found: 100 detection rate: 1.00 baseline: 66.5
+inspected: 6660, found: 100 detection rate: 1.00 baseline: 66.6
+inspected: 6670, found: 100 detection rate: 1.00 baseline: 66.7
+inspected: 6680, found: 100 detection rate: 1.00 baseline: 66.8
+inspected: 6690, found: 100 detection rate: 1.00 baseline: 66.9
+inspected: 6700, found: 100 detection rate: 1.00 baseline: 67.0
+inspected: 6710, found: 100 detection rate: 1.00 baseline: 67.1
+inspected: 6720, found: 100 detection rate: 1.00 baseline: 67.2
+inspected: 6730, found: 100 detection rate: 1.00 baseline: 67.3
+inspected: 6740, found: 100 detection rate: 1.00 baseline: 67.4
+inspected: 6750, found: 100 detection rate: 1.00 baseline: 67.5
+inspected: 6760, found: 100 detection rate: 1.00 baseline: 67.6
+inspected: 6770, found: 100 detection rate: 1.00 baseline: 67.7
+inspected: 6780, found: 100 detection rate: 1.00 baseline: 67.8
+inspected: 6790, found: 100 detection rate: 1.00 baseline: 67.9
+inspected: 6800, found: 100 detection rate: 1.00 baseline: 68.0
+inspected: 6810, found: 100 detection rate: 1.00 baseline: 68.1
+inspected: 6820, found: 100 detection rate: 1.00 baseline: 68.2
+inspected: 6830, found: 100 detection rate: 1.00 baseline: 68.3
+inspected: 6840, found: 100 detection rate: 1.00 baseline: 68.4
+inspected: 6850, found: 100 detection rate: 1.00 baseline: 68.5
+inspected: 6860, found: 100 detection rate: 1.00 baseline: 68.60000000000001
+inspected: 6870, found: 100 detection rate: 1.00 baseline: 68.7
+inspected: 6880, found: 100 detection rate: 1.00 baseline: 68.8
+inspected: 6890, found: 100 detection rate: 1.00 baseline: 68.9
+inspected: 6900, found: 100 detection rate: 1.00 baseline: 69.0
+inspected: 6910, found: 100 detection rate: 1.00 baseline: 69.10000000000001
+inspected: 6920, found: 100 detection rate: 1.00 baseline: 69.2
+inspected: 6930, found: 100 detection rate: 1.00 baseline: 69.3
+inspected: 6940, found: 100 detection rate: 1.00 baseline: 69.4
+inspected: 6950, found: 100 detection rate: 1.00 baseline: 69.5
+inspected: 6960, found: 100 detection rate: 1.00 baseline: 69.60000000000001
+inspected: 6970, found: 100 detection rate: 1.00 baseline: 69.7
+inspected: 6980, found: 100 detection rate: 1.00 baseline: 69.8
+inspected: 6990, found: 100 detection rate: 1.00 baseline: 69.9
+inspected: 7000, found: 100 detection rate: 1.00 baseline: 70.0
+inspected: 7010, found: 100 detection rate: 1.00 baseline: 70.10000000000001
+inspected: 7020, found: 100 detection rate: 1.00 baseline: 70.2
+inspected: 7030, found: 100 detection rate: 1.00 baseline: 70.3
+inspected: 7040, found: 100 detection rate: 1.00 baseline: 70.4
+inspected: 7050, found: 100 detection rate: 1.00 baseline: 70.5
+inspected: 7060, found: 100 detection rate: 1.00 baseline: 70.60000000000001
+inspected: 7070, found: 100 detection rate: 1.00 baseline: 70.7
+inspected: 7080, found: 100 detection rate: 1.00 baseline: 70.8
+inspected: 7090, found: 100 detection rate: 1.00 baseline: 70.9
+inspected: 7100, found: 100 detection rate: 1.00 baseline: 71.0
+inspected: 7110, found: 100 detection rate: 1.00 baseline: 71.10000000000001
+inspected: 7120, found: 100 detection rate: 1.00 baseline: 71.2
+inspected: 7130, found: 100 detection rate: 1.00 baseline: 71.3
+inspected: 7140, found: 100 detection rate: 1.00 baseline: 71.4
+inspected: 7150, found: 100 detection rate: 1.00 baseline: 71.5
+inspected: 7160, found: 100 detection rate: 1.00 baseline: 71.60000000000001
+inspected: 7170, found: 100 detection rate: 1.00 baseline: 71.7
+inspected: 7180, found: 100 detection rate: 1.00 baseline: 71.8
+inspected: 7190, found: 100 detection rate: 1.00 baseline: 71.9
+inspected: 7200, found: 100 detection rate: 1.00 baseline: 72.0
+inspected: 7210, found: 100 detection rate: 1.00 baseline: 72.10000000000001
+inspected: 7220, found: 100 detection rate: 1.00 baseline: 72.2
+inspected: 7230, found: 100 detection rate: 1.00 baseline: 72.3
+inspected: 7240, found: 100 detection rate: 1.00 baseline: 72.4
+inspected: 7250, found: 100 detection rate: 1.00 baseline: 72.5
+inspected: 7260, found: 100 detection rate: 1.00 baseline: 72.60000000000001
+inspected: 7270, found: 100 detection rate: 1.00 baseline: 72.7
+inspected: 7280, found: 100 detection rate: 1.00 baseline: 72.8
+inspected: 7290, found: 100 detection rate: 1.00 baseline: 72.9
+inspected: 7300, found: 100 detection rate: 1.00 baseline: 73.0
+inspected: 7310, found: 100 detection rate: 1.00 baseline: 73.10000000000001
+inspected: 7320, found: 100 detection rate: 1.00 baseline: 73.2
+inspected: 7330, found: 100 detection rate: 1.00 baseline: 73.3
+inspected: 7340, found: 100 detection rate: 1.00 baseline: 73.4
+inspected: 7350, found: 100 detection rate: 1.00 baseline: 73.5
+inspected: 7360, found: 100 detection rate: 1.00 baseline: 73.60000000000001
+inspected: 7370, found: 100 detection rate: 1.00 baseline: 73.7
+inspected: 7380, found: 100 detection rate: 1.00 baseline: 73.8
+inspected: 7390, found: 100 detection rate: 1.00 baseline: 73.9
+inspected: 7400, found: 100 detection rate: 1.00 baseline: 74.0
+inspected: 7410, found: 100 detection rate: 1.00 baseline: 74.10000000000001
+inspected: 7420, found: 100 detection rate: 1.00 baseline: 74.2
+inspected: 7430, found: 100 detection rate: 1.00 baseline: 74.3
+inspected: 7440, found: 100 detection rate: 1.00 baseline: 74.4
+inspected: 7450, found: 100 detection rate: 1.00 baseline: 74.5
+inspected: 7460, found: 100 detection rate: 1.00 baseline: 74.60000000000001
+inspected: 7470, found: 100 detection rate: 1.00 baseline: 74.7
+inspected: 7480, found: 100 detection rate: 1.00 baseline: 74.8
+inspected: 7490, found: 100 detection rate: 1.00 baseline: 74.9
+inspected: 7500, found: 100 detection rate: 1.00 baseline: 75.0
+inspected: 7510, found: 100 detection rate: 1.00 baseline: 75.10000000000001
+inspected: 7520, found: 100 detection rate: 1.00 baseline: 75.2
+inspected: 7530, found: 100 detection rate: 1.00 baseline: 75.3
+inspected: 7540, found: 100 detection rate: 1.00 baseline: 75.4
+inspected: 7550, found: 100 detection rate: 1.00 baseline: 75.5
+inspected: 7560, found: 100 detection rate: 1.00 baseline: 75.60000000000001
+inspected: 7570, found: 100 detection rate: 1.00 baseline: 75.7
+inspected: 7580, found: 100 detection rate: 1.00 baseline: 75.8
+inspected: 7590, found: 100 detection rate: 1.00 baseline: 75.9
+inspected: 7600, found: 100 detection rate: 1.00 baseline: 76.0
+inspected: 7610, found: 100 detection rate: 1.00 baseline: 76.10000000000001
+inspected: 7620, found: 100 detection rate: 1.00 baseline: 76.2
+inspected: 7630, found: 100 detection rate: 1.00 baseline: 76.3
+inspected: 7640, found: 100 detection rate: 1.00 baseline: 76.4
+inspected: 7650, found: 100 detection rate: 1.00 baseline: 76.5
+inspected: 7660, found: 100 detection rate: 1.00 baseline: 76.60000000000001
+inspected: 7670, found: 100 detection rate: 1.00 baseline: 76.7
+inspected: 7680, found: 100 detection rate: 1.00 baseline: 76.8
+inspected: 7690, found: 100 detection rate: 1.00 baseline: 76.9
+inspected: 7700, found: 100 detection rate: 1.00 baseline: 77.0
+inspected: 7710, found: 100 detection rate: 1.00 baseline: 77.10000000000001
+inspected: 7720, found: 100 detection rate: 1.00 baseline: 77.2
+inspected: 7730, found: 100 detection rate: 1.00 baseline: 77.3
+inspected: 7740, found: 100 detection rate: 1.00 baseline: 77.4
+inspected: 7750, found: 100 detection rate: 1.00 baseline: 77.5
+inspected: 7760, found: 100 detection rate: 1.00 baseline: 77.60000000000001
+inspected: 7770, found: 100 detection rate: 1.00 baseline: 77.7
+inspected: 7780, found: 100 detection rate: 1.00 baseline: 77.8
+inspected: 7790, found: 100 detection rate: 1.00 baseline: 77.9
+inspected: 7800, found: 100 detection rate: 1.00 baseline: 78.0
+inspected: 7810, found: 100 detection rate: 1.00 baseline: 78.10000000000001
+inspected: 7820, found: 100 detection rate: 1.00 baseline: 78.2
+inspected: 7830, found: 100 detection rate: 1.00 baseline: 78.3
+inspected: 7840, found: 100 detection rate: 1.00 baseline: 78.4
+inspected: 7850, found: 100 detection rate: 1.00 baseline: 78.5
+inspected: 7860, found: 100 detection rate: 1.00 baseline: 78.60000000000001
+inspected: 7870, found: 100 detection rate: 1.00 baseline: 78.7
+inspected: 7880, found: 100 detection rate: 1.00 baseline: 78.8
+inspected: 7890, found: 100 detection rate: 1.00 baseline: 78.9
+inspected: 7900, found: 100 detection rate: 1.00 baseline: 79.0
+inspected: 7910, found: 100 detection rate: 1.00 baseline: 79.10000000000001
+inspected: 7920, found: 100 detection rate: 1.00 baseline: 79.2
+inspected: 7930, found: 100 detection rate: 1.00 baseline: 79.3
+inspected: 7940, found: 100 detection rate: 1.00 baseline: 79.4
+inspected: 7950, found: 100 detection rate: 1.00 baseline: 79.5
+inspected: 7960, found: 100 detection rate: 1.00 baseline: 79.60000000000001
+inspected: 7970, found: 100 detection rate: 1.00 baseline: 79.7
+inspected: 7980, found: 100 detection rate: 1.00 baseline: 79.8
+inspected: 7990, found: 100 detection rate: 1.00 baseline: 79.9
+inspected: 8000, found: 100 detection rate: 1.00 baseline: 80.0
+inspected: 8010, found: 100 detection rate: 1.00 baseline: 80.10000000000001
+inspected: 8020, found: 100 detection rate: 1.00 baseline: 80.2
+inspected: 8030, found: 100 detection rate: 1.00 baseline: 80.3
+inspected: 8040, found: 100 detection rate: 1.00 baseline: 80.4
+inspected: 8050, found: 100 detection rate: 1.00 baseline: 80.5
+inspected: 8060, found: 100 detection rate: 1.00 baseline: 80.60000000000001
+inspected: 8070, found: 100 detection rate: 1.00 baseline: 80.7
+inspected: 8080, found: 100 detection rate: 1.00 baseline: 80.8
+inspected: 8090, found: 100 detection rate: 1.00 baseline: 80.9
+inspected: 8100, found: 100 detection rate: 1.00 baseline: 81.0
+inspected: 8110, found: 100 detection rate: 1.00 baseline: 81.10000000000001
+inspected: 8120, found: 100 detection rate: 1.00 baseline: 81.2
+inspected: 8130, found: 100 detection rate: 1.00 baseline: 81.3
+inspected: 8140, found: 100 detection rate: 1.00 baseline: 81.4
+inspected: 8150, found: 100 detection rate: 1.00 baseline: 81.5
+inspected: 8160, found: 100 detection rate: 1.00 baseline: 81.60000000000001
+inspected: 8170, found: 100 detection rate: 1.00 baseline: 81.7
+inspected: 8180, found: 100 detection rate: 1.00 baseline: 81.8
+inspected: 8190, found: 100 detection rate: 1.00 baseline: 81.9
+inspected: 8200, found: 100 detection rate: 1.00 baseline: 82.0
+inspected: 8210, found: 100 detection rate: 1.00 baseline: 82.10000000000001
+inspected: 8220, found: 100 detection rate: 1.00 baseline: 82.2
+inspected: 8230, found: 100 detection rate: 1.00 baseline: 82.3
+inspected: 8240, found: 100 detection rate: 1.00 baseline: 82.4
+inspected: 8250, found: 100 detection rate: 1.00 baseline: 82.5
+inspected: 8260, found: 100 detection rate: 1.00 baseline: 82.60000000000001
+inspected: 8270, found: 100 detection rate: 1.00 baseline: 82.7
+inspected: 8280, found: 100 detection rate: 1.00 baseline: 82.8
+inspected: 8290, found: 100 detection rate: 1.00 baseline: 82.9
+inspected: 8300, found: 100 detection rate: 1.00 baseline: 83.0
+inspected: 8310, found: 100 detection rate: 1.00 baseline: 83.10000000000001
+inspected: 8320, found: 100 detection rate: 1.00 baseline: 83.2
+inspected: 8330, found: 100 detection rate: 1.00 baseline: 83.3
+inspected: 8340, found: 100 detection rate: 1.00 baseline: 83.4
+inspected: 8350, found: 100 detection rate: 1.00 baseline: 83.5
+inspected: 8360, found: 100 detection rate: 1.00 baseline: 83.60000000000001
+inspected: 8370, found: 100 detection rate: 1.00 baseline: 83.7
+inspected: 8380, found: 100 detection rate: 1.00 baseline: 83.8
+inspected: 8390, found: 100 detection rate: 1.00 baseline: 83.9
+inspected: 8400, found: 100 detection rate: 1.00 baseline: 84.0
+inspected: 8410, found: 100 detection rate: 1.00 baseline: 84.10000000000001
+inspected: 8420, found: 100 detection rate: 1.00 baseline: 84.2
+inspected: 8430, found: 100 detection rate: 1.00 baseline: 84.3
+inspected: 8440, found: 100 detection rate: 1.00 baseline: 84.4
+inspected: 8450, found: 100 detection rate: 1.00 baseline: 84.5
+inspected: 8460, found: 100 detection rate: 1.00 baseline: 84.60000000000001
+inspected: 8470, found: 100 detection rate: 1.00 baseline: 84.7
+inspected: 8480, found: 100 detection rate: 1.00 baseline: 84.8
+inspected: 8490, found: 100 detection rate: 1.00 baseline: 84.9
+inspected: 8500, found: 100 detection rate: 1.00 baseline: 85.0
+inspected: 8510, found: 100 detection rate: 1.00 baseline: 85.10000000000001
+inspected: 8520, found: 100 detection rate: 1.00 baseline: 85.2
+inspected: 8530, found: 100 detection rate: 1.00 baseline: 85.3
+inspected: 8540, found: 100 detection rate: 1.00 baseline: 85.4
+inspected: 8550, found: 100 detection rate: 1.00 baseline: 85.5
+inspected: 8560, found: 100 detection rate: 1.00 baseline: 85.60000000000001
+inspected: 8570, found: 100 detection rate: 1.00 baseline: 85.7
+inspected: 8580, found: 100 detection rate: 1.00 baseline: 85.8
+inspected: 8590, found: 100 detection rate: 1.00 baseline: 85.9
+inspected: 8600, found: 100 detection rate: 1.00 baseline: 86.0
+inspected: 8610, found: 100 detection rate: 1.00 baseline: 86.10000000000001
+inspected: 8620, found: 100 detection rate: 1.00 baseline: 86.2
+inspected: 8630, found: 100 detection rate: 1.00 baseline: 86.3
+inspected: 8640, found: 100 detection rate: 1.00 baseline: 86.4
+inspected: 8650, found: 100 detection rate: 1.00 baseline: 86.5
+inspected: 8660, found: 100 detection rate: 1.00 baseline: 86.60000000000001
+inspected: 8670, found: 100 detection rate: 1.00 baseline: 86.7
+inspected: 8680, found: 100 detection rate: 1.00 baseline: 86.8
+inspected: 8690, found: 100 detection rate: 1.00 baseline: 86.9
+inspected: 8700, found: 100 detection rate: 1.00 baseline: 87.0
+inspected: 8710, found: 100 detection rate: 1.00 baseline: 87.10000000000001
+inspected: 8720, found: 100 detection rate: 1.00 baseline: 87.2
+inspected: 8730, found: 100 detection rate: 1.00 baseline: 87.3
+inspected: 8740, found: 100 detection rate: 1.00 baseline: 87.4
+inspected: 8750, found: 100 detection rate: 1.00 baseline: 87.5
+inspected: 8760, found: 100 detection rate: 1.00 baseline: 87.60000000000001
+inspected: 8770, found: 100 detection rate: 1.00 baseline: 87.7
+inspected: 8780, found: 100 detection rate: 1.00 baseline: 87.8
+inspected: 8790, found: 100 detection rate: 1.00 baseline: 87.9
+inspected: 8800, found: 100 detection rate: 1.00 baseline: 88.0
+inspected: 8810, found: 100 detection rate: 1.00 baseline: 88.10000000000001
+inspected: 8820, found: 100 detection rate: 1.00 baseline: 88.2
+inspected: 8830, found: 100 detection rate: 1.00 baseline: 88.3
+inspected: 8840, found: 100 detection rate: 1.00 baseline: 88.4
+inspected: 8850, found: 100 detection rate: 1.00 baseline: 88.5
+inspected: 8860, found: 100 detection rate: 1.00 baseline: 88.60000000000001
+inspected: 8870, found: 100 detection rate: 1.00 baseline: 88.7
+inspected: 8880, found: 100 detection rate: 1.00 baseline: 88.8
+inspected: 8890, found: 100 detection rate: 1.00 baseline: 88.9
+inspected: 8900, found: 100 detection rate: 1.00 baseline: 89.0
+inspected: 8910, found: 100 detection rate: 1.00 baseline: 89.10000000000001
+inspected: 8920, found: 100 detection rate: 1.00 baseline: 89.2
+inspected: 8930, found: 100 detection rate: 1.00 baseline: 89.3
+inspected: 8940, found: 100 detection rate: 1.00 baseline: 89.4
+inspected: 8950, found: 100 detection rate: 1.00 baseline: 89.5
+inspected: 8960, found: 100 detection rate: 1.00 baseline: 89.60000000000001
+inspected: 8970, found: 100 detection rate: 1.00 baseline: 89.7
+inspected: 8980, found: 100 detection rate: 1.00 baseline: 89.8
+inspected: 8990, found: 100 detection rate: 1.00 baseline: 89.9
+inspected: 9000, found: 100 detection rate: 1.00 baseline: 90.0
+inspected: 9010, found: 100 detection rate: 1.00 baseline: 90.10000000000001
+inspected: 9020, found: 100 detection rate: 1.00 baseline: 90.2
+inspected: 9030, found: 100 detection rate: 1.00 baseline: 90.3
+inspected: 9040, found: 100 detection rate: 1.00 baseline: 90.4
+inspected: 9050, found: 100 detection rate: 1.00 baseline: 90.5
+inspected: 9060, found: 100 detection rate: 1.00 baseline: 90.60000000000001
+inspected: 9070, found: 100 detection rate: 1.00 baseline: 90.7
+inspected: 9080, found: 100 detection rate: 1.00 baseline: 90.8
+inspected: 9090, found: 100 detection rate: 1.00 baseline: 90.9
+inspected: 9100, found: 100 detection rate: 1.00 baseline: 91.0
+inspected: 9110, found: 100 detection rate: 1.00 baseline: 91.10000000000001
+inspected: 9120, found: 100 detection rate: 1.00 baseline: 91.2
+inspected: 9130, found: 100 detection rate: 1.00 baseline: 91.3
+inspected: 9140, found: 100 detection rate: 1.00 baseline: 91.4
+inspected: 9150, found: 100 detection rate: 1.00 baseline: 91.5
+inspected: 9160, found: 100 detection rate: 1.00 baseline: 91.60000000000001
+inspected: 9170, found: 100 detection rate: 1.00 baseline: 91.7
+wandb: updating run metadata
+wandb: uploading output.log; uploading wandb-summary.json; uploading config.yaml
+wandb: uploading output.log; uploading wandb-summary.json
+wandb: uploading history steps 0-998, summary, console lines 19-1119
+wandb: 
+wandb: Run history:
+wandb:    baseline ▁▁▁▁▂▂▂▃▃▃▃▃▃▃▃▃▄▄▄▄▅▅▅▅▅▅▅▅▅▅▆▇▇▇▇▇▇███
+wandb: custom_step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▄▄▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇▇█
+wandb:       found ▁▁▄▅▅▇▇█████████████████████████████████
+wandb: 
+wandb: Run summary:
+wandb:    baseline 99.9
+wandb: custom_step 9990
+wandb:       found 100
+wandb: 
+wandb: 🚀 View run hot_tr_sz_10000_sava_test_feat at: https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection/runs/kn5i16yd
+wandb: ⭐️ View project at: https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260520_153657-kn5i16yd/logs
+wandb: WARNING Tried to log to step 1 that is less than the current step 999. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+inspected: 9180, found: 100 detection rate: 1.00 baseline: 91.8
+inspected: 9190, found: 100 detection rate: 1.00 baseline: 91.9
+inspected: 9200, found: 100 detection rate: 1.00 baseline: 92.0
+inspected: 9210, found: 100 detection rate: 1.00 baseline: 92.10000000000001
+inspected: 9220, found: 100 detection rate: 1.00 baseline: 92.2
+inspected: 9230, found: 100 detection rate: 1.00 baseline: 92.3
+inspected: 9240, found: 100 detection rate: 1.00 baseline: 92.4
+inspected: 9250, found: 100 detection rate: 1.00 baseline: 92.5
+inspected: 9260, found: 100 detection rate: 1.00 baseline: 92.60000000000001
+inspected: 9270, found: 100 detection rate: 1.00 baseline: 92.7
+inspected: 9280, found: 100 detection rate: 1.00 baseline: 92.8
+inspected: 9290, found: 100 detection rate: 1.00 baseline: 92.9
+inspected: 9300, found: 100 detection rate: 1.00 baseline: 93.0
+inspected: 9310, found: 100 detection rate: 1.00 baseline: 93.10000000000001
+inspected: 9320, found: 100 detection rate: 1.00 baseline: 93.2
+inspected: 9330, found: 100 detection rate: 1.00 baseline: 93.3
+inspected: 9340, found: 100 detection rate: 1.00 baseline: 93.4
+inspected: 9350, found: 100 detection rate: 1.00 baseline: 93.5
+inspected: 9360, found: 100 detection rate: 1.00 baseline: 93.60000000000001
+inspected: 9370, found: 100 detection rate: 1.00 baseline: 93.7
+inspected: 9380, found: 100 detection rate: 1.00 baseline: 93.8
+inspected: 9390, found: 100 detection rate: 1.00 baseline: 93.9
+inspected: 9400, found: 100 detection rate: 1.00 baseline: 94.0
+inspected: 9410, found: 100 detection rate: 1.00 baseline: 94.10000000000001
+inspected: 9420, found: 100 detection rate: 1.00 baseline: 94.2
+inspected: 9430, found: 100 detection rate: 1.00 baseline: 94.3
+inspected: 9440, found: 100 detection rate: 1.00 baseline: 94.4
+inspected: 9450, found: 100 detection rate: 1.00 baseline: 94.5
+inspected: 9460, found: 100 detection rate: 1.00 baseline: 94.60000000000001
+inspected: 9470, found: 100 detection rate: 1.00 baseline: 94.7
+inspected: 9480, found: 100 detection rate: 1.00 baseline: 94.8
+inspected: 9490, found: 100 detection rate: 1.00 baseline: 94.9
+inspected: 9500, found: 100 detection rate: 1.00 baseline: 95.0
+inspected: 9510, found: 100 detection rate: 1.00 baseline: 95.10000000000001
+inspected: 9520, found: 100 detection rate: 1.00 baseline: 95.2
+inspected: 9530, found: 100 detection rate: 1.00 baseline: 95.3
+inspected: 9540, found: 100 detection rate: 1.00 baseline: 95.4
+inspected: 9550, found: 100 detection rate: 1.00 baseline: 95.5
+inspected: 9560, found: 100 detection rate: 1.00 baseline: 95.60000000000001
+inspected: 9570, found: 100 detection rate: 1.00 baseline: 95.7
+inspected: 9580, found: 100 detection rate: 1.00 baseline: 95.8
+inspected: 9590, found: 100 detection rate: 1.00 baseline: 95.9
+inspected: 9600, found: 100 detection rate: 1.00 baseline: 96.0
+inspected: 9610, found: 100 detection rate: 1.00 baseline: 96.10000000000001
+inspected: 9620, found: 100 detection rate: 1.00 baseline: 96.2
+inspected: 9630, found: 100 detection rate: 1.00 baseline: 96.3
+inspected: 9640, found: 100 detection rate: 1.00 baseline: 96.4
+inspected: 9650, found: 100 detection rate: 1.00 baseline: 96.5
+inspected: 9660, found: 100 detection rate: 1.00 baseline: 96.60000000000001
+inspected: 9670, found: 100 detection rate: 1.00 baseline: 96.7
+inspected: 9680, found: 100 detection rate: 1.00 baseline: 96.8
+inspected: 9690, found: 100 detection rate: 1.00 baseline: 96.9
+inspected: 9700, found: 100 detection rate: 1.00 baseline: 97.0
+inspected: 9710, found: 100 detection rate: 1.00 baseline: 97.10000000000001
+inspected: 9720, found: 100 detection rate: 1.00 baseline: 97.2
+inspected: 9730, found: 100 detection rate: 1.00 baseline: 97.3
+inspected: 9740, found: 100 detection rate: 1.00 baseline: 97.4
+inspected: 9750, found: 100 detection rate: 1.00 baseline: 97.5
+inspected: 9760, found: 100 detection rate: 1.00 baseline: 97.60000000000001
+inspected: 9770, found: 100 detection rate: 1.00 baseline: 97.7
+inspected: 9780, found: 100 detection rate: 1.00 baseline: 97.8
+inspected: 9790, found: 100 detection rate: 1.00 baseline: 97.9
+inspected: 9800, found: 100 detection rate: 1.00 baseline: 98.0
+inspected: 9810, found: 100 detection rate: 1.00 baseline: 98.10000000000001
+inspected: 9820, found: 100 detection rate: 1.00 baseline: 98.2
+inspected: 9830, found: 100 detection rate: 1.00 baseline: 98.3
+inspected: 9840, found: 100 detection rate: 1.00 baseline: 98.4
+inspected: 9850, found: 100 detection rate: 1.00 baseline: 98.5
+inspected: 9860, found: 100 detection rate: 1.00 baseline: 98.60000000000001
+inspected: 9870, found: 100 detection rate: 1.00 baseline: 98.7
+inspected: 9880, found: 100 detection rate: 1.00 baseline: 98.8
+inspected: 9890, found: 100 detection rate: 1.00 baseline: 98.9
+inspected: 9900, found: 100 detection rate: 1.00 baseline: 99.0
+inspected: 9910, found: 100 detection rate: 1.00 baseline: 99.10000000000001
+inspected: 9920, found: 100 detection rate: 1.00 baseline: 99.2
+inspected: 9930, found: 100 detection rate: 1.00 baseline: 99.3
+inspected: 9940, found: 100 detection rate: 1.00 baseline: 99.4
+inspected: 9950, found: 100 detection rate: 1.00 baseline: 99.5
+inspected: 9960, found: 100 detection rate: 1.00 baseline: 99.60000000000001
+inspected: 9970, found: 100 detection rate: 1.00 baseline: 99.7
+inspected: 9980, found: 100 detection rate: 1.00 baseline: 99.8
+inspected: 9990, found: 100 detection rate: 1.00 baseline: 99.9
+run time: 45.15s
