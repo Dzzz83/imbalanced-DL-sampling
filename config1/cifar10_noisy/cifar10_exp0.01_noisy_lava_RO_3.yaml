@@ -10,7 +10,7 @@ augmentation: weak
 # Selection Settings (LAVA)
 selection_method: lava         # Options: lava, random, none
 selection_ratio: 0.9           # Keep 70% of the data based on LAVA scores
-noise_ratio: 0.25              # noise ratio
+noise_ratio: 0.5              # noise ratio
 cap_per_class: 4000            
 device: cuda
 
@@ -36,7 +36,7 @@ rand_number: 0
 workers: 4
 optimizer: sgd
 # Logging & Checkpoints
-root_log: experiments/cifar10_exp0.01_noisy0.25_RO_3/lava
+root_log: experiments/cifar10_exp0.01_noisy0.5_RO_3/lava
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_noisy_lava_0.7_weakAug_exp0.01
 cifar_root: ./data

@@ -119,7 +119,7 @@ def plot_multi_comparison(source_paths, output_dir):
     ax.set_xlabel('Ratios', fontweight='bold', fontsize=12)
    
     # You might want to update this title dynamically depending on what you run!
-    ax.set_title('Imbalanced cifar10 RandOversamp_noisy0.5_2 None and Random selection ratios', fontsize=16, fontweight='bold')
+    ax.set_title('Imbalanced cifar10 Mamix_drw noisy None and Random selection ratios', fontsize=16, fontweight='bold')
     ax.set_xticks(x)
 
     # ✨ Changed rotation to 0 since '1.0' is short and fits perfectly flat
@@ -127,7 +127,7 @@ def plot_multi_comparison(source_paths, output_dir):
     ax.set_ylim(0, max(max(train_scores), max(test_scores)) + 15)
     ax.legend(loc='lower right')
     plt.tight_layout()
-    save_path = os.path.join(output_dir, 'Imbalanced cifar10 RandOversamp_noisy0.5_2 None and Random selection ratios.png')
+    save_path = os.path.join(output_dir, 'Imbalanced cifar10 Mamix_drw noisy None and Random selection ratios.png')
     plt.savefig(save_path, dpi=300)
     print(f"🎉 Successfully saved multi-comparison plot to: {save_path}")
     plt.show()
@@ -135,9 +135,9 @@ def plot_multi_comparison(source_paths, output_dir):
 if __name__ == "__main__":
     # --- CONFIGURE YOUR PATHS HERE ---
     folders_to_compare = [
-        "../experiments/cifar10_exp0.01_noisy0.5_RO_2",
-        "../experiments/cifar10_exp0.01_noisy0.5_RO_2/random"
+        "../experiments/cifar10_noisy_exp0.01_MaMix_drw",
+        "../experiments/cifar10_noisy_exp0.01_MaMix_drw/random"
     ]
-    results_output = "cifar10_exp0.01_noisy0.5_RO_2/comparisons"
+    results_output = "cifar10_noisy_exp0.01_MaMix_drw/comparisons"
     print(f"🔍 Searching exactly inside: {folders_to_compare}")
     plot_multi_comparison(folders_to_compare, results_output)

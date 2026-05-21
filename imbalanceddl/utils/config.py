@@ -21,12 +21,11 @@ def get_args():
     # Strategy
     parser.add_argument('--strategy', default="ERM", type=str, 
                         choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW',
-                                'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE', 
-                                'DeepSMOTE_LAVA'], 
+                                'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE'], 
                         help='select strategy for trainer')
     parser.add_argument('--base_strategy', default='ERM', type=str,
-                        choices=['ERM', 'Mixup', 'DRW', 'LDAM_DRW', 'Reweight_CB'],
-                        help='Base training strategy used after DeepSMOTE+LAVA (only for DeepSMOTE_LAVA)')
+                    choices=['ERM', 'Mixup', 'DRW', 'LDAM_DRW', 'Reweight_CB'],
+                    help='Base strategy for two-stage methods')
     parser.add_argument('--learning_rate', default=0.1, type=float, metavar='LR', help='initial learning rate', dest='lr')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
     parser.add_argument('--wd', '--weight_decay', default=2e-4, type=float, metavar='W', help='weight decay (default: 1e-4)', dest='weight_decay')
@@ -71,8 +70,6 @@ def get_args():
     parser.add_argument('--kind', default='random', type=str, help='For Balance - Kind of sampler')
 
     # Data Selection Method (Random, LAVA, None)
-    parser.add_argument('--selection_method', default='none', type=str, choices=['lava', 'random', 'none'], 
-                        help='Method for data selection/filtering')
     parser.add_argument('--selection_ratio', default=1.0, type=float, 
                         help='Ratio of data to keep after selection')
     # noise ratio
@@ -98,6 +95,25 @@ def get_args():
     # Noise order flag
     parser.add_argument('--noise_first', action='store_true',
                     help='Inject label noise before oversampling (instead of after)')
+
+        # In get_args(), update the selection_method choices
+    parser.add_argument('--selection_method', default='none', type=str,
+                        choices=['lava', 'random', 'none', 'sava'],   # add 'sava'
+                        help='Method for data selection/filtering')
+
+    # Add SAVA-specific arguments (after the existing ones, before returning)
+    # SAVA parameters
+    parser.add_argument('--sava_batch_size', default=1024, type=int,
+                        help='Batch size for SAVA hierarchical OT (default: 1024)')
+    parser.add_argument('--sava_feat_repr', type=lambda x: (str(x).lower() == 'true'), default=False)
+    parser.add_argument('--sava_parallel', action='store_true',
+                        help='Use DataParallel for per-batch OT computations')
+    parser.add_argument('--sava_cuda_num', default=0, type=int,
+                        help='Starting GPU index for DataParallel')
+    parser.add_argument('--sava_n_gpu', default=1, type=int,
+                        help='Number of GPUs for DataParallel')
+    parser.add_argument('--sava_cache_label_distances', default=True, type=bool,
+                        help='Cache label-to-label OT distances across batches')
     
     # update config from command line
     parser.set_defaults(**config)

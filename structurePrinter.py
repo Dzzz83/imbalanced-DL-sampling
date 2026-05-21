@@ -31,10 +31,12 @@ if __name__ == "__main__":
         "__pycache__", 
         ".git",
         '.vscode',
-        'my_venv'
-        'wandb'
-        'imbalanced-DL-sampling/log_cifar10/'
-        'example'
+        'my_venv',
+        'wandb',
+        'imbalanced-DL-sampling/log_cifar10/',
+        'example',
+        'experiments',
+        'results_experiments'
     }
 
     project_root = "." 
