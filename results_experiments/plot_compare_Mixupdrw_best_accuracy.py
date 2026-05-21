@@ -140,7 +140,7 @@ def plot_multi_comparison(source_paths, output_dir):
     ax.legend(loc='lower right')
 
     plt.tight_layout()
-    save_path = os.path.join(output_dir, 'Imbalanced cifar10 Mixup_DRW epochs Lava 0.7.png')
+    save_path = os.path.join(output_dir, 'Imbalanced cifar10 Mixup_DRW None Lava 0.7.png')
     plt.savefig(save_path, dpi=300)
     print(f"🎉 Successfully saved multi-comparison plot to: {save_path}")
     plt.show()

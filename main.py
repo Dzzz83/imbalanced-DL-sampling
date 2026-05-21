@@ -1,4 +1,15 @@
 import sys
+
+from pathlib import Path
+
+# Prioritize sava's otdd over LAVA's
+sava_root = Path(__file__).parent / 'sava'
+if str(sava_root) not in sys.path:
+    sys.path.insert(0, str(sava_root))
+# Remove any cached otdd module (from previous imports)
+if 'otdd' in sys.modules:
+    del sys.modules['otdd']
+
 from unittest.mock import MagicMock
 import logging
 def silence_torchtext():
@@ -28,6 +39,7 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
 from imbalanceddl.strategy.selection_method.random_selection import random_selection
 from imbalanceddl.dataset.lava_dataset import LavaDataset
+from imbalanceddl.dataset.sava_dataset import SavaDataset 
 
 def main():
     # 1. Load Configuration
@@ -46,6 +58,13 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.cuda.empty_cache()
 
+    if device == 'cuda':
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        if hasattr(config, 'gpu') and config.gpu is not None:
+            torch.cuda.set_device(config.gpu)
+            print(f"=> Using GPU {config.gpu}")
+
     # 4. Build Model
     model = build_model(config)
     
@@ -53,19 +72,33 @@ def main():
     print(f"Creating training dataset with {config.augmentation} augmentation...")
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation=config.augmentation)
 
-    # Skip automatic data selection for DeepSMOTE_Selection and RandomOversampling_Selection (both handle selection internally)
     if config.strategy in ["DeepSMOTE_Selection", "RandomOversampling_Selection", "Selection_RandomOversampling"]:
         print(f"=> {config.strategy} handles selection internally. Skipping main script selection.")
     else:
         if config.selection_ratio < 1.0:
             print(f"=> Applying Data Selection: {config.selection_method} (Ratio: {config.selection_ratio})")
-            imbalance_dataset = LavaDataset(
-                config, 
-                imbalance_dataset, 
-                config.selection_ratio, 
-                config.selection_method, 
-                device=device
-            )
+            # Branch based on selection method
+            if config.selection_method == 'lava':
+                imbalance_dataset = LavaDataset(
+                    config, imbalance_dataset, config.selection_ratio,
+                    method='lava', device=device
+                )
+            elif config.selection_method == 'sava':
+                imbalance_dataset = SavaDataset(
+                    config, imbalance_dataset, config.selection_ratio,
+                    method='sava', device=device
+                )
+            elif config.selection_method == 'random':
+                # Optional: implement random selection via LavaDataset or custom
+                # For now, you can use LavaDataset with method='random'
+                imbalance_dataset = LavaDataset(
+                    config, imbalance_dataset, config.selection_ratio,
+                    method='random', device=device
+                )
+            else:
+                raise ValueError(f"Unknown selection method: {config.selection_method}")
+        else:
+            print("=> selection_ratio == 1.0, using full dataset (no selection).")
 
     # 7. Build Trainer
     trainer = build_trainer(config,

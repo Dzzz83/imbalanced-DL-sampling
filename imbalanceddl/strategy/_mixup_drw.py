@@ -58,7 +58,7 @@ class MixupTrainer(Trainer):
                 idx = self.epoch // 250
             else:
                 # idx = self.epoch // 160
-                idx = self.epoch // 140
+                idx = self.epoch // 160
 
             betas = [0, 0.9999]
             effective_num = 1.0 - np.power(betas[idx], self.cls_num_list)
