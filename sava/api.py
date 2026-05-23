@@ -98,20 +98,20 @@ def batchwise_lava_experiment(
     # for Clothing1M experiments we don't know a priori
     # which instances are noisy, so we don't have portion and 
     # shuffle_ind variables nor can we calculate a detection
-    # rate. Let's just return values.
     if portion is None and shuffle_ind is None:
         return sorted_gradient_ind
     else:
         trained_indices = lava.get_indices(train_loader)
-        trained_with_flag = lava.train_with_corrupt_flag(train_loader, shuffle_ind, trained_indices) # len training set
-        
-        visualise.log_values_sorted(
-            trained_with_flag,
-            sorted_gradient_ind,
-            min(training_size, len(values)), # see comment above
-            portion,
-            tag=tag,
-        )
+        trained_with_flag = lava.train_with_corrupt_flag(train_loader, shuffle_ind, trained_indices)
+        # Only log if there are corrupted points (portion > 0)
+        if portion > 0:
+            visualise.log_values_sorted(
+                trained_with_flag,
+                sorted_gradient_ind,
+                min(training_size, len(values)),
+                portion,
+                tag=tag,
+            )
         return sorted_gradient_ind, trained_with_flag
 
 def hierarchical_ot_experiment(
@@ -224,15 +224,14 @@ def hierarchical_ot_experiment(
         return sorted_gradient_ind
     else:
         trained_indices = lava.get_indices(train_loader)
-        trained_with_flag = lava.train_with_corrupt_flag(train_loader, shuffle_ind, trained_indices) # len training set
-
-        visualise.log_values_sorted(
-            trained_with_flag,
-            sorted_gradient_ind,
-            min(training_size, len(values)), # see comment above
-            portion,
-            tag=tag,
-        )
-
+        trained_with_flag = lava.train_with_corrupt_flag(train_loader, shuffle_ind, trained_indices)
+        # Only log if there are corrupted points (portion > 0)
+        if portion > 0:
+            visualise.log_values_sorted(
+                trained_with_flag,
+                sorted_gradient_ind,
+                min(training_size, len(values)),
+                portion,
+                tag=tag,
+            )
         return sorted_gradient_ind, trained_with_flag
-     

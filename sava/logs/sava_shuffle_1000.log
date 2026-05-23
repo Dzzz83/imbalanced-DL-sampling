@@ -1,0 +1,377 @@
+/home/phatht/.conda/envs/my_env/lib/python3.10/site-packages/requests/__init__.py:86: RequestsDependencyWarning: Unable to find acceptable character detection dependency (chardet or charset_normalizer).
+  warnings.warn(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/phatht/.netrc.
+wandb: Currently logged in as: 10423088 (10423088-vietnamese-german-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run 94i2676d
+wandb: Tracking run with wandb version 0.25.1
+wandb: Run data is saved locally in /home/phatht/phat/imbalanced-DL-sampling/sava/wandb/run-20260521_150045-94i2676d
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run hot_tr_sz_1000_sava_shuffle_train1000_seed42
+wandb: ⭐️ View project at https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection
+wandb: 🚀 View run at https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection/runs/94i2676d
+/home/phatht/phat/imbalanced-DL-sampling/sava/models/preact_resnet.py:173: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  state_dict = torch.load("checkpoint/" + feature_extractor_name, map_location=device)
+0.20.1+cu121
+2.5.1+cu121
+0.20.1+cu121
+2.5.1+cu121
+Namespace(cuda_num=0, hierarchical=True, batchwise_lava=False, random_seed=42, tag='sava_shuffle_train1000_seed42', corruption_type='shuffle', cache_l2l=True, hot_batch_size=1024, corrupt_por=0.3, prune_perc=0.1, smoketest=False, disable_wandb=False, train_net=False, feat_repr=False, poison_frogs_feat_repr=False, train_dataset_sizes=[1000], remake_data=False, cache_tag='', data_gen_force_cpu=False, stratified=False, visualise_hot=False, val_dataset_size=2000, evaluate=True)
+GPU 0
+torch.Size([1, 10])
+Files already downloaded and verified
+Files already downloaded and verified
+CIFAR TEN
+SAVA valuation:   0%|          | 0/1 [00:00<?, ?it/s]len D1: torch.Size([1000])
+len D2: torch.Size([1024])
+Pre-computing pairwise label Wasserstein distances D1 <-> D1...
+Computing label-to-label (exact) wasserstein distances...
+
+  0%|          | 0/45 [00:00<?, ?it/s][A
+Computing label-to-label distances:   0%|          | 0/45 [00:00<?, ?it/s][A
+Computing label-to-label distances:   2%|▏         | 1/45 [00:00<00:33,  1.32it/s][A
+Computing label-to-label distances:   4%|▍         | 2/45 [00:00<00:17,  2.52it/s][A
+Computing label-to-label distances:   7%|▋         | 3/45 [00:01<00:12,  3.49it/s][A
+Computing label-to-label distances:   9%|▉         | 4/45 [00:01<00:09,  4.25it/s][A
+Computing label-to-label distances:  11%|█         | 5/45 [00:01<00:08,  4.89it/s][A
+Computing label-to-label distances:  13%|█▎        | 6/45 [00:01<00:07,  5.36it/s][A
+Computing label-to-label distances:  16%|█▌        | 7/45 [00:01<00:06,  5.60it/s][A
+Computing label-to-label distances:  18%|█▊        | 8/45 [00:01<00:06,  6.06it/s][A
+Computing label-to-label distances:  20%|██        | 9/45 [00:01<00:05,  6.15it/s][A
+Computing label-to-label distances:  22%|██▏       | 10/45 [00:02<00:05,  6.06it/s][A
+Computing label-to-label distances:  24%|██▍       | 11/45 [00:02<00:05,  5.93it/s][A
+Computing label-to-label distances:  27%|██▋       | 12/45 [00:02<00:05,  5.82it/s][A
+Computing label-to-label distances:  29%|██▉       | 13/45 [00:02<00:05,  5.82it/s][A
+Computing label-to-label distances:  31%|███       | 14/45 [00:02<00:05,  5.76it/s][A
+Computing label-to-label distances:  33%|███▎      | 15/45 [00:03<00:05,  5.65it/s][A
+Computing label-to-label distances:  36%|███▌      | 16/45 [00:03<00:05,  5.78it/s][A
+Computing label-to-label distances:  38%|███▊      | 17/45 [00:03<00:04,  5.69it/s][A
+Computing label-to-label distances:  40%|████      | 18/45 [00:03<00:04,  5.81it/s][A
+Computing label-to-label distances:  42%|████▏     | 19/45 [00:03<00:04,  5.88it/s][A
+Computing label-to-label distances:  44%|████▍     | 20/45 [00:03<00:04,  6.06it/s][A
+Computing label-to-label distances:  47%|████▋     | 21/45 [00:04<00:03,  6.07it/s][A
+Computing label-to-label distances:  49%|████▉     | 22/45 [00:04<00:03,  6.01it/s][A
+Computing label-to-label distances:  51%|█████     | 23/45 [00:04<00:03,  6.11it/s][A
+Computing label-to-label distances:  53%|█████▎    | 24/45 [00:04<00:03,  6.08it/s][A
+Computing label-to-label distances:  56%|█████▌    | 25/45 [00:04<00:03,  5.89it/s][A
+Computing label-to-label distances:  58%|█████▊    | 26/45 [00:04<00:03,  5.86it/s][A
+Computing label-to-label distances:  60%|██████    | 27/45 [00:05<00:03,  5.85it/s][A
+Computing label-to-label distances:  62%|██████▏   | 28/45 [00:05<00:02,  5.84it/s][A
+Computing label-to-label distances:  64%|██████▍   | 29/45 [00:05<00:02,  5.91it/s][A
+Computing label-to-label distances:  67%|██████▋   | 30/45 [00:05<00:02,  5.86it/s][A
+Computing label-to-label distances:  69%|██████▉   | 31/45 [00:05<00:02,  5.79it/s][A
+Computing label-to-label distances:  71%|███████   | 32/45 [00:05<00:02,  5.74it/s][A
+Computing label-to-label distances:  73%|███████▎  | 33/45 [00:06<00:02,  5.68it/s][A
+Computing label-to-label distances:  76%|███████▌  | 34/45 [00:06<00:01,  5.79it/s][A
+Computing label-to-label distances:  78%|███████▊  | 35/45 [00:06<00:01,  5.72it/s][A
+Computing label-to-label distances:  80%|████████  | 36/45 [00:06<00:01,  5.68it/s][A
+Computing label-to-label distances:  82%|████████▏ | 37/45 [00:06<00:01,  5.66it/s][A
+Computing label-to-label distances:  84%|████████▍ | 38/45 [00:06<00:01,  5.79it/s][A
+Computing label-to-label distances:  87%|████████▋ | 39/45 [00:07<00:01,  5.77it/s][A
+Computing label-to-label distances:  89%|████████▉ | 40/45 [00:07<00:00,  5.70it/s][A
+Computing label-to-label distances:  91%|█████████ | 41/45 [00:07<00:00,  5.82it/s][A
+Computing label-to-label distances:  93%|█████████▎| 42/45 [00:07<00:00,  5.76it/s][A
+Computing label-to-label distances:  96%|█████████▌| 43/45 [00:07<00:00,  5.78it/s][A
+Computing label-to-label distances:  98%|█████████▊| 44/45 [00:08<00:00,  5.72it/s][A
+Computing label-to-label distances: 100%|██████████| 45/45 [00:08<00:00,  5.77it/s][A
+                                                                                   [ADistance size: torch.Size([10, 10])
+Pre-computing pairwise label Wasserstein distances D2 <-> D2...
+Computing label-to-label (exact) wasserstein distances...
+
+  0%|          | 0/45 [00:00<?, ?it/s][A
+Computing label-to-label distances:   0%|          | 0/45 [00:00<?, ?it/s][A
+Computing label-to-label distances:   2%|▏         | 1/45 [00:00<00:07,  6.12it/s][A
+Computing label-to-label distances:   4%|▍         | 2/45 [00:00<00:07,  5.82it/s][A
+Computing label-to-label distances:   7%|▋         | 3/45 [00:00<00:07,  5.82it/s][A
+Computing label-to-label distances:   9%|▉         | 4/45 [00:00<00:07,  5.81it/s][A
+Computing label-to-label distances:  11%|█         | 5/45 [00:00<00:06,  5.74it/s][A
+Computing label-to-label distances:  13%|█▎        | 6/45 [00:01<00:06,  6.01it/s][A
+Computing label-to-label distances:  16%|█▌        | 7/45 [00:01<00:06,  5.88it/s][A
+Computing label-to-label distances:  18%|█▊        | 8/45 [00:01<00:06,  5.81it/s][A
+Computing label-to-label distances:  20%|██        | 9/45 [00:01<00:06,  5.76it/s][A
+Computing label-to-label distances:  22%|██▏       | 10/45 [00:01<00:06,  5.81it/s][A
+Computing label-to-label distances:  24%|██▍       | 11/45 [00:01<00:05,  5.82it/s][A
+Computing label-to-label distances:  27%|██▋       | 12/45 [00:02<00:05,  5.81it/s][A
+Computing label-to-label distances:  29%|██▉       | 13/45 [00:02<00:05,  5.76it/s][A
+Computing label-to-label distances:  31%|███       | 14/45 [00:02<00:05,  5.92it/s][A
+Computing label-to-label distances:  33%|███▎      | 15/45 [00:02<00:05,  5.88it/s][A
+Computing label-to-label distances:  36%|███▌      | 16/45 [00:02<00:04,  5.86it/s][A
+Computing label-to-label distances:  38%|███▊      | 17/45 [00:02<00:04,  5.85it/s][A
+Computing label-to-label distances:  40%|████      | 18/45 [00:03<00:04,  5.78it/s][A
+Computing label-to-label distances:  42%|████▏     | 19/45 [00:03<00:04,  5.67it/s][A
+Computing label-to-label distances:  44%|████▍     | 20/45 [00:03<00:04,  5.67it/s][A
+Computing label-to-label distances:  47%|████▋     | 21/45 [00:03<00:04,  5.81it/s][A
+Computing label-to-label distances:  49%|████▉     | 22/45 [00:03<00:03,  5.76it/s][A
+Computing label-to-label distances:  51%|█████     | 23/45 [00:03<00:03,  5.71it/s][A
+Computing label-to-label distances:  53%|█████▎    | 24/45 [00:04<00:03,  5.68it/s][A
+Computing label-to-label distances:  56%|█████▌    | 25/45 [00:04<00:03,  5.66it/s][A
+Computing label-to-label distances:  58%|█████▊    | 26/45 [00:04<00:03,  5.69it/s][A
+Computing label-to-label distances:  60%|██████    | 27/45 [00:04<00:03,  5.87it/s][A
+Computing label-to-label distances:  62%|██████▏   | 28/45 [00:04<00:02,  5.84it/s][A
+Computing label-to-label distances:  64%|██████▍   | 29/45 [00:05<00:02,  5.78it/s][A
+Computing label-to-label distances:  67%|██████▋   | 30/45 [00:05<00:02,  5.73it/s][A
+Computing label-to-label distances:  69%|██████▉   | 31/45 [00:05<00:02,  5.68it/s][A
+Computing label-to-label distances:  71%|███████   | 32/45 [00:05<00:02,  5.75it/s][A
+Computing label-to-label distances:  73%|███████▎  | 33/45 [00:05<00:02,  5.70it/s][A
+Computing label-to-label distances:  76%|███████▌  | 34/45 [00:05<00:01,  5.68it/s][A
+Computing label-to-label distances:  78%|███████▊  | 35/45 [00:06<00:01,  5.66it/s][A
+Computing label-to-label distances:  80%|████████  | 36/45 [00:06<00:01,  5.78it/s][A
+Computing label-to-label distances:  82%|████████▏ | 37/45 [00:06<00:01,  5.71it/s][A
+Computing label-to-label distances:  84%|████████▍ | 38/45 [00:06<00:01,  5.71it/s][A
+Computing label-to-label distances:  87%|████████▋ | 39/45 [00:06<00:01,  5.67it/s][A
+Computing label-to-label distances:  89%|████████▉ | 40/45 [00:06<00:00,  5.79it/s][A
+Computing label-to-label distances:  91%|█████████ | 41/45 [00:07<00:00,  5.88it/s][A
+Computing label-to-label distances:  93%|█████████▎| 42/45 [00:07<00:00,  5.95it/s][A
+Computing label-to-label distances:  96%|█████████▌| 43/45 [00:07<00:00,  5.84it/s][A
+Computing label-to-label distances:  98%|█████████▊| 44/45 [00:07<00:00,  5.78it/s][A
+Computing label-to-label distances: 100%|██████████| 45/45 [00:07<00:00,  5.72it/s][A
+                                                                                   [ADistance size: torch.Size([10, 10])
+Pre-computing pairwise label Wasserstein distances D1 <-> D2...
+Computing label-to-label (exact) wasserstein distances...
+
+  0%|          | 0/100 [00:00<?, ?it/s][A
+Computing label-to-label distances:   0%|          | 0/100 [00:00<?, ?it/s][A
+Computing label-to-label distances:   1%|          | 1/100 [00:00<00:15,  6.52it/s][A
+Computing label-to-label distances:   2%|▏         | 2/100 [00:00<00:14,  6.71it/s][A
+Computing label-to-label distances:   3%|▎         | 3/100 [00:00<00:14,  6.71it/s][A
+Computing label-to-label distances:   4%|▍         | 4/100 [00:00<00:14,  6.76it/s][A
+Computing label-to-label distances:   5%|▌         | 5/100 [00:00<00:13,  6.80it/s][A
+Computing label-to-label distances:   6%|▌         | 6/100 [00:00<00:14,  6.65it/s][A
+Computing label-to-label distances:   7%|▋         | 7/100 [00:01<00:13,  6.91it/s][A
+Computing label-to-label distances:   8%|▊         | 8/100 [00:01<00:13,  6.79it/s][A
+Computing label-to-label distances:   9%|▉         | 9/100 [00:01<00:13,  6.88it/s][A
+Computing label-to-label distances:  10%|█         | 10/100 [00:01<00:13,  6.72it/s][A
+Computing label-to-label distances:  11%|█         | 11/100 [00:01<00:13,  6.47it/s][A
+Computing label-to-label distances:  12%|█▏        | 12/100 [00:01<00:14,  6.24it/s][A
+Computing label-to-label distances:  13%|█▎        | 13/100 [00:01<00:14,  6.03it/s][A
+Computing label-to-label distances:  14%|█▍        | 14/100 [00:02<00:14,  5.96it/s][A
+Computing label-to-label distances:  15%|█▌        | 15/100 [00:02<00:14,  5.86it/s][A
+Computing label-to-label distances:  16%|█▌        | 16/100 [00:02<00:14,  5.76it/s][A
+Computing label-to-label distances:  17%|█▋        | 17/100 [00:02<00:14,  5.90it/s][A
+Computing label-to-label distances:  18%|█▊        | 18/100 [00:02<00:14,  5.80it/s][A
+Computing label-to-label distances:  19%|█▉        | 19/100 [00:03<00:14,  5.79it/s][A
+Computing label-to-label distances:  20%|██        | 20/100 [00:03<00:13,  5.83it/s][A
+Computing label-to-label distances:  21%|██        | 21/100 [00:03<00:13,  5.95it/s][A
+Computing label-to-label distances:  22%|██▏       | 22/100 [00:03<00:12,  6.11it/s][A
+Computing label-to-label distances:  23%|██▎       | 23/100 [00:03<00:12,  6.15it/s][A
+Computing label-to-label distances:  24%|██▍       | 24/100 [00:03<00:12,  6.33it/s][A
+Computing label-to-label distances:  25%|██▌       | 25/100 [00:03<00:11,  6.30it/s][A
+Computing label-to-label distances:  26%|██▌       | 26/100 [00:04<00:11,  6.28it/s][A
+Computing label-to-label distances:  27%|██▋       | 27/100 [00:04<00:11,  6.38it/s][A
+Computing label-to-label distances:  28%|██▊       | 28/100 [00:04<00:11,  6.35it/s][A
+Computing label-to-label distances:  29%|██▉       | 29/100 [00:04<00:11,  6.31it/s][A
+Computing label-to-label distances:  30%|███       | 30/100 [00:04<00:11,  6.29it/s][A
+Computing label-to-label distances:  31%|███       | 31/100 [00:04<00:11,  6.20it/s][A
+Computing label-to-label distances:  32%|███▏      | 32/100 [00:05<00:11,  6.17it/s][A
+Computing label-to-label distances:  33%|███▎      | 33/100 [00:05<00:11,  6.04it/s][A
+Computing label-to-label distances:  34%|███▍      | 34/100 [00:05<00:10,  6.10it/s][A
+Computing label-to-label distances:  35%|███▌      | 35/100 [00:05<00:10,  5.99it/s][A
+Computing label-to-label distances:  36%|███▌      | 36/100 [00:05<00:10,  5.94it/s][A
+Computing label-to-label distances:  37%|███▋      | 37/100 [00:05<00:10,  6.12it/s][A
+Computing label-to-label distances:  38%|███▊      | 38/100 [00:06<00:10,  6.05it/s][A
+Computing label-to-label distances:  39%|███▉      | 39/100 [00:06<00:10,  6.01it/s][A
+Computing label-to-label distances:  40%|████      | 40/100 [00:06<00:10,  5.94it/s][A
+Computing label-to-label distances:  41%|████      | 41/100 [00:06<00:10,  5.89it/s][A
+Computing label-to-label distances:  42%|████▏     | 42/100 [00:06<00:09,  5.86it/s][A
+Computing label-to-label distances:  43%|████▎     | 43/100 [00:06<00:09,  5.90it/s][A
+Computing label-to-label distances:  44%|████▍     | 44/100 [00:07<00:09,  5.85it/s][A
+Computing label-to-label distances:  45%|████▌     | 45/100 [00:07<00:09,  5.88it/s][A
+Computing label-to-label distances:  46%|████▌     | 46/100 [00:07<00:09,  5.84it/s][A
+Computing label-to-label distances:  47%|████▋     | 47/100 [00:07<00:08,  5.96it/s][A
+Computing label-to-label distances:  48%|████▊     | 48/100 [00:07<00:08,  5.91it/s][A
+Computing label-to-label distances:  49%|████▉     | 49/100 [00:07<00:08,  5.90it/s][A
+Computing label-to-label distances:  50%|█████     | 50/100 [00:08<00:08,  5.87it/s][A
+Computing label-to-label distances:  51%|█████     | 51/100 [00:08<00:08,  5.91it/s][A
+Computing label-to-label distances:  52%|█████▏    | 52/100 [00:08<00:08,  5.95it/s][A
+Computing label-to-label distances:  53%|█████▎    | 53/100 [00:08<00:07,  5.90it/s][A
+Computing label-to-label distances:  54%|█████▍    | 54/100 [00:08<00:07,  5.97it/s][A
+Computing label-to-label distances:  55%|█████▌    | 55/100 [00:09<00:07,  5.81it/s][A
+Computing label-to-label distances:  56%|█████▌    | 56/100 [00:09<00:07,  5.87it/s][A
+Computing label-to-label distances:  57%|█████▋    | 57/100 [00:09<00:07,  5.99it/s][A
+Computing label-to-label distances:  58%|█████▊    | 58/100 [00:09<00:07,  5.92it/s][A
+Computing label-to-label distances:  59%|█████▉    | 59/100 [00:09<00:07,  5.84it/s][A
+Computing label-to-label distances:  60%|██████    | 60/100 [00:09<00:06,  5.85it/s][A
+Computing label-to-label distances:  61%|██████    | 61/100 [00:10<00:06,  5.89it/s][A
+Computing label-to-label distances:  62%|██████▏   | 62/100 [00:10<00:06,  5.98it/s][A
+Computing label-to-label distances:  63%|██████▎   | 63/100 [00:10<00:06,  5.92it/s][A
+Computing label-to-label distances:  64%|██████▍   | 64/100 [00:10<00:06,  5.94it/s][A
+Computing label-to-label distances:  65%|██████▌   | 65/100 [00:10<00:05,  5.94it/s][A
+Computing label-to-label distances:  66%|██████▌   | 66/100 [00:10<00:05,  5.95it/s][A
+Computing label-to-label distances:  67%|██████▋   | 67/100 [00:11<00:05,  6.18it/s][A
+Computing label-to-label distances:  68%|██████▊   | 68/100 [00:11<00:05,  6.05it/s][A
+Computing label-to-label distances:  69%|██████▉   | 69/100 [00:11<00:05,  5.96it/s][A
+Computing label-to-label distances:  70%|███████   | 70/100 [00:11<00:05,  5.91it/s][A
+Computing label-to-label distances:  71%|███████   | 71/100 [00:11<00:04,  5.93it/s][A
+Computing label-to-label distances:  72%|███████▏  | 72/100 [00:11<00:04,  5.99it/s][A
+Computing label-to-label distances:  73%|███████▎  | 73/100 [00:12<00:04,  5.93it/s][A
+Computing label-to-label distances:  74%|███████▍  | 74/100 [00:12<00:04,  5.87it/s][A
+Computing label-to-label distances:  75%|███████▌  | 75/100 [00:12<00:04,  5.78it/s][A
+Computing label-to-label distances:  76%|███████▌  | 76/100 [00:12<00:04,  5.72it/s][A
+Computing label-to-label distances:  77%|███████▋  | 77/100 [00:12<00:03,  5.87it/s][A
+Computing label-to-label distances:  78%|███████▊  | 78/100 [00:12<00:03,  5.82it/s][A
+Computing label-to-label distances:  79%|███████▉  | 79/100 [00:13<00:03,  5.75it/s][A
+Computing label-to-label distances:  80%|████████  | 80/100 [00:13<00:03,  5.70it/s][A
+Computing label-to-label distances:  81%|████████  | 81/100 [00:13<00:03,  5.87it/s][A
+Computing label-to-label distances:  82%|████████▏ | 82/100 [00:13<00:02,  6.09it/s][A
+Computing label-to-label distances:  83%|████████▎ | 83/100 [00:13<00:02,  6.08it/s][A
+Computing label-to-label distances:  84%|████████▍ | 84/100 [00:13<00:02,  6.21it/s][A
+Computing label-to-label distances:  85%|████████▌ | 85/100 [00:14<00:02,  6.21it/s][A
+Computing label-to-label distances:  86%|████████▌ | 86/100 [00:14<00:02,  6.16it/s][A
+Computing label-to-label distances:  87%|████████▋ | 87/100 [00:14<00:02,  6.36it/s][A
+Computing label-to-label distances:  88%|████████▊ | 88/100 [00:14<00:01,  6.29it/s][A
+Computing label-to-label distances:  89%|████████▉ | 89/100 [00:14<00:01,  6.28it/s][A
+Computing label-to-label distances:  90%|█████████ | 90/100 [00:14<00:01,  6.33it/s][A
+Computing label-to-label distances:  91%|█████████ | 91/100 [00:15<00:01,  6.16it/s][A
+Computing label-to-label distances:  92%|█████████▏| 92/100 [00:15<00:01,  6.04it/s][A
+Computing label-to-label distances:  93%|█████████▎| 93/100 [00:15<00:01,  5.91it/s][A
+Computing label-to-label distances:  94%|█████████▍| 94/100 [00:15<00:01,  5.93it/s][A
+Computing label-to-label distances:  95%|█████████▌| 95/100 [00:15<00:00,  5.86it/s][A
+Computing label-to-label distances:  96%|█████████▌| 96/100 [00:15<00:00,  5.77it/s][A
+Computing label-to-label distances:  97%|█████████▋| 97/100 [00:16<00:00,  5.90it/s][A
+Computing label-to-label distances:  98%|█████████▊| 98/100 [00:16<00:00,  5.80it/s][A
+Computing label-to-label distances:  99%|█████████▉| 99/100 [00:16<00:00,  5.77it/s][A
+Computing label-to-label distances: 100%|██████████| 100/100 [00:16<00:00,  5.66it/s][A
+                                                                                     [ASAVA valuation: 100%|██████████| 1/1 [00:38<00:00, 38.36s/it]SAVA valuation: 100%|██████████| 1/1 [00:38<00:00, 38.36s/it]
+/home/phatht/.conda/envs/my_env/lib/python3.10/site-packages/ot/bregman/_sinkhorn.py:630: RuntimeWarning: overflow encountered in divide
+  v = b / KtransposeU
+/home/phatht/.conda/envs/my_env/lib/python3.10/site-packages/ot/bregman/_sinkhorn.py:642: UserWarning: Warning: numerical errors at iteration 880
+  warnings.warn("Warning: numerical errors at iteration %d" % ii)
+wandb: updating run metadata
+wandb: uploading wandb-summary.json; uploading config.yaml; uploading output.log
+wandb: uploading history steps 0-98, summary, console lines 6-6
+wandb: uploading console lines 11-11
+wandb: uploading console lines 16-139
+wandb: 
+wandb: Run history:
+wandb:    baseline ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb: custom_step ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇████
+wandb:       found ▁▃▄▄▅▅▆▇▇▇▇▇████████████████████████████
+wandb: 
+wandb: Run summary:
+wandb:    baseline 297
+wandb: custom_step 990
+wandb:       found 300
+wandb: 
+wandb: 🚀 View run hot_tr_sz_1000_sava_shuffle_train1000_seed42 at: https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection/runs/94i2676d
+wandb: ⭐️ View project at: https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260521_150045-94i2676d/logs
+wandb: WARNING Tried to log to step 1 that is less than the current step 99. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
+Distance size: torch.Size([10, 10])
+Finished first label distance in: 32.624176025390625 s.
+finished load datasets in 0.07642817497253418s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1000, 3072]), torch.Size([1, 1024, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1000, 3072]), torch.Size([1, 1024, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1000, 3072])
+per batch cost calculation takes 35.0143 seconds
+len D1: torch.Size([1000])
+len D2: torch.Size([976])
+Finished first label distance in: 2.86102294921875e-06 s.
+finished load datasets in 0.08005404472351074s.
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1000, 3072]), torch.Size([1, 976, 3072])
+before Loss
+batch_augmented_cost | featurecost torch.Size([1, 1000, 3072]), torch.Size([1, 976, 3072])
+batch_augmented_cost | featurecost torch.Size([1, 976, 3072]), torch.Size([1, 1000, 3072])
+per batch cost calculation takes 2.3457 seconds
+inspected: 10, found: 10 detection rate: 0.03 baseline: 3.0
+inspected: 20, found: 20 detection rate: 0.07 baseline: 6.0
+inspected: 30, found: 30 detection rate: 0.10 baseline: 9.0
+inspected: 40, found: 40 detection rate: 0.13 baseline: 12.0
+inspected: 50, found: 50 detection rate: 0.17 baseline: 15.0
+inspected: 60, found: 60 detection rate: 0.20 baseline: 18.0
+inspected: 70, found: 70 detection rate: 0.23 baseline: 21.0
+inspected: 80, found: 80 detection rate: 0.27 baseline: 24.0
+inspected: 90, found: 90 detection rate: 0.30 baseline: 27.0
+inspected: 100, found: 100 detection rate: 0.33 baseline: 30.0
+inspected: 110, found: 110 detection rate: 0.37 baseline: 33.0
+inspected: 120, found: 120 detection rate: 0.40 baseline: 36.0
+inspected: 130, found: 130 detection rate: 0.43 baseline: 39.0
+inspected: 140, found: 140 detection rate: 0.47 baseline: 42.0
+inspected: 150, found: 150 detection rate: 0.50 baseline: 45.0
+inspected: 160, found: 160 detection rate: 0.53 baseline: 48.0
+inspected: 170, found: 170 detection rate: 0.57 baseline: 51.0
+inspected: 180, found: 180 detection rate: 0.60 baseline: 54.0
+inspected: 190, found: 190 detection rate: 0.63 baseline: 57.0
+inspected: 200, found: 200 detection rate: 0.67 baseline: 60.0
+inspected: 210, found: 210 detection rate: 0.70 baseline: 63.0
+inspected: 220, found: 220 detection rate: 0.73 baseline: 66.0
+inspected: 230, found: 230 detection rate: 0.77 baseline: 69.0
+inspected: 240, found: 239 detection rate: 0.80 baseline: 72.0
+inspected: 250, found: 248 detection rate: 0.83 baseline: 75.0
+inspected: 260, found: 257 detection rate: 0.86 baseline: 78.0
+inspected: 270, found: 264 detection rate: 0.88 baseline: 81.0
+inspected: 280, found: 269 detection rate: 0.90 baseline: 84.0
+inspected: 290, found: 272 detection rate: 0.91 baseline: 87.0
+inspected: 300, found: 273 detection rate: 0.91 baseline: 90.0
+inspected: 310, found: 275 detection rate: 0.92 baseline: 93.0
+inspected: 320, found: 276 detection rate: 0.92 baseline: 96.0
+inspected: 330, found: 277 detection rate: 0.92 baseline: 99.0
+inspected: 340, found: 280 detection rate: 0.93 baseline: 102.0
+inspected: 350, found: 283 detection rate: 0.94 baseline: 105.0
+inspected: 360, found: 286 detection rate: 0.95 baseline: 108.0
+inspected: 370, found: 287 detection rate: 0.96 baseline: 111.0
+inspected: 380, found: 288 detection rate: 0.96 baseline: 114.0
+inspected: 390, found: 290 detection rate: 0.97 baseline: 117.0
+inspected: 400, found: 294 detection rate: 0.98 baseline: 120.0
+inspected: 410, found: 296 detection rate: 0.99 baseline: 123.0
+inspected: 420, found: 297 detection rate: 0.99 baseline: 126.0
+inspected: 430, found: 298 detection rate: 0.99 baseline: 129.0
+inspected: 440, found: 298 detection rate: 0.99 baseline: 132.0
+inspected: 450, found: 299 detection rate: 1.00 baseline: 135.0
+inspected: 460, found: 299 detection rate: 1.00 baseline: 138.0
+inspected: 470, found: 299 detection rate: 1.00 baseline: 141.0
+inspected: 480, found: 300 detection rate: 1.00 baseline: 144.0
+inspected: 490, found: 300 detection rate: 1.00 baseline: 147.0
+inspected: 500, found: 300 detection rate: 1.00 baseline: 150.0
+inspected: 510, found: 300 detection rate: 1.00 baseline: 153.0
+inspected: 520, found: 300 detection rate: 1.00 baseline: 156.0
+inspected: 530, found: 300 detection rate: 1.00 baseline: 159.0
+inspected: 540, found: 300 detection rate: 1.00 baseline: 162.0
+inspected: 550, found: 300 detection rate: 1.00 baseline: 165.0
+inspected: 560, found: 300 detection rate: 1.00 baseline: 168.0
+inspected: 570, found: 300 detection rate: 1.00 baseline: 171.0
+inspected: 580, found: 300 detection rate: 1.00 baseline: 174.0
+inspected: 590, found: 300 detection rate: 1.00 baseline: 177.0
+inspected: 600, found: 300 detection rate: 1.00 baseline: 180.0
+inspected: 610, found: 300 detection rate: 1.00 baseline: 183.0
+inspected: 620, found: 300 detection rate: 1.00 baseline: 186.0
+inspected: 630, found: 300 detection rate: 1.00 baseline: 189.0
+inspected: 640, found: 300 detection rate: 1.00 baseline: 192.0
+inspected: 650, found: 300 detection rate: 1.00 baseline: 195.0
+inspected: 660, found: 300 detection rate: 1.00 baseline: 198.0
+inspected: 670, found: 300 detection rate: 1.00 baseline: 201.0
+inspected: 680, found: 300 detection rate: 1.00 baseline: 204.0
+inspected: 690, found: 300 detection rate: 1.00 baseline: 207.0
+inspected: 700, found: 300 detection rate: 1.00 baseline: 210.0
+inspected: 710, found: 300 detection rate: 1.00 baseline: 213.0
+inspected: 720, found: 300 detection rate: 1.00 baseline: 216.0
+inspected: 730, found: 300 detection rate: 1.00 baseline: 219.0
+inspected: 740, found: 300 detection rate: 1.00 baseline: 222.0
+inspected: 750, found: 300 detection rate: 1.00 baseline: 225.0
+inspected: 760, found: 300 detection rate: 1.00 baseline: 228.0
+inspected: 770, found: 300 detection rate: 1.00 baseline: 231.0
+inspected: 780, found: 300 detection rate: 1.00 baseline: 234.0
+inspected: 790, found: 300 detection rate: 1.00 baseline: 237.0
+inspected: 800, found: 300 detection rate: 1.00 baseline: 240.0
+inspected: 810, found: 300 detection rate: 1.00 baseline: 243.0
+inspected: 820, found: 300 detection rate: 1.00 baseline: 246.0
+inspected: 830, found: 300 detection rate: 1.00 baseline: 249.0
+inspected: 840, found: 300 detection rate: 1.00 baseline: 252.0
+inspected: 850, found: 300 detection rate: 1.00 baseline: 255.0
+inspected: 860, found: 300 detection rate: 1.00 baseline: 258.0
+inspected: 870, found: 300 detection rate: 1.00 baseline: 261.0
+inspected: 880, found: 300 detection rate: 1.00 baseline: 264.0
+inspected: 890, found: 300 detection rate: 1.00 baseline: 267.0
+inspected: 900, found: 300 detection rate: 1.00 baseline: 270.0
+inspected: 910, found: 300 detection rate: 1.00 baseline: 273.0
+inspected: 920, found: 300 detection rate: 1.00 baseline: 276.0
+inspected: 930, found: 300 detection rate: 1.00 baseline: 279.0
+inspected: 940, found: 300 detection rate: 1.00 baseline: 282.0
+inspected: 950, found: 300 detection rate: 1.00 baseline: 285.0
+inspected: 960, found: 300 detection rate: 1.00 baseline: 288.0
+inspected: 970, found: 300 detection rate: 1.00 baseline: 291.0
+inspected: 980, found: 300 detection rate: 1.00 baseline: 294.0
+inspected: 990, found: 300 detection rate: 1.00 baseline: 297.0
+run time: 39.98s
