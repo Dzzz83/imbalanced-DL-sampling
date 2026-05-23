@@ -48,7 +48,7 @@ def load_data_corrupted(
         assert corrupt_type == "shuffle" or corrupt_type == 'feature'
         
     if corrupt_type == "shuffle":
-        loaders, full_dict, shuffle_ind = load_torchvision_data_shuffle(
+        ret = load_torchvision_data_shuffle(
             dataname,
             valid_size=valid_size,
             random_seed=random_seed,
@@ -62,8 +62,13 @@ def load_data_corrupted(
             shuffle_per=corrupt_por,
             transform=transform,
         )
+        if len(ret) == 3:
+            loaders, full_dict, shuffle_ind = ret
+        else:
+            loaders, full_dict = ret
+            shuffle_ind = []
     elif corrupt_type == 'feature':  
-        loaders, full_dict, shuffle_ind = load_torchvision_data_perturb(
+        ret = load_torchvision_data_perturb(
             dataname,
             valid_size=valid_size,
             random_seed=random_seed,
@@ -75,10 +80,15 @@ def load_data_corrupted(
             maxsize=training_size,
             maxsize_test=test_size,
             transform=transform,
-            perturb_per=corrupt_por, # probability of the noisy features i.e. Gaussian noise
+            perturb_per=corrupt_por,
         )
+        if len(ret) == 3:
+            loaders, full_dict, shuffle_ind = ret
+        else:
+            loaders, full_dict = ret
+            shuffle_ind = []
     elif corrupt_type == 'trojan_sq':
-        loaders, full_dict, shuffle_ind = load_torchvision_data_trojan_sq(
+        ret = load_torchvision_data_trojan_sq(
             dataname,
             valid_size=valid_size,
             random_seed=random_seed,
@@ -88,11 +98,16 @@ def load_data_corrupted(
             shuffle=shuffle,
             maxsize=training_size,
             maxsize_test=test_size,
-            perturb_per=corrupt_por, # probability of the noisy features i.e. Gaussian noise
-            trojan_class='airplane', # class of the trojan i.e. images with the backdoor are relabeled to this class
+            perturb_per=corrupt_por,
+            trojan_class='airplane',
         )
+        if len(ret) == 3:
+            loaders, full_dict, shuffle_ind = ret
+        else:
+            loaders, full_dict = ret
+            shuffle_ind = []
     elif corrupt_type == 'poison_frogs':
-        loaders, full_dict, shuffle_ind = load_torchvision_data_poison_frogs(
+        ret = load_torchvision_data_poison_frogs(
             dataname,
             model,
             device,
@@ -105,7 +120,7 @@ def load_data_corrupted(
             maxsize=training_size,
             maxsize_test=test_size,
             perturb_per=corrupt_por,
-            target_class='cat', # test set image which is used the blend into the base class
+            target_class='cat',
             base_class='frog',
             poison_frogs_feat_repr=poison_frogs_feat_repr,
             cache_dir=cache_dir,
@@ -113,6 +128,11 @@ def load_data_corrupted(
             remake_data=remake_data,
             verbose=False,
         )
+        if len(ret) == 3:
+            loaders, full_dict, shuffle_ind = ret
+        else:
+            loaders, full_dict = ret
+            shuffle_ind = []
     else:
         raise ValueError
     
