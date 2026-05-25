@@ -62,19 +62,21 @@ def get_args():
     # Evaluation with Best Model
     parser.add_argument('--best_model', default=None, type=str, metavar='PATH', help='Path to Best Model')
     
-    # Samlping
+    # Sampling
     parser.add_argument('--sampling', default='Random', type=str, help='For Balance - Sampler to use')
     parser.add_argument('--batch_size', default=128, type=int, help='For Balance - batch size')
     parser.add_argument('--n_batches', default=400, type=int, help='For Balance - number of batches per epoch')
     parser.add_argument('--alpha', default=0.5, type=float, help='For Balance - alpha')
     parser.add_argument('--kind', default='random', type=str, help='For Balance - Kind of sampler')
 
-    # Data Selection Method (Random, LAVA, None)
+    # Data Selection Method (Random, LAVA, SAVA, None)
     parser.add_argument('--selection_ratio', default=1.0, type=float, 
                         help='Ratio of data to keep after selection')
     # noise ratio
     parser.add_argument('--noise_ratio', default=0.0, type=float,
                     help='Ratio of label noise (0.0 to 1.0) for noisy datasets')
+    # mamix ratio
+    parser.add_argument('--mamix_ratio', default=1.0, type=float, help='MAMix interpolation ratio')
     
     # Augmentation
     parser.add_argument('--augmentation', default='none', type=str, 
@@ -96,22 +98,14 @@ def get_args():
     parser.add_argument('--noise_first', action='store_true',
                     help='Inject label noise before oversampling (instead of after)')
 
-        # In get_args(), update the selection_method choices
+    # Selection method (include sava)
     parser.add_argument('--selection_method', default='none', type=str,
-                        choices=['lava', 'random', 'none', 'sava'],   # add 'sava'
+                        choices=['lava', 'random', 'none', 'sava'],
                         help='Method for data selection/filtering')
 
-    # Add SAVA-specific arguments (after the existing ones, before returning)
-    # SAVA parameters
+    # SAVA parameters (only those actually used)
     parser.add_argument('--sava_batch_size', default=1024, type=int,
                         help='Batch size for SAVA hierarchical OT (default: 1024)')
-    parser.add_argument('--sava_feat_repr', type=lambda x: (str(x).lower() == 'true'), default=False)
-    parser.add_argument('--sava_parallel', action='store_true',
-                        help='Use DataParallel for per-batch OT computations')
-    parser.add_argument('--sava_cuda_num', default=0, type=int,
-                        help='Starting GPU index for DataParallel')
-    parser.add_argument('--sava_n_gpu', default=1, type=int,
-                        help='Number of GPUs for DataParallel')
     parser.add_argument('--sava_cache_label_distances', default=True, type=bool,
                         help='Cache label-to-label OT distances across batches')
     

@@ -1,5 +1,4 @@
 import sys
-
 from pathlib import Path
 
 # Prioritize sava's otdd over LAVA's
@@ -12,6 +11,7 @@ if 'otdd' in sys.modules:
 
 from unittest.mock import MagicMock
 import logging
+
 def silence_torchtext():
     """Bypasses the C++ linkage error in torchtext for image-only projects."""
     modules_to_mock = [
@@ -36,10 +36,8 @@ from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.strategy.build_trainer import build_trainer
 from imbalanceddl.utils.config import get_args
 
-from imbalanceddl.strategy.selection_method.lava_selection import get_lava_selection_indices
-from imbalanceddl.strategy.selection_method.random_selection import random_selection
-from imbalanceddl.dataset.lava_dataset import LavaDataset
-from imbalanceddl.dataset.sava_dataset import SavaDataset 
+# Only keep SavaDataset (random selection is handled inside SavaDataset)
+from imbalanceddl.dataset.sava_dataset import SavaDataset
 
 def main():
     # 1. Load Configuration
@@ -72,31 +70,27 @@ def main():
     print(f"Creating training dataset with {config.augmentation} augmentation...")
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation=config.augmentation)
 
-    if config.strategy in ["DeepSMOTE_Selection", "RandomOversampling_Selection", "Selection_RandomOversampling"]:
+    # 6. Data Selection (if ratio < 1.0 and method is sava or random)
+    if config.strategy in ["DeepSMOTE_Selection", "RandomOversampling_Selection", "Selection_RandomOversampling", 
+                           "DeepSMOTE_Sava"]:
         print(f"=> {config.strategy} handles selection internally. Skipping main script selection.")
     else:
         if config.selection_ratio < 1.0:
             print(f"=> Applying Data Selection: {config.selection_method} (Ratio: {config.selection_ratio})")
-            # Branch based on selection method
-            if config.selection_method == 'lava':
-                imbalance_dataset = LavaDataset(
-                    config, imbalance_dataset, config.selection_ratio,
-                    method='lava', device=device
-                )
-            elif config.selection_method == 'sava':
+            if config.selection_method == 'sava':
                 imbalance_dataset = SavaDataset(
                     config, imbalance_dataset, config.selection_ratio,
                     method='sava', device=device
                 )
             elif config.selection_method == 'random':
-                # Optional: implement random selection via LavaDataset or custom
-                # For now, you can use LavaDataset with method='random'
-                imbalance_dataset = LavaDataset(
+                imbalance_dataset = SavaDataset(
                     config, imbalance_dataset, config.selection_ratio,
                     method='random', device=device
                 )
+            elif config.selection_method == 'none':
+                print("=> selection_method = 'none', using full dataset.")
             else:
-                raise ValueError(f"Unknown selection method: {config.selection_method}")
+                raise ValueError(f"Unknown selection method: {config.selection_method}. Use 'sava', 'random', or 'none'.")
         else:
             print("=> selection_ratio == 1.0, using full dataset (no selection).")
 
@@ -118,7 +112,7 @@ def main():
             trainer.do_train_val()
             
     print("=> All Completed !")
-    logging.shutdown() 
+    logging.shutdown()
 
 if __name__ == "__main__":
     main()

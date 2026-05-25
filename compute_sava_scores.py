@@ -23,8 +23,7 @@ class Tee:
         self.file.flush()
         self.stdout.flush()
 
-SAVA_ROOT = '/home/phatht/phat/imbalanced-DL-sampling/sava'
-
+SAVA_ROOT = '/mnt/hdd2/phatht/phat/imbalanced-DL-sampling/sava'
 if SAVA_ROOT not in sys.path:
     sys.path.insert(0, SAVA_ROOT)
 otdd_path = os.path.join(SAVA_ROOT, 'otdd')
@@ -65,20 +64,29 @@ def main():
     torch.cuda.empty_cache()
     print(f"Using device: {device}")
 
+    # Set number of classes based on dataset
+    if config.dataset == 'cifar10':
+        config.num_classes = 10
+    elif config.dataset == 'cifar100':
+        config.num_classes = 100
+    else:
+        raise ValueError(f"Unknown dataset: {config.dataset}")
+
     _, val_transform = get_weak_augmentation()
     print("Loading CIFAR‑10...")
-    full_train = datasets.CIFAR10(root='./data', train=True, download=True, transform=val_transform)
-    full_val   = datasets.CIFAR10(root='./data', train=False, download=True, transform=val_transform)
+    # Use absolute path to avoid re‑downloading (must have extracted folder)
+    data_root = '/mnt/hdd2/phatht/phat/imbalanced-DL-sampling/data'
+    full_train = datasets.CIFAR10(root=data_root, train=True, download=False, transform=val_transform)
+    full_val   = datasets.CIFAR10(root=data_root, train=False, download=False, transform=val_transform)
 
-    # ---- Option 1: full training set (50k), small validation (500) ----
-    train_subset_size = 2000
-    val_subset_size = 500
-    train_ds = Subset(full_train, range(train_subset_size))
-    val_ds   = Subset(full_val,   range(val_subset_size))
-    print(f"Training subset: {train_subset_size} samples (single batch)")
+    # Use full training set (50k), small validation subset (2000)
+    train_ds = full_train
+    val_subset_size = 2000
+    val_ds = Subset(full_val, range(val_subset_size))
+    print(f"Training set: {len(train_ds)} samples (full CIFAR-10)")
     print(f"Validation subset: {val_subset_size} samples")
 
-    # Verify labels (only first 1000 for speed)
+    # Quick label check
     train_labels = [train_ds[i][1] for i in range(min(1000, len(train_ds)))]
     val_labels   = [val_ds[i][1]   for i in range(val_subset_size)]
     print(f"Train unique classes: {np.unique(train_labels)}")
@@ -91,9 +99,9 @@ def main():
     key_gen = SavaCacheKey(config=config, **flags)
     file_key = key_gen.generate()
 
-    # Raw pixels, batch size 1024 (original default)
+    # Raw pixels, batch size 1024, no corruption
     config.sava_feat_repr = False
-    config.sava_batch_size = train_subset_size   
+    config.sava_batch_size = 1024
     config.sava_parallel = False
     config.sava_n_gpu = 1
     config.sava_cuda_num = getattr(config, 'sava_cuda_num', 0)
@@ -103,11 +111,11 @@ def main():
     if hasattr(config, 'workers'):
         config.workers = 0
 
-    print("Calling SAVA selection (raw pixels, full training set, batch_size=1024)...")
+    print("Calling SAVA selection (raw pixels, full training set, batch_size=1024, no corruption)...")
     indices = get_sava_selection_indices(
         train_dataset=train_ds,
         val_dataset=val_ds,
-        keep_ratio=config.selection_ratio,
+        keep_ratio=config.selection_ratio,   # not used for caching, but passed
         device=device,
         file_key=file_key,
         batch_size=config.sava_batch_size,
@@ -119,9 +127,10 @@ def main():
         resize=getattr(config, 'resize', 32),
         cache_label_distances=config.sava_cache_label_distances,
         model_path=None,
-        corrupt_por=0.01
+        corrupt_por=0.0
     )
     print(f"SAVA scores computed. Selected {len(indices)} out of {len(train_ds)} samples.")
+    print("Sorted indices cached in sava_selection_results/")
     print("Exiting.")
 
 if __name__ == "__main__":

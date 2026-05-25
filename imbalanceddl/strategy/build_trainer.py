@@ -72,22 +72,16 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
                                     imbalance_dataset,
                                     model=model,
                                     strategy=strategy)
-    elif strategy == "DeepSMOTE_Selection":
-        from imbalanceddl.strategy._deepsmote_lava import DeepSMOTESelectionTrainer
-        print("=> DeepSMOTE_Selection Trainer !")
-        trainer = DeepSMOTESelectionTrainer(cfg,
-                                       imbalance_dataset,
-                                       model=model,
-                                       strategy=strategy)
-    elif strategy == "RandomOversampling_Selection":
-        from imbalanceddl.strategy._random_oversampling_lava import RandomOversamplingSelectionTrainer
-        print("=> RandomOversampling_Selection Trainer !")
-        trainer = RandomOversamplingSelectionTrainer(cfg, imbalance_dataset, model, strategy)
-    elif strategy == 'Selection_RandomOversampling':
-        from imbalanceddl.strategy._selection_random_oversampling import SelectionRandomOversamplingTrainer
-        print("=> Selection_RandomOversampling Trainer !")
-        trainer = SelectionRandomOversamplingTrainer(cfg, imbalance_dataset, model, strategy)
-    else:
-        raise NotImplementedError
-
+    elif strategy == "DeepSMOTE_Sava":
+        from imbalanceddl.strategy._deepsmote_sava import DeepSMOTESavaTrainer
+        print("=> DeepSMOTE + SAVA Trainer !")
+        trainer = DeepSMOTESavaTrainer(cfg, imbalance_dataset, model, strategy)    
+    elif strategy == 'RandomOversampling_Selection':
+        from imbalanceddl.strategy._randOversampling import RandomOversamplingTrainer
+        print("=> RandomOversampling + SAVA Trainer !")
+        trainer = RandomOversamplingTrainer(cfg,
+                                            imbalance_dataset,
+                                            model=model,
+                                            strategy=strategy)
+        
     return trainer

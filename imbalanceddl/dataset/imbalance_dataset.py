@@ -114,6 +114,26 @@ class ImbalancedDataset:
 
         return data_transform
 
+    def get_raw_imbalanced_data(self):
+        """Return the raw imbalanced dataset as (X, Y) numpy arrays, without transforms."""
+        # Use the appropriate dataset class but without transform
+        if self.dataset_name == 'cifar10':
+            ds = IMBALANCECIFAR10(
+                root='./data',
+                imb_type=self.imb_type,
+                imb_factor=self.imb_factor,
+                rand_number=self.cfg.rand_number,
+                train=True,
+                download=True,
+                transform=None   # no transform
+            )
+        elif self.dataset_name == 'cifar100':
+            ds = IMBALANCECIFAR100(...)
+        else:
+            raise NotImplementedError
+        # After __init__, the data is already imbalanced and stored as ds.data, ds.targets
+        return ds.data, np.array(ds.targets)
+
     @property
     def train_val_sets(self):
         if self.dataset_name == 'cifar10':
