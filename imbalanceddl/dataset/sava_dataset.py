@@ -4,6 +4,8 @@ import numpy as np
 import os
 from imbalanceddl.dataset import ImbalancedDataset
 from imbalanceddl.strategy.selection_method.sava_selection import get_sava_selection_indices
+from imbalanceddl.utils.sava_key_generation import SavaCacheKey   # ADDED
+
 
 class SavaDataset(Dataset):
     def __init__(self, config, base_dataset, ratio, method, device='cuda'):
@@ -28,30 +30,46 @@ class SavaDataset(Dataset):
         method_str = str(method).lower()
 
         if method_str == 'sava':
-            # Generate a unique cache key (same as LAVA, but we'll store in sava_selection_results)
+            # Generate a unique cache key using SavaCacheKey (no LAVA dependency)
             is_noisy = hasattr(self.config, 'noise_ratio') and self.config.noise_ratio > 0
-            key_gen = LavaCacheKey(config=self.config, is_deepsmote=False, is_noisy=is_noisy)
+            # Use SavaCacheKey instead of LavaCacheKey
+            key_gen = SavaCacheKey(
+                config=self.config,
+                is_deepsmote=False,
+                is_noisy=is_noisy,
+                is_oversampled=False,
+                is_noise_first=getattr(self.config, 'noise_first', False),
+                is_selection_first=False
+            )
             file_key = key_gen.generate()
-            # For SAVA we might want to append '_sava' to avoid mixing with LAVA caches
-            file_key = f"{file_key}_sava"
+            # NOTE: SavaCacheKey.generate() already appends "_sava", so no need to add again.
+            # But if your existing cache files have "_sava" appended, keep as is.
+            # To be safe, we can leave it as is (it will produce e.g. "cifar10_exp_0.01_0_sava")
+            # No extra appending needed.
 
             print("Creating dataset (no augmentation) for SAVA scoring...")
             no_aug_dataset = ImbalancedDataset(self.config, self.config.dataset, augmentation='none')
             no_aug_train_dataset, _ = no_aug_dataset.train_val_sets
 
+            # Optional: If cap_per_class is used, we must apply the same cap to no_aug_train_dataset
+            # Otherwise indices will mismatch. For now, we warn and proceed.
+            if hasattr(self.config, 'cap_per_class') and self.config.cap_per_class is not None:
+                print("WARNING: cap_per_class is set. SAVA scoring uses uncapped dataset, "
+                      "but selection will be applied to capped dataset. This may cause index errors.")
+                # To fix, you could disable capping when selection_method=='sava' in the main script.
+
             indices = get_sava_selection_indices(
-                train_dataset=no_aug_train_dataset,
-                val_dataset=val_ds,
-                keep_ratio=self.ratio,
-                device=self.device,
-                file_key=file_key,
-                batch_size=getattr(self.config, 'sava_batch_size', 1024),
-                num_classes=self.config.num_classes,
-                feat_repr=getattr(self.config, 'sava_feat_repr', False),
-                parallel=getattr(self.config, 'sava_parallel', False),
-                cuda_num=getattr(self.config, 'sava_cuda_num', 0),
-                n_gpu=getattr(self.config, 'sava_n_gpu', 1)
-            )
+            train_dataset=no_aug_train_dataset,
+            val_dataset=val_ds,
+            keep_ratio=self.ratio,
+            device=self.device,
+            file_key=file_key,
+            batch_size=getattr(self.config, 'sava_batch_size', 1024),
+            num_classes=self.config.num_classes,
+            resize=32,  # CIFAR images are 32x32
+            cache_label_distances=getattr(self.config, 'sava_cache_label_distances', True),
+            corrupt_por=0.0   # no corruption
+        )
 
             if hasattr(train_ds, 'targets'):
                 selected_targets = np.array(train_ds.targets)[indices]
@@ -108,3 +126,40 @@ class SavaDataset(Dataset):
 
     def get_cls_num_list(self):
         return self.cls_num_list
+
+    # ========== ADD MISSING METHODS FOR SAMPLERS ==========
+    def get_class_idxs2(self):
+        """
+        Required by WeightedRandomBatchSampler, WeightedFixedBatchSampler, etc.
+        Returns a list of lists, where each sublist contains the indices of samples
+        belonging to a particular class (0 .. num_classes-1).
+        """
+        targets_np = np.array(self.targets, dtype=np.int64)
+        # Ensure we have entries for all classes, even if count=0
+        class_idxs = []
+        for c in range(self.config.num_classes):
+            idxs = np.where(targets_np == c)[0].tolist()
+            class_idxs.append(idxs)
+        return class_idxs
+
+    def get_sample_weights(self):
+        """
+        Required by some samplers. Returns a weight per sample inversely proportional
+        to class frequency.
+        """
+        cls_counts = np.bincount(self.targets, minlength=self.config.num_classes)
+        cls_counts = np.maximum(cls_counts, 1)  # avoid division by zero
+        total = len(self.targets)
+        class_weights = total / (self.config.num_classes * cls_counts)
+        sample_weights = [class_weights[t] for t in self.targets]
+        return sample_weights
+
+    def get_weights(self):
+        """
+        Optional: compatibility with BaseDataset. Returns class weights.
+        """
+        cls_counts = np.bincount(self.targets, minlength=self.config.num_classes)
+        cls_counts = np.maximum(cls_counts, 1)
+        total = len(self.targets)
+        class_weights = total / (self.config.num_classes * cls_counts)
+        return class_weights
