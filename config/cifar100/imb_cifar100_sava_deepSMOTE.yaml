@@ -1,6 +1,6 @@
 # Dataset Settings
-dataset: cifar10
-num_classes: 10
+dataset: cifar100
+num_classes: 100
 imb_type: exp        # Exponential imbalance
 imb_factor: 0.01     # 100:1 ratio between head and tail classes
 data_path: ./data
@@ -15,10 +15,6 @@ device: cuda
 # SAVA specific options (optional, defaults shown)
 sava_batch_size: 5000          # Batch size for hierarchical OT computation
 sava_cache_label_distances: true   # Cache label‑to‑label OT distances across batches
-
-# Noise
-noise_first: False
-noise_ratio: 0.1
 
 # Training Strategy
 strategy: DeepSMOTE_Sava
@@ -45,9 +41,9 @@ workers: 4
 optimizer: sgd
 
 # Logging & Checkpoints
-root_log: results_sava/cifar10_exp0.01_deepSMOTE
+root_log: results_sava/cifar100/cifar100_exp0.01_deepSMOTE
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_sava_0.7_weakAug_exp0.01
 cifar_root: ./data
-gpu: 0
+gpu: 1
 seed: 42

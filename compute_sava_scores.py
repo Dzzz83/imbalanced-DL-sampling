@@ -4,8 +4,9 @@ import os
 import datetime
 import numpy as np
 import torch
-from torch.utils.data import Subset
+from torch.utils.data import Subset, Dataset
 from unittest.mock import MagicMock
+from torchvision import datasets
 
 # Disable wandb logging
 import wandb
@@ -45,10 +46,12 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.utils._augmentation import get_weak_augmentation
 from imbalanceddl.utils.sava_key_generation import SavaCacheKey
 from imbalanceddl.strategy.selection_method.sava_selection import get_sava_selection_indices
-from torchvision import datasets
+from imbalanceddl.utils.deep_smote_data_loader import load_deepsmote_raw
+from imbalanceddl.utils.deep_smote_data_loader import CustomImageDataset
+import torchvision.transforms as transforms
 
 def main():
-    log_filename = f"sava_compute_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    log_filename = f"sava_deepsmote_compute_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     sys.stdout = Tee(log_filename)
     sys.stderr = sys.stdout
     print(f"Logging to {log_filename}")
@@ -60,7 +63,7 @@ def main():
         config.seed = np.random.randint(10000)
     fix_all_seed(config.seed)
 
-    device = f'cuda:{config.gpu}' if hasattr(config, 'gpu') and config.gpu is not None else 'cuda'
+    device = 'cpu'
     torch.cuda.empty_cache()
     print(f"Using device: {device}")
 
@@ -72,46 +75,50 @@ def main():
     else:
         raise ValueError(f"Unknown dataset: {config.dataset}")
 
+    # Use the same validation transform as in training (ToTensor + Normalize)
     _, val_transform = get_weak_augmentation()
-    print("Loading CIFAR‑10...")
-    # Use absolute path to avoid re‑downloading (must have extracted folder)
-    data_root = '/mnt/hdd2/phatht/phat/imbalanced-DL-sampling/data'
-    full_train = datasets.CIFAR10(root=data_root, train=True, download=False, transform=val_transform)
-    full_val   = datasets.CIFAR10(root=data_root, train=False, download=False, transform=val_transform)
 
-    # Use full training set (50k), small validation subset (2000)
-    train_ds = full_train
+    # Load DeepSMOTE balanced data
+    print(f"Loading DeepSMOTE balanced data for {config.dataset}, imb_type={config.imb_type}, imb_factor={config.imb_factor}")
+    X, Y = load_deepsmote_raw(config.dataset, config.imb_type, config.imb_factor)
+    # X is (N,32,32,3) uint8, Y is (N,) int
+    print(f"Data shape: {X.shape}, labels shape: {Y.shape}")
+    print(f"Class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
+
+    # Create dataset with validation transform (no augmentation, just ToTensor+Normalize)
+    train_ds = CustomImageDataset(X, Y, transform=val_transform)
+    print(f"Training dataset size: {len(train_ds)}")
+
+    # Validation dataset – use a subset of the original CIFAR-10 test set (2000 samples)
+    data_root = '/mnt/hdd2/phatht/phat/imbalanced-DL-sampling/data'
+    full_val = datasets.CIFAR10(root=data_root, train=False, download=False, transform=val_transform)
     val_subset_size = 2000
     val_ds = Subset(full_val, range(val_subset_size))
-    print(f"Training set: {len(train_ds)} samples (full CIFAR-10)")
-    print(f"Validation subset: {val_subset_size} samples")
+    print(f"Validation subset size: {val_subset_size}")
 
-    # Quick label check
+    # Label check
     train_labels = [train_ds[i][1] for i in range(min(1000, len(train_ds)))]
     val_labels   = [val_ds[i][1]   for i in range(val_subset_size)]
     print(f"Train unique classes: {np.unique(train_labels)}")
     print(f"Val unique classes: {np.unique(val_labels)}")
 
+    # Cache key: deepsmote=True, no noise, etc.
     flags = {
-        'is_deepsmote': False, 'is_oversampled': False, 'is_noisy': False,
-        'is_noise_first': False, 'is_selection_first': False
+        'is_deepsmote': True,
+        'is_oversampled': False,
+        'is_noisy': False,
+        'is_noise_first': False,
+        'is_selection_first': False
     }
     key_gen = SavaCacheKey(config=config, **flags)
     file_key = key_gen.generate()
+    print(f"Cache key: {file_key}")
 
-    # Raw pixels, batch size 1024, no corruption
-    config.sava_feat_repr = False
-    config.sava_batch_size = 1024
-    config.sava_parallel = False
-    config.sava_n_gpu = 1
-    config.sava_cuda_num = getattr(config, 'sava_cuda_num', 0)
+    # SAVA parameters (raw pixels, batch size 500, no corruption)
+    config.sava_batch_size = 500   # safe batch size
     config.sava_cache_label_distances = True
-    config.sava_model_path = None
 
-    if hasattr(config, 'workers'):
-        config.workers = 0
-
-    print("Calling SAVA selection (raw pixels, full training set, batch_size=1024, no corruption)...")
+    print("Calling SAVA selection (raw pixels, DeepSMOTE balanced data, batch_size=500)...")
     indices = get_sava_selection_indices(
         train_dataset=train_ds,
         val_dataset=val_ds,
@@ -120,13 +127,8 @@ def main():
         file_key=file_key,
         batch_size=config.sava_batch_size,
         num_classes=config.num_classes,
-        feat_repr=config.sava_feat_repr,
-        parallel=config.sava_parallel,
-        cuda_num=config.sava_cuda_num,
-        n_gpu=config.sava_n_gpu,
-        resize=getattr(config, 'resize', 32),
+        resize=32,
         cache_label_distances=config.sava_cache_label_distances,
-        model_path=None,
         corrupt_por=0.0
     )
     print(f"SAVA scores computed. Selected {len(indices)} out of {len(train_ds)} samples.")

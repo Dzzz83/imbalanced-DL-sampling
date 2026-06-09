@@ -2,7 +2,7 @@
 dataset: cifar10
 num_classes: 10
 imb_type: exp        # Exponential imbalance
-imb_factor: 0.01     # 100:1 ratio between head and tail classes
+imb_factor: 1.0     # 100:1 ratio between head and tail classes
 data_path: ./data
 classifier: 'dot_product_classifier'
 augmentation: weak
@@ -18,10 +18,10 @@ sava_cache_label_distances: true   # Cache label‑to‑label OT distances acros
 
 # Noise
 noise_first: False
-noise_ratio: 0.1
+noise_ratio: 0.2
 
 # Training Strategy
-strategy: DeepSMOTE_Sava
+strategy: ERM
 loss_type: CE        # Cross Entropy (can be LDAM or CB)
 train_rule: None     # Can be 'DRW' to trigger re‑weighting mid‑training
 base_strategy: ERM
@@ -45,7 +45,7 @@ workers: 4
 optimizer: sgd
 
 # Logging & Checkpoints
-root_log: results_sava/cifar10_exp0.01_deepSMOTE
+root_log: results/results_sava/cifar10/cifar10_exp1.0_noise0.2
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_sava_0.7_weakAug_exp0.01
 cifar_root: ./data

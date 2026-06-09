@@ -18,7 +18,7 @@ sava_cache_label_distances: true   # Cache label‑to‑label OT distances acros
 
 # Noise
 noise_first: False
-noise_ratio: 0.1
+noise_ratio: 0.25
 
 # Training Strategy
 strategy: DeepSMOTE_Sava
@@ -45,7 +45,7 @@ workers: 4
 optimizer: sgd
 
 # Logging & Checkpoints
-root_log: results_sava/cifar10_exp0.01_deepSMOTE
+root_log: results/results_sava/cifar10/cifar10_exp0.01_deepSMOTE_noise0.25
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_sava_0.7_weakAug_exp0.01
 cifar_root: ./data

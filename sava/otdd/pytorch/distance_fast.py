@@ -821,7 +821,7 @@ class DatasetDistance:
                 # print(f"Finished first label distance in: {time() - s} s.")
             dat_t = time()
             self._load_datasets(maxsamples, device=device_dists)
-            print(f"finisehd load datasets in {time() - dat_t}s.")
+            print(f"finished load datasets in {time() - dat_t}s.")
         if self.method == "augmentation":
             DA = (self.X1, self.Y1)
             DB = (self.X2, self.Y2)
@@ -1135,7 +1135,7 @@ class DatasetDistance:
                 #print(f"Finished first label distance in: {time() - s} s.")
             dat_t = time()
             self._load_datasets(maxsamples, device=device_dists)
-            print(f"finisehd load datasets in {time() - dat_t}s.")
+            print(f"finished load datasets in {time() - dat_t}s.")
         if self.method == "augmentation":
             DA = (self.X1, self.Y1)
             DB = (self.X2, self.Y2)
@@ -1988,7 +1988,9 @@ def batch_augmented_cost(
         # Y2[:, None, :] \in [1, 1, x_ts]
         # M \in 1 x x_tr x x_ts
         M = W.shape[1] * Y1[:, :, None] + Y2[:, None, :]
-        C2 = W.flatten()[M.flatten(start_dim=1)].reshape(-1, Y1.shape[1], Y2.shape[1])
+        indices = M.flatten(start_dim=1)
+        indices = torch.clamp(indices, 0, W.numel() - 1)
+        C2 = W.flatten()[indices].reshape(-1, Y1.shape[1], Y2.shape[1])
     elif Means is not None and Covs is not None:
         ## We need to compate label distances too
         dmeans = cost_routines[p](Means[0][Y1.squeeze()], Means[1][Y2.squeeze()])
