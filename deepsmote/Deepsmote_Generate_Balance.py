@@ -47,7 +47,8 @@ def train_deepsmote_generative_model(args, dec_x, dec_y, class_num):
 
     best_loss = np.inf
 
-    if args.train:
+    # if args.train:
+    if True:
         enc_optim = torch.optim.Adam(encoder.parameters(), lr = args.lr)
         dec_optim = torch.optim.Adam(decoder.parameters(), lr = args.lr)
 

@@ -21,24 +21,34 @@ class ImbalancedDataset:
         self.augmentation = augmentation
         self.data_transform = self._get_data_transform()
 
+    def _get_base_dataset_name(self):
+        """Return base dataset name for augmentation (cifar10 or cifar100)."""
+        if 'cifar10' in self.dataset_name:
+            return 'cifar10'
+        elif 'cifar100' in self.dataset_name:
+            return 'cifar100'
+        else:
+            # For other datasets, default to cifar10 (or raise error)
+            return 'cifar10'
+
     def _get_data_transform(self):
         """
         Return data transform by dataset name
-
         """
         data_transform = dict()
 
         if self.dataset_name in ['cifar10', 'cifar100', 'cifar10_noisy']:
             print("=> Get {} data transform".format(self.dataset_name))
+            base_dataset = self._get_base_dataset_name()
             if self.augmentation == 'weak':
                 print(f"Applying Weak Augmentation to the {self.dataset_name}")
-                train_transform, val_transform = get_weak_augmentation()
+                train_transform, val_transform = get_weak_augmentation(base_dataset)
             elif self.augmentation == 'trivial':
                 print(f"Applying Trivial Augmentation to the {self.dataset_name}")
-                train_transform, val_transform = get_trivial_augmentation()
+                train_transform, val_transform = get_trivial_augmentation(base_dataset)
             elif self.augmentation == 'none':
                 print(f"Not applying augmentation to the {self.dataset_name}")
-                if self.dataset_name == 'cifar10':
+                if self.dataset_name == 'cifar10' or 'cifar10' in self.dataset_name:
                     mean = (0.4914, 0.4822, 0.4465)
                     std = (0.2023, 0.1994, 0.2010)
                 elif self.dataset_name == 'cifar100':
@@ -57,18 +67,6 @@ class ImbalancedDataset:
                 raise NotImplementedError(f"The augmentation '{self.augmentation}' is not implemented")
             data_transform['train'] = train_transform
             data_transform['val'] = val_transform
-            # data_transform['train'] = transforms.Compose([
-            #     transforms.RandomCrop(32, padding=4),
-            #     transforms.RandomHorizontalFlip(),
-            #     transforms.ToTensor(),
-            #     transforms.Normalize((0.4914, 0.4822, 0.4465),
-            #                          (0.2023, 0.1994, 0.2010)),
-            # ])
-            # data_transform['val'] = transform_val = transforms.Compose([
-            #     transforms.ToTensor(),
-            #     transforms.Normalize((0.4914, 0.4822, 0.4465),
-            #                          (0.2023, 0.1994, 0.2010)),
-            # ])
         elif self.dataset_name == "cinic10":
             print("=> Get {} data transform".format(self.dataset_name))
             data_transform['train'] = transforms.Compose([
@@ -160,7 +158,6 @@ class ImbalancedDataset:
 
         return train_dataset, val_dataset
 
-
     def _cifar10(self):
         print("=> Preparing IMBALANCECIFAR10 {} | {} !".format(
             self.imb_type, self.imb_factor))
@@ -227,7 +224,7 @@ class ImbalancedDataset:
         self.cfg.cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = datasets.CIFAR10(root='./data', train=False, download=True,
                                     transform=self.data_transform['val'])
-        return train_dataset, val_dataset 
+        return train_dataset, val_dataset
 
     def _cinic10(self):
         print("=> Preparing IMBALANCECINIC100 {} | {} !".format(
@@ -284,4 +281,3 @@ class ImbalancedDataset:
                                     transform=self.data_transform['val'])
 
         return train_dataset, val_dataset
-

@@ -22,8 +22,8 @@ class DeepSMOTESavaTrainer(Trainer):
         print("DeepSMOTESavaTrainer Initialization")
         print("="*60)
 
-        # Validation dataset
-        _, val_transform = get_weak_augmentation()
+        # Validation dataset - pass cfg.dataset to augmentation function
+        _, val_transform = get_weak_augmentation(cfg.dataset)
         print(f"1. Loading validation dataset: {cfg.dataset}")
         if cfg.dataset == 'cifar10':
             val_ds = datasets.CIFAR10(root='./data', train=False, download=True, transform=val_transform)
@@ -63,9 +63,7 @@ class DeepSMOTESavaTrainer(Trainer):
             Y_noisy = inject_label_noise(Y_raw, noise_ratio, cfg.num_classes, seed=cfg.rand_number)
             print(f"[VERIFY] After noise injection: class distribution: {dict(zip(*np.unique(Y_noisy, return_counts=True)))}")
 
-            # Now we need to apply DeepSMOTE to oversample to 5000 per class
-            # For efficiency, we assume that DeepSMOTE data was pre‑generated for this exact noise scenario.
-            # We'll construct a custom path using a key that includes noise ratio and rand_number.
+
             deepsmote_folder = 'deepsmote_models'
             noise_key = f"noise{noise_ratio}_seed{cfg.rand_number}"
             data_file = f"./{deepsmote_folder}/{cfg.dataset}/{cfg.dataset}_{cfg.imb_type}_R{int(1/cfg.imb_factor)}_{noise_key}_train_data.txt"
@@ -111,12 +109,12 @@ class DeepSMOTESavaTrainer(Trainer):
         plain_dataset = CustomImageDataset(X_final, Y_final, transform=plain_transform)
         print(f"\n3. Plain dataset (for scoring) created with {len(plain_dataset)} samples")
 
-        # Training transform
+        # Training transform - pass cfg.dataset
         print(f"\n4. Training transform: cfg.augmentation = {cfg.augmentation}")
         if cfg.augmentation == 'weak':
-            train_transform, _ = get_weak_augmentation()
+            train_transform, _ = get_weak_augmentation(cfg.dataset)
         elif cfg.augmentation == 'trivial':
-            train_transform, _ = get_trivial_augmentation()
+            train_transform, _ = get_trivial_augmentation(cfg.dataset)
         elif cfg.augmentation == 'none':
             if cfg.dataset == 'cifar10':
                 normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))

@@ -76,7 +76,8 @@ def main():
         raise ValueError(f"Unknown dataset: {config.dataset}")
 
     # Use the same validation transform as in training (ToTensor + Normalize)
-    _, val_transform = get_weak_augmentation()
+    # FIX: pass dataset argument to get_weak_augmentation
+    _, val_transform = get_weak_augmentation(config.dataset)
 
     # Load DeepSMOTE balanced data
     print(f"Loading DeepSMOTE balanced data for {config.dataset}, imb_type={config.imb_type}, imb_factor={config.imb_factor}")
