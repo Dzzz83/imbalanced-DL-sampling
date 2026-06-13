@@ -314,9 +314,9 @@ def pwdist_exact(X1, Y1, X2=None, Y2=None, symmetric=False, loss='sinkhorn',
 
     if cost_function == 'euclidean':
         if p == 1:
-            cost_function = lambda x, y: geomloss.utils.distances(x, y)
+            cost_function = lambda x, y: torch.cdist(x.view(x.size(0), -1), y.view(y.size(0), -1), p=2)
         elif p == 2:
-            cost_function = lambda x, y: geomloss.utils.squared_distances(x, y)
+            cost_function = lambda x, y: torch.cdist(x.view(x.size(0), -1), y.view(y.size(0), -1), p=2) ** 2
         else:
             raise ValueError()
 
@@ -343,11 +343,12 @@ def pwdist_exact(X1, Y1, X2=None, Y2=None, symmetric=False, loss='sinkhorn',
     for i, j in pbar:
         try:
             D[i, j] = distance(X1[Y1==c1[i]].to(device), X2[Y2==c2[j]].to(device)).item()
-        except:
-            print("This is awkward. Distance computation failed. Geomloss is hard to debug" \
-                  "But here's a few things that might be happening: "\
-                  " 1. Too many samples with this label, causing memory issues" \
-                  " 2. Datatype errors, e.g., if the two datasets have different type")
+        except Exception as e:
+            import traceback
+            print("\n" + "="*60)
+            print(f"--- REAL GEOMLOSS CRASH AT PAIR ({i}, {j}) ---")
+            traceback.print_exc()
+            print("="*60 + "\n")
             sys.exit('Distance computation failed. Aborting.')
         if symmetric:
             D[j, i] = D[i, j]
