@@ -124,7 +124,13 @@ def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
         if len(sorted_indices) > 0 and hasattr(sorted_indices[0], '__len__') and len(sorted_indices[0]) == 1:
             sorted_indices = np.array([int(x[0]) for x in sorted_indices], dtype=np.int64)
         else:
-            sorted_indices = np.array(sorted_indices, dtype=np.int64)
+            clean_indices = []
+            for item in sorted_indices:
+                # Convert whatever the item is to a numpy array, flatten it, and grab the very first number
+                val = np.array(item).flatten()[0]
+                clean_indices.append(int(val))
+
+            sorted_indices = np.array(clean_indices, dtype=np.int64)
     else:
         sorted_indices = np.asarray(sorted_indices).ravel().astype(np.int64)
     
