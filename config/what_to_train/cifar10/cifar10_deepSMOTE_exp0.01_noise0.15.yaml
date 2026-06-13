@@ -1,0 +1,57 @@
+# Dataset Settings
+dataset: cifar10
+num_classes: 10
+imb_type: exp
+imb_factor: 0.01
+data_path: ./data
+classifier: 'dot_product_classifier'
+augmentation: weak
+
+# Selection Settings (SAVA)
+selection_method: sava         # Options: sava, random, none
+selection_ratio: 0.7
+
+# SAVA specific options
+sava_batch_size: 5000          # Batch size for hierarchical OT computation
+sava_cache_label_distances: true   # Cache label‑to‑label OT distances across batches
+
+# Training Strategy
+strategy: DeepSMOTE_Sava
+loss_type: CE        # Cross Entropy (can be LDAM or CB)
+train_rule: None     # Can be 'DRW' to trigger re‑weighting mid‑training
+base_strategy: ERM
+
+# Noise
+noise_first: False
+noise_ratio: 0.15
+
+# Hyperparameters
+epochs: 200
+start_epoch: 0
+print_freq: 10
+batch_size: 128
+learning_rate: 0.1
+momentum: 0.9
+weight_decay: 2e-4
+lr_steps: [120, 160]   # Epochs where the learning rate drops
+gamma: 0.1
+
+rand_number: 0
+# Augmentation (for training after selection)
+mixup_alpha: 1.0        # Strength of the mixup interpolation (if used)
+workers: 4
+optimizer: sgd
+
+# Logging & Checkpoints
+root_log: results/results_sava/cifar10/cifar10_exp0.01_deepsmote_noise0.15
+cifar_root: ./data
+
+# Hardware
+device: cuda
+gpu: 0
+
+# Seed
+seed: 42
+
+# Debug
+debug: true

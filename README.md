@@ -1,27 +1,26 @@
 # SAVA & LAVA Imbalanced Learning Framework
 
-A modular framework for training robust models under severe class imbalance using **SAVA** (Sinkhorn Autoregressive Valuation Augmentation) and **LAVA** (Layered Alternating Valuation Analysis) data‑valuation techniques. Supports CIFAR‑10/100, label noise injection, DeepSMOTE oversampling, and multiple imbalance‑aware strategies (LDAM‑DRW, MAMix, MixUp, etc.). Includes automated ratio sweeps and extensive logging.
+A modular framework for training robust models under severe class imbalance using **SAVA** (Sinkhorn Autoregressive Valuation Augmentation) and **LAVA** (Layered Alternating Valuation Analysis) data‑valuation techniques. Supports CIFAR‑10/100, label noise injection, DeepSMOTE oversampling, and multiple imbalance‑aware strategies (LDAM‑DRW, MAMix, MixUp, etc.). Includes automated ratio sweeps and optional logging.
 
 ---
 
 ## Table of Contents
 
-* [Overview](https://www.google.com/search?q=%23overview)Q
-* [Key Features](https://www.google.com/search?q=%23key-features)
-* [Repository Structure](https://www.google.com/search?q=%23repository-structure)
-* [Installation](https://www.google.com/search?q=%23installation)
-* [Usage](https://www.google.com/search?q=%23usage)
-* [Single Experiment](https://www.google.com/search?q=%23single-experiment)
-* [Ratio Sweep](https://www.google.com/search?q=%23ratio-sweep)
-* [Multi‑Config Sweep](https://www.google.com/search?q=%23multi%E2%80%91config-sweep)
-* [DeepSMOTE Data Generation](https://www.google.com/search?q=%23deepsmote-data-generation)
-
-
-* [Configuration](https://www.google.com/search?q=%23configuration)
-* [Strategies Implemented](https://www.google.com/search?q=%23strategies-implemented)
-* [Results & Logging](https://www.google.com/search?q=%23results--logging)
-* [Extending the Framework](https://www.google.com/search?q=%23extending-the-framework)
-* [Acknowledgements](https://www.google.com/search?q=%23acknowledgements)
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Repository Structure](#repository-structure)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Single Experiment](#single-experiment)
+  - [Ratio Sweep](#ratio-sweep)
+  - [Multi‑Config Sweep](#multi‑config-sweep)
+  - [DeepSMOTE Data Generation](#deepsmote-data-generation)
+- [Configuration](#configuration)
+- [Strategies Implemented](#strategies-implemented)
+- [Results & Logging](#results--logging)
+- [Debugging Mode](#debugging-mode)
+- [Extending the Framework](#extending-the-framework)
+- [Acknowledgements](#acknowledgements)
 
 ---
 
@@ -39,16 +38,18 @@ The system is fully configurable via YAML files, supports label noise injection,
 
 ## Key Features
 
-* **Data valuation** – SAVA and LAVA scoring using Sinkhorn distances on raw pixels.
-* **Selection** – Keep top‑k most valuable samples (lowest score). Also supports random selection.
-* **Caching** – Pre‑computed scores are cached (`sava_selection_results/`) for reuse.
-* **Imbalanced datasets** – Exponential or step imbalance (CIFAR‑10/100), configurable imbalance factor (0.01, 0.02, …).
-* **Label noise** – Symmetric label noise (0.15, 0.20, 0.25) injected either before or after oversampling.
-* **DeepSMOTE integration** – Generate balanced data once; then apply SAVA/LAVA selection on the balanced set.
-* **Training strategies** – ERM, DRW, LDAM‑DRW, MixUp_DRW, Remix_DRW, MAMix_DRW, Reweight‑CB, M2m, DeepSMOTE.
-* **Samplers** – Random, WeightedRandomBatchSampler, WeightedFixedBatchSampler, StratifiedSampler.
-* **Automation** – `train.py` sweeps ratios; `train_all.py` sweeps over multiple YAML configs.
-* **Logging** – TensorBoard, CSV logs, per‑class recall, many/median/low‑shot accuracy.
+- **Data valuation** – SAVA and LAVA scoring using Sinkhorn distances on raw pixels.
+- **Selection** – Keep top‑k most valuable samples (lowest score). Also supports random selection.
+- **Caching** – Pre‑computed scores are cached (`sava_selection_results/`) for reuse.
+- **Imbalanced datasets** – Exponential or step imbalance (CIFAR‑10/100), configurable imbalance factor (0.01, 0.02, …).
+- **Label noise** – Symmetric label noise (0.15, 0.20, 0.25) injected either before or after oversampling.
+- **DeepSMOTE integration** – Generate balanced data once; then apply SAVA/LAVA selection on the balanced set.
+- **Training strategies** – ERM, DRW, LDAM‑DRW, MixUp_DRW, Remix_DRW, MAMix_DRW, Reweight‑CB, M2m, DeepSMOTE.
+- **Samplers** – Random, WeightedRandomBatchSampler, WeightedFixedBatchSampler, StratifiedSampler.
+- **Automation** – `train.py` sweeps ratios; `train_all.py` sweeps over multiple YAML configs.
+- **Simplified logging** – By default, no CSV, TensorBoard, or checkpoints are created. Console output is clean, and a single log file is written immediately.
+- **Optional logging** – Enable Weights & Biases (`--use_wandb`) and model checkpoint saving (`--save_checkpoint`).
+- **Debugging mode** – Detailed logs (SAVA scores, gradient norms, class distributions) written to `./debug/` folder.
 
 ---
 
@@ -60,13 +61,14 @@ imbalanced-DL-sampling/
 ├── data/                         # Raw CIFAR datasets (downloaded automatically)
 ├── deepsmote/                    # DeepSMOTE generation scripts
 ├── deepsmote_models/             # Pre‑generated balanced DeepSMOTE data
+├── debug/                        # Debug logs (created only when --debug is used)
 ├── imbalanceddl/                 # Core package
 │   ├── dataset/                  # ImbalancedDataset, SavaDataset, noise injection
 │   ├── loss/                     # LDAM, Class‑Balanced loss
 │   ├── net/                      # ResNet‑32 backbone, classifier
 │   ├── strategy/                 # All trainers + selection_method/ (sava_selection.py)
 │   └── utils/                    # Augmentations, metrics (shot_acc), logging, etc.
-├── results_sava/                 # Experiment logs (TensorBoard events, CSV, text logs)
+├── results_sava/                 # Experiment logs (one main .log file per run)
 ├── sava/                         # SAVA/LAVA core (optimal transport, hierarchical OT)
 ├── sava_selection_results/       # Cached sorted indices (.npy files)
 ├── temp_ratio_configs/           # Temporary configs generated by train.py
@@ -75,212 +77,3 @@ imbalanced-DL-sampling/
 ├── train_all.py                  # Run all YAMLs in a directory
 ├── config.py                     # Unified argument parser + YAML loader
 └── structurePrinter.py           # Utility to print project tree
-
-```
-
----
-
-## Installation
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/your-username/imbalanced-DL-sampling.git
-cd imbalanced-DL-sampling
-
-```
-
-### 2. Create and activate Conda environment
-
-```bash
-conda create -n my_env python=3.10.20
-conda activate my_env
-
-```
-
-### 3. Install PyTorch (CUDA 11.8 example)
-
-```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-
-```
-
-### 4. Install other dependencies
-
-```bash
-pip install -r requirements.txt
-
-```
-
-*(If `requirements.txt` is not provided, install manually: `numpy`, `scikit-learn`, `tensorboardX`, `wandb`, `matplotlib`, `pyyaml`, `tqdm`, `POT` (Python Optimal Transport).)*
-
-### 5. Set up SAVA submodule
-
-The `sava/` folder must contain the optimal transport backend. If missing, copy it from the original source or ensure the path is correct. The framework automatically inserts `sava/` into `sys.path`.
-
----
-
-## Usage
-
-### Single Experiment
-
-Run a single configuration (e.g., ERM on CIFAR‑10 with SAVA selection ratio 0.7 and noise 0.25):
-
-```bash
-python main.py --config config/cifar10_noisy/cifar10_noise0.25_weak.yaml
-
-```
-
-The YAML file specifies all hyperparameters. Command‑line overrides are also possible:
-
-```bash
-python main.py --config config/example.yaml --epochs 1 --selection_ratio 1.0
-
-```
-
-### Ratio Sweep
-
-Use `train.py` to sweep a base YAML over multiple selection ratios (1.0, 0.9, 0.7, 0.5, 0.3, 0.1):
-
-```bash
-python train.py --config config/mamix_cifar10_epoch140.yaml --ratios 1.0 0.9 0.7 0.5 0.3 0.1
-
-```
-
-For each ratio, a temporary YAML is created and executed via `main.py`. All outputs are streamed to the console; errors are logged to `ratio_sweep_errors.log`.
-
-### Multi‑Config Sweep
-
-To run all YAML files in a directory (e.g., all MAMix epoch variants), use `train_all.py`:
-
-```bash
-python train_all.py --config_dir config/mamix_cifar100/ --ratios 1.0 0.9 0.7 0.5 0.3 0.1
-
-```
-
-It processes each `.yaml` file sequentially, logs errors, and continues. A summary of failed configs is printed at the end.
-
-### DeepSMOTE Data Generation
-
-Before using DeepSMOTE strategies, you must generate the balanced data:
-
-```bash
-cd deepsmote
-python Deepsmote_Generate_Balance.py --dataset cifar100 --imb_factor 0.01 --imb_type exp --epochs 200 --batch_size 128 --lr 0.001 --train
-
-```
-
-This creates `deepsmote_models/cifar100/cifar100_exp_R100_train_data.txt` and corresponding labels. For noisy variants, the trainer injects noise on the fly (`noise_first: false`). If you need noise‑first pipelines, pre‑generate noise‑specific files.
-
----
-
-## Configuration
-
-Configuration uses YAML files. Below is a minimal example for ERM with SAVA selection:
-
-```yaml
-dataset: cifar10
-imb_factor: 0.01
-imb_type: exp
-augmentation: weak
-selection_method: sava
-selection_ratio: 0.7
-strategy: ERM
-epochs: 200
-batch_size: 128
-learning_rate: 0.1
-seed: 42
-
-```
-
-For a complete list of options, see the Configuration Attribute Matrix or inspect `config.py`.
-
-### Key Parameters
-
-| Parameter | Description |
-| --- | --- |
-| `dataset` | `cifar10` or `cifar100` |
-| `imb_factor` | Imbalance ratio (e.g., 0.01 = 100:1) |
-| `noise_ratio` | Label noise fraction (0.0 – 0.25) |
-| `selection_method` | `sava`, `lava`, `random`, `none` |
-| `selection_ratio` | Fraction of data to keep (1.0 = no selection) |
-| `strategy` | Training strategy (see table below) |
-| `drw_switch_epoch` | For MAMix_DRW – epoch when class‑balanced weights are enabled (default 160) |
-
----
-
-## Strategies Implemented
-
-| Strategy Name | Trainer Class | Key Feature |
-| --- | --- | --- |
-| `ERM` | `ERMTrainer` | Standard cross‑entropy |
-| `DRW` | `DRWTrainer` | Deferred re‑weighting |
-| `LDAM_DRW` | `LDAMDRWTrainer` | LDAM loss + DRW |
-| `Mixup_DRW` | `MixupTrainer` | Mixup data augmentation + DRW |
-| `Remix_DRW` | `RemixTrainer` | Remix (label‑aware mixup) + DRW |
-| `MAMix_DRW` | `MAMixTrainer` | Multi‑head mixup (class‑dependent interpolation) + DRW |
-| `Reweight_CB` | `ReweightCBTrainer` | Class‑balanced loss |
-| `M2m` | `M2mTrainer` | Meta‑learning for imbalanced data |
-| `DeepSMOTE` | `DeepSMOTETrainer` | Synthetic oversampling in feature space |
-| `DeepSMOTE_Sava` | `DeepSMOTESavaTrainer` | DeepSMOTE + SAVA/LAVA selection |
-| `RandomOversampling_Selection` | `RandomOversamplingTrainer` | Random oversampling + selection |
-
----
-
-## Results & Logging
-
-Each experiment creates a unique directory under `results_sava/`, for example:
-
-```text
-results_sava/cifar100/cifar100_exp0.01_mamix_epoch140/cifar100_exp_0.01_MAMix_DRW_0.7_42/
-├── args.txt                 # Full configuration
-├── log_train.csv            # Training metrics per epoch
-├── log_test.csv             # Validation metrics per epoch
-├── events.out.tfevents.* # TensorBoard logs
-└── checkpoint.pth.tar       # Best model (if saving enabled)
-
-```
-
-* **TensorBoard**: Launch with `tensorboard --logdir results_sava`.
-* **CSV logs**: Contain epoch, loss, top1, top5, and per‑class recall.
-* **Console logs**: Also saved as `.log` files for each run.
-
----
-
-## Extending the Framework
-
-### Adding a New Strategy
-
-1. Create a new file `imbalanceddl/strategy/_my_strategy.py` with a class inheriting from `Trainer`.
-2. Implement `get_criterion()` and `train_one_epoch()`.
-3. Register the strategy in `build_trainer.py` by adding a mapping.
-
-### Adding a New Selection Method
-
-1. Implement a function similar to `get_sava_selection_indices` in `selection_method/`.
-2. Modify `SavaDataset` to call your function when `selection_method` matches.
-3. Update `SavaCacheKey` if caching is needed.
-
-### Adding a New Dataset
-
-1. Create a dataset loader in `imbalanceddl/dataset/` that returns `(train_dataset, val_dataset)`.
-2. Extend `ImbalancedDataset` with a new `_my_dataset()` method.
-3. Update the `train_val_sets` property accordingly.
-
----
-
-## Acknowledgements
-
-This framework builds upon prior work:
-
-* **SAVA/LAVA** – original optimal transport valuation methods.
-* **LDAM‑DRW** – Cao et al. (2019).
-* **MAMix** – Clark et al. (2022).
-* **DeepSMOTE** – Dablain et al. (2021).
-* **CIFAR‑10/100** – Krizhevsky (2009).
-
----
-
-## License
-
-MIT License. See [LICENSE](https://www.google.com/search?q=LICENSE) for details.
