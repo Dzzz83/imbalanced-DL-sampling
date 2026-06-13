@@ -1,0 +1,827 @@
+Log file: cifar10_lava0.3_deepsmote_selection_exp0.01_seed42_20260423_171927.log
+Run started: 2026-04-23 17:19:27.038533
+Dataset: cifar10
+Imbalance type: exp, factor: 0.01
+Selection method: lava, ratio: 0.3
+Strategy: DeepSMOTE_Selection, epochs: 200
+Seed: 42, rand_number: 0
+Augmentation: weak
+============================================================
+
+=> Preparing logger and tensorboard writer !
+----------------------------------------------------
+Class ID   | Original   | Selected   | Keep %  
+----------------------------------------------------
+0          | 4000       | 63         |     1.6%
+1          | 4000       | 2265       |    56.6%
+2          | 4000       | 911        |    22.8%
+3          | 4000       | 92         |     2.3%
+4          | 4000       | 286        |     7.1%
+5          | 4000       | 764        |    19.1%
+6          | 4000       | 1749       |    43.7%
+7          | 4000       | 2585       |    64.6%
+8          | 4000       | 613        |    15.3%
+9          | 4000       | 2672       |    66.8%
+----------------------------------------------------
+TOTAL      | 40000      | 12000      |    30.0%
+----------------------------------------------------
+Epoch [0] Training Results: Prec@1 51.825 Prec@5 93.825             Loss 1.39146
+Epoch [0] Training Class Recall: [0.000,0.666,0.080,0.000,0.014,0.123,0.541,0.613,0.478,0.642]
+Epoch [0] Testing Results: Prec@1 20.660 Prec@5 76.000             Loss 3.67207
+Epoch [0] Testing Class Recall: [0.000,0.958,0.037,0.000,0.000,0.005,0.087,0.623,0.283,0.073]
+Epoch [1] Training Results: Prec@1 67.142 Prec@5 97.283             Loss 0.98668
+Epoch [1] Training Class Recall: [0.000,0.780,0.233,0.000,0.021,0.401,0.687,0.776,0.675,0.803]
+Epoch [1] Testing Results: Prec@1 24.190 Prec@5 81.210             Loss 4.02313
+Epoch [1] Testing Class Recall: [0.087,0.974,0.043,0.000,0.000,0.215,0.314,0.506,0.140,0.140]
+Epoch [2] Training Results: Prec@1 76.067 Prec@5 98.333             Loss 0.72780
+Epoch [2] Training Class Recall: [0.000,0.865,0.357,0.000,0.059,0.510,0.784,0.845,0.821,0.890]
+Epoch [2] Testing Results: Prec@1 34.060 Prec@5 84.070             Loss 2.93287
+Epoch [2] Testing Class Recall: [0.018,0.778,0.382,0.000,0.047,0.370,0.316,0.576,0.723,0.196]
+Epoch [3] Training Results: Prec@1 78.000 Prec@5 98.583             Loss 0.68990
+Epoch [3] Training Class Recall: [0.032,0.844,0.442,0.000,0.143,0.616,0.818,0.859,0.794,0.895]
+Epoch [3] Testing Results: Prec@1 39.680 Prec@5 87.750             Loss 2.27732
+Epoch [3] Testing Class Recall: [0.128,0.886,0.311,0.000,0.120,0.559,0.701,0.481,0.545,0.237]
+Epoch [4] Training Results: Prec@1 83.158 Prec@5 98.950             Loss 0.53412
+Epoch [4] Training Class Recall: [0.000,0.894,0.553,0.000,0.217,0.699,0.851,0.899,0.900,0.932]
+Epoch [4] Testing Results: Prec@1 31.340 Prec@5 78.950             Loss 3.33629
+Epoch [4] Testing Class Recall: [0.002,0.313,0.247,0.000,0.079,0.815,0.508,0.689,0.221,0.260]
+Epoch [5] Training Results: Prec@1 88.708 Prec@5 99.458             Loss 0.36544
+Epoch [5] Training Class Recall: [0.063,0.936,0.673,0.011,0.374,0.785,0.922,0.940,0.933,0.967]
+Epoch [5] Testing Results: Prec@1 39.540 Prec@5 87.710             Loss 2.89388
+Epoch [5] Testing Class Recall: [0.000,0.863,0.490,0.002,0.066,0.522,0.795,0.401,0.610,0.205]
+Epoch [6] Training Results: Prec@1 90.217 Prec@5 99.625             Loss 0.31905
+Epoch [6] Training Class Recall: [0.063,0.940,0.724,0.011,0.441,0.818,0.939,0.957,0.945,0.967]
+Epoch [6] Testing Results: Prec@1 39.200 Prec@5 82.850             Loss 3.15201
+Epoch [6] Testing Class Recall: [0.249,0.908,0.303,0.001,0.118,0.525,0.809,0.729,0.135,0.143]
+Epoch [7] Training Results: Prec@1 91.467 Prec@5 99.733             Loss 0.27469
+Epoch [7] Training Class Recall: [0.190,0.958,0.737,0.054,0.472,0.836,0.945,0.959,0.966,0.980]
+Epoch [7] Testing Results: Prec@1 43.490 Prec@5 88.900             Loss 2.70958
+Epoch [7] Testing Class Recall: [0.007,0.913,0.603,0.013,0.135,0.429,0.766,0.735,0.360,0.388]
+Epoch [8] Training Results: Prec@1 92.683 Prec@5 99.817             Loss 0.23388
+Epoch [8] Training Class Recall: [0.222,0.965,0.790,0.087,0.524,0.866,0.948,0.969,0.958,0.985]
+Epoch [8] Testing Results: Prec@1 45.960 Prec@5 91.070             Loss 2.80936
+Epoch [8] Testing Class Recall: [0.000,0.873,0.606,0.004,0.177,0.522,0.752,0.664,0.381,0.617]
+Epoch [9] Training Results: Prec@1 93.033 Prec@5 99.775             Loss 0.22592
+Epoch [9] Training Class Recall: [0.190,0.963,0.791,0.076,0.559,0.881,0.954,0.975,0.956,0.987]
+Epoch [9] Testing Results: Prec@1 46.930 Prec@5 91.210             Loss 2.43328
+Epoch [9] Testing Class Recall: [0.039,0.724,0.516,0.091,0.297,0.269,0.701,0.739,0.762,0.555]
+Epoch [10] Training Results: Prec@1 93.367 Prec@5 99.850             Loss 0.20909
+Epoch [10] Training Class Recall: [0.190,0.964,0.818,0.141,0.570,0.886,0.963,0.970,0.972,0.981]
+Epoch [10] Testing Results: Prec@1 44.620 Prec@5 86.000             Loss 2.98374
+Epoch [10] Testing Class Recall: [0.229,0.940,0.513,0.167,0.147,0.635,0.788,0.527,0.384,0.132]
+Epoch [11] Training Results: Prec@1 94.358 Prec@5 99.917             Loss 0.17541
+Epoch [11] Training Class Recall: [0.317,0.974,0.829,0.174,0.629,0.902,0.958,0.980,0.984,0.990]
+Epoch [11] Testing Results: Prec@1 47.420 Prec@5 90.330             Loss 2.38292
+Epoch [11] Testing Class Recall: [0.105,0.716,0.591,0.016,0.313,0.248,0.845,0.769,0.457,0.682]
+Epoch [12] Training Results: Prec@1 94.242 Prec@5 99.842             Loss 0.17454
+Epoch [12] Training Class Recall: [0.254,0.970,0.838,0.304,0.619,0.889,0.957,0.981,0.971,0.989]
+Epoch [12] Testing Results: Prec@1 49.360 Prec@5 91.070             Loss 2.44017
+Epoch [12] Testing Class Recall: [0.128,0.936,0.521,0.018,0.362,0.674,0.773,0.640,0.655,0.229]
+Epoch [13] Training Results: Prec@1 95.417 Prec@5 99.867             Loss 0.14573
+Epoch [13] Training Class Recall: [0.349,0.980,0.870,0.283,0.713,0.924,0.967,0.985,0.969,0.991]
+Epoch [13] Testing Results: Prec@1 40.500 Prec@5 89.250             Loss 3.41243
+Epoch [13] Testing Class Recall: [0.151,0.976,0.571,0.077,0.077,0.382,0.505,0.852,0.189,0.270]
+Epoch [14] Training Results: Prec@1 95.967 Prec@5 99.908             Loss 0.12520
+Epoch [14] Training Class Recall: [0.397,0.984,0.883,0.413,0.748,0.931,0.961,0.989,0.980,0.995]
+Epoch [14] Testing Results: Prec@1 49.910 Prec@5 91.720             Loss 2.31340
+Epoch [14] Testing Class Recall: [0.155,0.807,0.708,0.044,0.267,0.666,0.689,0.715,0.433,0.507]
+Epoch [15] Training Results: Prec@1 95.675 Prec@5 99.933             Loss 0.13027
+Epoch [15] Training Class Recall: [0.397,0.982,0.880,0.391,0.717,0.920,0.969,0.984,0.977,0.991]
+Epoch [15] Testing Results: Prec@1 51.240 Prec@5 93.030             Loss 2.45268
+Epoch [15] Testing Class Recall: [0.242,0.906,0.403,0.098,0.341,0.620,0.619,0.790,0.489,0.616]
+Epoch [16] Training Results: Prec@1 96.258 Prec@5 99.925             Loss 0.11757
+Epoch [16] Training Class Recall: [0.397,0.981,0.896,0.413,0.741,0.945,0.975,0.990,0.985,0.992]
+Epoch [16] Testing Results: Prec@1 47.580 Prec@5 91.260             Loss 2.84606
+Epoch [16] Testing Class Recall: [0.132,0.929,0.693,0.014,0.215,0.484,0.605,0.755,0.426,0.505]
+Epoch [17] Training Results: Prec@1 96.483 Prec@5 99.958             Loss 0.11054
+Epoch [17] Training Class Recall: [0.444,0.983,0.909,0.522,0.790,0.929,0.972,0.985,0.980,0.997]
+Epoch [17] Testing Results: Prec@1 49.100 Prec@5 91.430             Loss 2.64786
+Epoch [17] Testing Class Recall: [0.153,0.952,0.693,0.136,0.294,0.320,0.643,0.831,0.561,0.327]
+Epoch [18] Training Results: Prec@1 96.733 Prec@5 99.967             Loss 0.10606
+Epoch [18] Training Class Recall: [0.476,0.987,0.895,0.565,0.794,0.932,0.978,0.991,0.993,0.994]
+Epoch [18] Testing Results: Prec@1 50.580 Prec@5 93.000             Loss 2.44768
+Epoch [18] Testing Class Recall: [0.150,0.937,0.537,0.237,0.224,0.660,0.554,0.687,0.531,0.541]
+Epoch [19] Training Results: Prec@1 96.725 Prec@5 99.967             Loss 0.10038
+Epoch [19] Training Class Recall: [0.508,0.982,0.907,0.620,0.815,0.932,0.979,0.988,0.979,0.994]
+Epoch [19] Testing Results: Prec@1 42.630 Prec@5 91.000             Loss 3.53331
+Epoch [19] Testing Class Recall: [0.220,0.958,0.502,0.133,0.184,0.334,0.262,0.897,0.371,0.402]
+Epoch [20] Training Results: Prec@1 97.033 Prec@5 99.967             Loss 0.09345
+Epoch [20] Training Class Recall: [0.571,0.989,0.912,0.609,0.815,0.948,0.974,0.990,0.982,0.996]
+Epoch [20] Testing Results: Prec@1 49.790 Prec@5 91.450             Loss 2.67588
+Epoch [20] Testing Class Recall: [0.115,0.901,0.617,0.177,0.423,0.438,0.531,0.744,0.426,0.607]
+Epoch [21] Training Results: Prec@1 97.108 Prec@5 99.958             Loss 0.08936
+Epoch [21] Training Class Recall: [0.476,0.986,0.913,0.630,0.808,0.954,0.979,0.990,0.987,0.996]
+Epoch [21] Testing Results: Prec@1 51.400 Prec@5 90.150             Loss 2.50643
+Epoch [21] Testing Class Recall: [0.565,0.928,0.644,0.244,0.441,0.510,0.504,0.684,0.429,0.191]
+Epoch [22] Training Results: Prec@1 96.725 Prec@5 99.950             Loss 0.09784
+Epoch [22] Training Class Recall: [0.508,0.983,0.901,0.609,0.822,0.946,0.976,0.987,0.985,0.993]
+Epoch [22] Testing Results: Prec@1 48.390 Prec@5 90.050             Loss 2.88596
+Epoch [22] Testing Class Recall: [0.281,0.952,0.604,0.236,0.244,0.439,0.702,0.821,0.250,0.310]
+Epoch [23] Training Results: Prec@1 97.350 Prec@5 100.000             Loss 0.08419
+Epoch [23] Training Class Recall: [0.587,0.990,0.930,0.576,0.867,0.945,0.978,0.989,0.989,0.996]
+Epoch [23] Testing Results: Prec@1 45.780 Prec@5 88.660             Loss 3.47155
+Epoch [23] Testing Class Recall: [0.208,0.964,0.718,0.136,0.245,0.423,0.665,0.821,0.243,0.155]
+Epoch [24] Training Results: Prec@1 97.208 Prec@5 99.967             Loss 0.08614
+Epoch [24] Training Class Recall: [0.571,0.983,0.915,0.750,0.815,0.958,0.979,0.992,0.976,0.995]
+Epoch [24] Testing Results: Prec@1 49.570 Prec@5 90.030             Loss 2.66854
+Epoch [24] Testing Class Recall: [0.252,0.961,0.698,0.108,0.553,0.238,0.685,0.652,0.522,0.288]
+Epoch [25] Training Results: Prec@1 97.783 Prec@5 99.992             Loss 0.07039
+Epoch [25] Training Class Recall: [0.651,0.992,0.934,0.728,0.864,0.958,0.982,0.990,0.993,0.998]
+Epoch [25] Testing Results: Prec@1 52.680 Prec@5 92.050             Loss 2.62816
+Epoch [25] Testing Class Recall: [0.356,0.964,0.649,0.136,0.281,0.657,0.757,0.629,0.468,0.371]
+Epoch [26] Training Results: Prec@1 97.500 Prec@5 99.992             Loss 0.06758
+Epoch [26] Training Class Recall: [0.651,0.989,0.928,0.652,0.888,0.959,0.981,0.988,0.985,0.993]
+Epoch [26] Testing Results: Prec@1 52.520 Prec@5 92.780             Loss 2.41357
+Epoch [26] Testing Class Recall: [0.082,0.895,0.603,0.376,0.395,0.598,0.637,0.691,0.585,0.390]
+Epoch [27] Training Results: Prec@1 97.383 Prec@5 99.975             Loss 0.08368
+Epoch [27] Training Class Recall: [0.492,0.986,0.931,0.707,0.860,0.962,0.981,0.989,0.987,0.992]
+Epoch [27] Testing Results: Prec@1 49.850 Prec@5 91.160             Loss 2.96423
+Epoch [27] Testing Class Recall: [0.164,0.881,0.712,0.068,0.182,0.332,0.823,0.826,0.534,0.463]
+Epoch [28] Training Results: Prec@1 97.725 Prec@5 99.983             Loss 0.06843
+Epoch [28] Training Class Recall: [0.619,0.985,0.921,0.728,0.888,0.973,0.983,0.994,0.985,0.996]
+Epoch [28] Testing Results: Prec@1 46.160 Prec@5 88.410             Loss 3.23976
+Epoch [28] Testing Class Recall: [0.437,0.916,0.884,0.104,0.342,0.464,0.494,0.567,0.192,0.216]
+Epoch [29] Training Results: Prec@1 98.258 Prec@5 99.983             Loss 0.05469
+Epoch [29] Training Class Recall: [0.635,0.991,0.950,0.772,0.892,0.979,0.987,0.994,0.992,0.997]
+Epoch [29] Testing Results: Prec@1 53.770 Prec@5 92.720             Loss 2.24388
+Epoch [29] Testing Class Recall: [0.196,0.939,0.753,0.234,0.378,0.526,0.704,0.664,0.545,0.438]
+Epoch [30] Training Results: Prec@1 98.392 Prec@5 99.992             Loss 0.05240
+Epoch [30] Training Class Recall: [0.714,0.992,0.952,0.793,0.895,0.970,0.993,0.994,0.993,0.997]
+Epoch [30] Testing Results: Prec@1 50.500 Prec@5 91.450             Loss 2.72869
+Epoch [30] Testing Class Recall: [0.545,0.858,0.821,0.159,0.296,0.572,0.639,0.471,0.432,0.257]
+Epoch [31] Training Results: Prec@1 97.875 Prec@5 99.967             Loss 0.06452
+Epoch [31] Training Class Recall: [0.603,0.992,0.934,0.739,0.885,0.959,0.987,0.991,0.989,0.996]
+Epoch [31] Testing Results: Prec@1 51.050 Prec@5 91.700             Loss 2.72204
+Epoch [31] Testing Class Recall: [0.221,0.933,0.395,0.271,0.390,0.608,0.548,0.849,0.463,0.427]
+Epoch [32] Training Results: Prec@1 98.025 Prec@5 99.983             Loss 0.05993
+Epoch [32] Training Class Recall: [0.683,0.993,0.935,0.761,0.888,0.963,0.986,0.989,0.995,0.998]
+Epoch [32] Testing Results: Prec@1 52.630 Prec@5 92.310             Loss 2.40568
+Epoch [32] Testing Class Recall: [0.252,0.960,0.721,0.278,0.377,0.497,0.792,0.638,0.420,0.328]
+Epoch [33] Training Results: Prec@1 98.508 Prec@5 99.983             Loss 0.04503
+Epoch [33] Training Class Recall: [0.762,0.996,0.945,0.793,0.920,0.974,0.986,0.996,0.993,0.998]
+Epoch [33] Testing Results: Prec@1 53.400 Prec@5 92.100             Loss 2.60691
+Epoch [33] Testing Class Recall: [0.444,0.971,0.525,0.380,0.402,0.460,0.813,0.639,0.397,0.309]
+Epoch [34] Training Results: Prec@1 98.317 Prec@5 99.992             Loss 0.05310
+Epoch [34] Training Class Recall: [0.635,0.992,0.945,0.739,0.913,0.978,0.991,0.991,0.993,0.999]
+Epoch [34] Testing Results: Prec@1 45.500 Prec@5 89.520             Loss 3.47136
+Epoch [34] Testing Class Recall: [0.384,0.986,0.755,0.047,0.266,0.448,0.535,0.608,0.264,0.257]
+Epoch [35] Training Results: Prec@1 98.025 Prec@5 100.000             Loss 0.05977
+Epoch [35] Training Class Recall: [0.746,0.989,0.941,0.859,0.874,0.962,0.987,0.991,0.990,0.995]
+Epoch [35] Testing Results: Prec@1 51.820 Prec@5 91.710             Loss 2.66758
+Epoch [35] Testing Class Recall: [0.491,0.879,0.700,0.128,0.242,0.262,0.690,0.846,0.370,0.574]
+Epoch [36] Training Results: Prec@1 98.158 Prec@5 99.992             Loss 0.05823
+Epoch [36] Training Class Recall: [0.698,0.988,0.957,0.783,0.892,0.965,0.988,0.994,0.989,0.995]
+Epoch [36] Testing Results: Prec@1 53.620 Prec@5 91.630             Loss 2.41327
+Epoch [36] Testing Class Recall: [0.256,0.961,0.654,0.192,0.687,0.565,0.747,0.531,0.468,0.301]
+Epoch [37] Training Results: Prec@1 98.500 Prec@5 100.000             Loss 0.04729
+Epoch [37] Training Class Recall: [0.714,0.994,0.952,0.804,0.920,0.975,0.989,0.994,0.997,0.997]
+Epoch [37] Testing Results: Prec@1 50.180 Prec@5 90.990             Loss 2.90787
+Epoch [37] Testing Class Recall: [0.435,0.963,0.844,0.150,0.290,0.325,0.686,0.621,0.429,0.275]
+Epoch [38] Training Results: Prec@1 98.658 Prec@5 100.000             Loss 0.04136
+Epoch [38] Training Class Recall: [0.714,0.996,0.952,0.837,0.920,0.978,0.989,0.996,0.998,0.999]
+Epoch [38] Testing Results: Prec@1 51.290 Prec@5 92.130             Loss 2.95384
+Epoch [38] Testing Class Recall: [0.354,0.963,0.529,0.227,0.314,0.754,0.501,0.772,0.350,0.365]
+Epoch [39] Training Results: Prec@1 98.700 Prec@5 99.983             Loss 0.03940
+Epoch [39] Training Class Recall: [0.714,0.995,0.964,0.870,0.899,0.984,0.992,0.995,0.987,0.998]
+Epoch [39] Testing Results: Prec@1 55.420 Prec@5 92.660             Loss 2.55570
+Epoch [39] Testing Class Recall: [0.351,0.969,0.713,0.185,0.350,0.479,0.741,0.785,0.533,0.436]
+Epoch [40] Training Results: Prec@1 98.900 Prec@5 99.992             Loss 0.03333
+Epoch [40] Training Class Recall: [0.730,0.996,0.966,0.804,0.955,0.988,0.988,0.998,0.992,0.998]
+Epoch [40] Testing Results: Prec@1 49.920 Prec@5 91.900             Loss 3.22537
+Epoch [40] Testing Class Recall: [0.159,0.984,0.717,0.240,0.227,0.594,0.655,0.571,0.480,0.365]
+Epoch [41] Training Results: Prec@1 98.183 Prec@5 100.000             Loss 0.05398
+Epoch [41] Training Class Recall: [0.683,0.989,0.948,0.815,0.906,0.975,0.983,0.994,0.995,0.994]
+Epoch [41] Testing Results: Prec@1 52.990 Prec@5 92.730             Loss 2.45182
+Epoch [41] Testing Class Recall: [0.261,0.931,0.656,0.275,0.291,0.660,0.538,0.695,0.670,0.322]
+Epoch [42] Training Results: Prec@1 97.892 Prec@5 99.983             Loss 0.06287
+Epoch [42] Training Class Recall: [0.587,0.992,0.932,0.793,0.920,0.967,0.977,0.991,0.990,0.996]
+Epoch [42] Testing Results: Prec@1 54.090 Prec@5 91.730             Loss 2.35643
+Epoch [42] Testing Class Recall: [0.360,0.832,0.638,0.159,0.451,0.596,0.719,0.839,0.352,0.463]
+Epoch [43] Training Results: Prec@1 98.500 Prec@5 100.000             Loss 0.04747
+Epoch [43] Training Class Recall: [0.762,0.989,0.958,0.728,0.934,0.976,0.990,0.995,0.997,0.997]
+Epoch [43] Testing Results: Prec@1 57.200 Prec@5 92.760             Loss 2.13062
+Epoch [43] Testing Class Recall: [0.460,0.924,0.665,0.250,0.412,0.396,0.699,0.761,0.630,0.523]
+Epoch [44] Training Results: Prec@1 98.433 Prec@5 99.983             Loss 0.04745
+Epoch [44] Training Class Recall: [0.730,0.992,0.952,0.837,0.941,0.971,0.989,0.992,0.993,0.996]
+Epoch [44] Testing Results: Prec@1 48.150 Prec@5 90.840             Loss 3.37173
+Epoch [44] Testing Class Recall: [0.238,0.980,0.542,0.126,0.264,0.765,0.434,0.780,0.306,0.380]
+Epoch [45] Training Results: Prec@1 97.883 Prec@5 99.983             Loss 0.06029
+Epoch [45] Training Class Recall: [0.794,0.983,0.945,0.815,0.874,0.980,0.987,0.990,0.982,0.991]
+Epoch [45] Testing Results: Prec@1 54.010 Prec@5 92.400             Loss 2.36038
+Epoch [45] Testing Class Recall: [0.205,0.783,0.706,0.445,0.571,0.502,0.602,0.629,0.503,0.455]
+Epoch [46] Training Results: Prec@1 98.483 Prec@5 100.000             Loss 0.04594
+Epoch [46] Training Class Recall: [0.810,0.991,0.963,0.848,0.916,0.974,0.986,0.993,0.992,0.996]
+Epoch [46] Testing Results: Prec@1 51.050 Prec@5 89.350             Loss 3.02890
+Epoch [46] Testing Class Recall: [0.170,0.966,0.691,0.037,0.659,0.482,0.773,0.534,0.429,0.364]
+Epoch [47] Training Results: Prec@1 98.092 Prec@5 99.992             Loss 0.05779
+Epoch [47] Training Class Recall: [0.762,0.991,0.945,0.772,0.892,0.970,0.982,0.992,0.990,0.996]
+Epoch [47] Testing Results: Prec@1 46.710 Prec@5 90.000             Loss 4.31522
+Epoch [47] Testing Class Recall: [0.387,0.988,0.387,0.186,0.214,0.672,0.821,0.715,0.107,0.194]
+Epoch [48] Training Results: Prec@1 98.783 Prec@5 100.000             Loss 0.03896
+Epoch [48] Training Class Recall: [0.810,0.995,0.960,0.902,0.937,0.974,0.991,0.995,0.990,0.998]
+Epoch [48] Testing Results: Prec@1 52.650 Prec@5 92.230             Loss 2.64214
+Epoch [48] Testing Class Recall: [0.286,0.970,0.801,0.242,0.256,0.634,0.679,0.620,0.351,0.426]
+Epoch [49] Training Results: Prec@1 98.842 Prec@5 100.000             Loss 0.03722
+Epoch [49] Training Class Recall: [0.810,0.993,0.965,0.880,0.937,0.980,0.994,0.997,0.995,0.995]
+Epoch [49] Testing Results: Prec@1 56.690 Prec@5 92.600             Loss 2.27919
+Epoch [49] Testing Class Recall: [0.271,0.948,0.630,0.130,0.593,0.660,0.789,0.707,0.496,0.445]
+Epoch [50] Training Results: Prec@1 98.767 Prec@5 100.000             Loss 0.03825
+Epoch [50] Training Class Recall: [0.841,0.994,0.959,0.837,0.948,0.978,0.992,0.994,0.993,0.997]
+Epoch [50] Testing Results: Prec@1 46.720 Prec@5 91.130             Loss 3.50941
+Epoch [50] Testing Class Recall: [0.464,0.987,0.696,0.087,0.281,0.464,0.514,0.690,0.227,0.262]
+Epoch [51] Training Results: Prec@1 98.917 Prec@5 100.000             Loss 0.03337
+Epoch [51] Training Class Recall: [0.778,0.996,0.964,0.870,0.948,0.982,0.988,0.998,0.995,0.999]
+Epoch [51] Testing Results: Prec@1 52.670 Prec@5 92.110             Loss 2.80605
+Epoch [51] Testing Class Recall: [0.261,0.949,0.672,0.352,0.199,0.385,0.785,0.774,0.490,0.400]
+Epoch [52] Training Results: Prec@1 99.000 Prec@5 100.000             Loss 0.03102
+Epoch [52] Training Class Recall: [0.794,0.996,0.970,0.859,0.955,0.988,0.990,0.996,0.998,0.997]
+Epoch [52] Testing Results: Prec@1 54.840 Prec@5 92.600             Loss 2.70584
+Epoch [52] Testing Class Recall: [0.362,0.826,0.539,0.348,0.335,0.787,0.778,0.416,0.520,0.573]
+Epoch [53] Training Results: Prec@1 97.900 Prec@5 100.000             Loss 0.06051
+Epoch [53] Training Class Recall: [0.778,0.985,0.946,0.859,0.885,0.965,0.985,0.987,0.993,0.994]
+Epoch [53] Testing Results: Prec@1 50.150 Prec@5 87.290             Loss 3.01805
+Epoch [53] Testing Class Recall: [0.277,0.901,0.712,0.140,0.280,0.578,0.841,0.679,0.056,0.551]
+Epoch [54] Training Results: Prec@1 98.575 Prec@5 100.000             Loss 0.04210
+Epoch [54] Training Class Recall: [0.746,0.993,0.964,0.848,0.913,0.978,0.985,0.995,0.993,0.997]
+Epoch [54] Testing Results: Prec@1 54.200 Prec@5 92.740             Loss 2.38915
+Epoch [54] Testing Class Recall: [0.330,0.972,0.765,0.288,0.470,0.527,0.742,0.429,0.559,0.338]
+Epoch [55] Training Results: Prec@1 98.625 Prec@5 100.000             Loss 0.04273
+Epoch [55] Training Class Recall: [0.841,0.993,0.956,0.902,0.920,0.983,0.982,0.995,0.995,0.997]
+Epoch [55] Testing Results: Prec@1 54.040 Prec@5 92.480             Loss 2.59534
+Epoch [55] Testing Class Recall: [0.335,0.982,0.641,0.326,0.337,0.526,0.633,0.739,0.406,0.479]
+Epoch [56] Training Results: Prec@1 99.200 Prec@5 100.000             Loss 0.02768
+Epoch [56] Training Class Recall: [0.778,0.996,0.973,0.935,0.937,0.988,0.996,0.998,0.995,1.000]
+Epoch [56] Testing Results: Prec@1 55.490 Prec@5 93.190             Loss 2.45849
+Epoch [56] Testing Class Recall: [0.301,0.972,0.734,0.235,0.508,0.455,0.697,0.674,0.566,0.407]
+Epoch [57] Training Results: Prec@1 98.858 Prec@5 99.992             Loss 0.03519
+Epoch [57] Training Class Recall: [0.841,0.996,0.974,0.880,0.948,0.971,0.988,0.993,0.992,0.999]
+Epoch [57] Testing Results: Prec@1 54.800 Prec@5 91.530             Loss 2.72537
+Epoch [57] Testing Class Recall: [0.634,0.929,0.521,0.216,0.274,0.487,0.880,0.560,0.436,0.543]
+Epoch [58] Training Results: Prec@1 98.350 Prec@5 99.992             Loss 0.05080
+Epoch [58] Training Class Recall: [0.730,0.985,0.964,0.859,0.941,0.971,0.989,0.993,0.984,0.995]
+Epoch [58] Testing Results: Prec@1 48.430 Prec@5 91.420             Loss 3.04773
+Epoch [58] Testing Class Recall: [0.290,0.972,0.768,0.118,0.436,0.657,0.618,0.489,0.279,0.216]
+Epoch [59] Training Results: Prec@1 98.117 Prec@5 99.992             Loss 0.05398
+Epoch [59] Training Class Recall: [0.730,0.992,0.944,0.826,0.920,0.975,0.982,0.993,0.977,0.994]
+Epoch [59] Testing Results: Prec@1 56.830 Prec@5 92.520             Loss 2.37773
+Epoch [59] Testing Class Recall: [0.214,0.854,0.623,0.591,0.170,0.417,0.705,0.774,0.668,0.667]
+Epoch [60] Training Results: Prec@1 98.617 Prec@5 100.000             Loss 0.04170
+Epoch [60] Training Class Recall: [0.714,0.995,0.965,0.848,0.937,0.982,0.992,0.990,0.993,0.995]
+Epoch [60] Testing Results: Prec@1 53.760 Prec@5 92.800             Loss 2.71979
+Epoch [60] Testing Class Recall: [0.415,0.880,0.591,0.120,0.210,0.643,0.892,0.632,0.330,0.663]
+Epoch [61] Training Results: Prec@1 98.683 Prec@5 99.992             Loss 0.04115
+Epoch [61] Training Class Recall: [0.778,0.992,0.965,0.902,0.937,0.980,0.989,0.994,0.989,0.997]
+Epoch [61] Testing Results: Prec@1 53.510 Prec@5 92.360             Loss 2.61038
+Epoch [61] Testing Class Recall: [0.306,0.959,0.792,0.343,0.356,0.526,0.630,0.746,0.395,0.298]
+Epoch [62] Training Results: Prec@1 98.725 Prec@5 99.992             Loss 0.03512
+Epoch [62] Training Class Recall: [0.841,0.991,0.960,0.924,0.927,0.976,0.990,0.995,0.998,0.997]
+Epoch [62] Testing Results: Prec@1 48.470 Prec@5 92.290             Loss 3.43216
+Epoch [62] Testing Class Recall: [0.304,0.990,0.730,0.133,0.231,0.614,0.662,0.644,0.365,0.174]
+Epoch [63] Training Results: Prec@1 98.817 Prec@5 99.992             Loss 0.03652
+Epoch [63] Training Class Recall: [0.810,0.991,0.962,0.880,0.951,0.987,0.991,0.996,0.993,0.997]
+Epoch [63] Testing Results: Prec@1 55.330 Prec@5 92.870             Loss 2.56203
+Epoch [63] Testing Class Recall: [0.479,0.954,0.720,0.307,0.556,0.411,0.561,0.834,0.295,0.416]
+Epoch [64] Training Results: Prec@1 98.983 Prec@5 100.000             Loss 0.03465
+Epoch [64] Training Class Recall: [0.794,0.995,0.964,0.924,0.951,0.987,0.990,0.997,0.990,0.999]
+Epoch [64] Testing Results: Prec@1 53.670 Prec@5 93.610             Loss 2.61883
+Epoch [64] Testing Class Recall: [0.278,0.979,0.740,0.300,0.304,0.605,0.559,0.728,0.549,0.325]
+Epoch [65] Training Results: Prec@1 98.283 Prec@5 99.992             Loss 0.05074
+Epoch [65] Training Class Recall: [0.746,0.989,0.957,0.837,0.909,0.983,0.982,0.993,0.982,0.996]
+Epoch [65] Testing Results: Prec@1 52.370 Prec@5 91.010             Loss 2.82188
+Epoch [65] Testing Class Recall: [0.216,0.938,0.705,0.086,0.234,0.586,0.837,0.614,0.464,0.557]
+Epoch [66] Training Results: Prec@1 98.600 Prec@5 100.000             Loss 0.04092
+Epoch [66] Training Class Recall: [0.730,0.992,0.960,0.891,0.930,0.976,0.989,0.994,0.993,0.996]
+Epoch [66] Testing Results: Prec@1 56.770 Prec@5 93.210             Loss 2.18579
+Epoch [66] Testing Class Recall: [0.365,0.964,0.634,0.314,0.529,0.436,0.571,0.740,0.716,0.408]
+Epoch [67] Training Results: Prec@1 98.433 Prec@5 100.000             Loss 0.04719
+Epoch [67] Training Class Recall: [0.794,0.993,0.953,0.902,0.906,0.965,0.985,0.993,0.993,0.998]
+Epoch [67] Testing Results: Prec@1 49.500 Prec@5 89.780             Loss 3.21473
+Epoch [67] Testing Class Recall: [0.084,0.923,0.875,0.084,0.454,0.412,0.676,0.348,0.554,0.540]
+Epoch [68] Training Results: Prec@1 98.667 Prec@5 100.000             Loss 0.04086
+Epoch [68] Training Class Recall: [0.730,0.992,0.965,0.826,0.948,0.978,0.989,0.994,0.993,0.998]
+Epoch [68] Testing Results: Prec@1 52.560 Prec@5 91.820             Loss 3.14611
+Epoch [68] Testing Class Recall: [0.240,0.969,0.494,0.200,0.176,0.504,0.775,0.900,0.548,0.450]
+Epoch [69] Training Results: Prec@1 98.767 Prec@5 100.000             Loss 0.03600
+Epoch [69] Training Class Recall: [0.810,0.993,0.960,0.891,0.941,0.976,0.989,0.996,0.993,0.998]
+Epoch [69] Testing Results: Prec@1 55.020 Prec@5 91.890             Loss 2.50420
+Epoch [69] Testing Class Recall: [0.184,0.956,0.802,0.189,0.335,0.466,0.705,0.778,0.494,0.593]
+Epoch [70] Training Results: Prec@1 99.375 Prec@5 100.000             Loss 0.02064
+Epoch [70] Training Class Recall: [0.889,0.997,0.976,0.946,0.962,0.990,0.996,0.999,0.993,0.999]
+Epoch [70] Testing Results: Prec@1 53.840 Prec@5 92.110             Loss 2.67759
+Epoch [70] Testing Class Recall: [0.471,0.987,0.726,0.240,0.269,0.501,0.645,0.732,0.391,0.422]
+Epoch [71] Training Results: Prec@1 99.383 Prec@5 100.000             Loss 0.02093
+Epoch [71] Training Class Recall: [0.905,0.996,0.980,0.935,0.948,0.991,0.996,0.999,0.997,0.999]
+Epoch [71] Testing Results: Prec@1 50.440 Prec@5 90.310             Loss 3.22242
+Epoch [71] Testing Class Recall: [0.478,0.985,0.780,0.244,0.083,0.452,0.689,0.703,0.289,0.341]
+Epoch [72] Training Results: Prec@1 99.158 Prec@5 100.000             Loss 0.02501
+Epoch [72] Training Class Recall: [0.873,0.996,0.968,0.935,0.969,0.983,0.994,0.998,0.995,0.998]
+Epoch [72] Testing Results: Prec@1 56.880 Prec@5 92.610             Loss 2.42661
+Epoch [72] Testing Class Recall: [0.457,0.961,0.708,0.191,0.386,0.658,0.746,0.685,0.379,0.517]
+Epoch [73] Training Results: Prec@1 99.092 Prec@5 99.992             Loss 0.02881
+Epoch [73] Training Class Recall: [0.825,0.996,0.971,0.891,0.976,0.984,0.993,0.995,0.998,0.997]
+Epoch [73] Testing Results: Prec@1 56.110 Prec@5 92.730             Loss 2.41918
+Epoch [73] Testing Class Recall: [0.351,0.919,0.597,0.407,0.440,0.576,0.484,0.710,0.500,0.627]
+Epoch [74] Training Results: Prec@1 98.558 Prec@5 99.983             Loss 0.04410
+Epoch [74] Training Class Recall: [0.778,0.992,0.968,0.804,0.941,0.970,0.986,0.991,0.997,0.999]
+Epoch [74] Testing Results: Prec@1 53.860 Prec@5 92.350             Loss 2.58893
+Epoch [74] Testing Class Recall: [0.348,0.963,0.762,0.212,0.508,0.505,0.506,0.821,0.483,0.278]
+Epoch [75] Training Results: Prec@1 98.508 Prec@5 99.983             Loss 0.04705
+Epoch [75] Training Class Recall: [0.730,0.992,0.962,0.859,0.923,0.984,0.986,0.992,0.993,0.995]
+Epoch [75] Testing Results: Prec@1 53.950 Prec@5 92.000             Loss 2.63360
+Epoch [75] Testing Class Recall: [0.553,0.973,0.690,0.226,0.350,0.586,0.721,0.683,0.321,0.292]
+Epoch [76] Training Results: Prec@1 99.350 Prec@5 99.992             Loss 0.02260
+Epoch [76] Training Class Recall: [0.905,0.996,0.979,0.891,0.962,0.991,0.994,0.998,0.997,1.000]
+Epoch [76] Testing Results: Prec@1 52.610 Prec@5 91.720             Loss 2.71029
+Epoch [76] Testing Class Recall: [0.289,0.969,0.868,0.113,0.369,0.395,0.600,0.739,0.538,0.381]
+Epoch [77] Training Results: Prec@1 98.842 Prec@5 100.000             Loss 0.03360
+Epoch [77] Training Class Recall: [0.825,0.996,0.960,0.913,0.955,0.969,0.990,0.994,0.997,0.999]
+Epoch [77] Testing Results: Prec@1 50.720 Prec@5 88.970             Loss 3.34295
+Epoch [77] Testing Class Recall: [0.407,0.957,0.651,0.076,0.353,0.735,0.698,0.752,0.178,0.265]
+Epoch [78] Training Results: Prec@1 98.717 Prec@5 100.000             Loss 0.03876
+Epoch [78] Training Class Recall: [0.794,0.995,0.955,0.902,0.934,0.983,0.987,0.996,0.993,0.996]
+Epoch [78] Testing Results: Prec@1 56.290 Prec@5 91.750             Loss 2.61665
+Epoch [78] Testing Class Recall: [0.457,0.813,0.511,0.120,0.365,0.553,0.733,0.924,0.542,0.611]
+Epoch [79] Training Results: Prec@1 98.867 Prec@5 99.992             Loss 0.03106
+Epoch [79] Training Class Recall: [0.762,0.995,0.963,0.891,0.937,0.984,0.991,0.996,0.993,0.998]
+Epoch [79] Testing Results: Prec@1 59.460 Prec@5 93.310             Loss 2.18170
+Epoch [79] Testing Class Recall: [0.296,0.931,0.716,0.317,0.440,0.553,0.820,0.733,0.516,0.624]
+Epoch [80] Training Results: Prec@1 98.725 Prec@5 100.000             Loss 0.03755
+Epoch [80] Training Class Recall: [0.778,0.995,0.965,0.924,0.937,0.984,0.987,0.995,0.985,0.995]
+Epoch [80] Testing Results: Prec@1 55.010 Prec@5 90.350             Loss 2.60554
+Epoch [80] Testing Class Recall: [0.334,0.863,0.752,0.077,0.587,0.305,0.470,0.730,0.607,0.776]
+Epoch [81] Training Results: Prec@1 98.542 Prec@5 100.000             Loss 0.04145
+Epoch [81] Training Class Recall: [0.841,0.992,0.951,0.859,0.934,0.983,0.985,0.995,0.992,0.996]
+Epoch [81] Testing Results: Prec@1 55.010 Prec@5 91.840             Loss 2.51504
+Epoch [81] Testing Class Recall: [0.244,0.871,0.670,0.174,0.413,0.485,0.905,0.774,0.424,0.541]
+Epoch [82] Training Results: Prec@1 98.850 Prec@5 100.000             Loss 0.03389
+Epoch [82] Training Class Recall: [0.794,0.991,0.969,0.891,0.941,0.987,0.991,0.997,0.995,0.995]
+Epoch [82] Testing Results: Prec@1 46.940 Prec@5 90.880             Loss 3.64203
+Epoch [82] Testing Class Recall: [0.138,0.983,0.525,0.178,0.311,0.600,0.528,0.580,0.364,0.487]
+Epoch [83] Training Results: Prec@1 98.417 Prec@5 100.000             Loss 0.04825
+Epoch [83] Training Class Recall: [0.746,0.991,0.959,0.891,0.920,0.973,0.985,0.994,0.997,0.993]
+Epoch [83] Testing Results: Prec@1 60.160 Prec@5 94.560             Loss 1.87054
+Epoch [83] Testing Class Recall: [0.355,0.867,0.690,0.534,0.560,0.542,0.547,0.673,0.617,0.631]
+Epoch [84] Training Results: Prec@1 98.767 Prec@5 100.000             Loss 0.03958
+Epoch [84] Training Class Recall: [0.794,0.991,0.963,0.902,0.934,0.991,0.992,0.993,0.993,0.996]
+Epoch [84] Testing Results: Prec@1 54.050 Prec@5 91.870             Loss 2.59385
+Epoch [84] Testing Class Recall: [0.425,0.970,0.725,0.246,0.443,0.652,0.685,0.603,0.240,0.416]
+Epoch [85] Training Results: Prec@1 99.183 Prec@5 100.000             Loss 0.02433
+Epoch [85] Training Class Recall: [0.810,0.995,0.980,0.902,0.951,0.987,0.993,0.997,0.995,0.999]
+Epoch [85] Testing Results: Prec@1 55.090 Prec@5 91.940             Loss 2.59121
+Epoch [85] Testing Class Recall: [0.278,0.982,0.751,0.258,0.273,0.461,0.801,0.704,0.525,0.476]
+Epoch [86] Training Results: Prec@1 99.400 Prec@5 100.000             Loss 0.02009
+Epoch [86] Training Class Recall: [0.921,0.997,0.980,0.924,0.962,0.988,0.998,0.997,1.000,0.999]
+Epoch [86] Testing Results: Prec@1 54.790 Prec@5 91.410             Loss 2.72194
+Epoch [86] Testing Class Recall: [0.364,0.936,0.869,0.110,0.343,0.449,0.747,0.709,0.499,0.453]
+Epoch [87] Training Results: Prec@1 99.350 Prec@5 100.000             Loss 0.02204
+Epoch [87] Training Class Recall: [0.873,0.998,0.976,0.946,0.962,0.992,0.993,0.998,0.997,1.000]
+Epoch [87] Testing Results: Prec@1 57.360 Prec@5 93.040             Loss 2.22221
+Epoch [87] Testing Class Recall: [0.346,0.915,0.633,0.432,0.495,0.272,0.834,0.646,0.552,0.611]
+Epoch [88] Training Results: Prec@1 98.658 Prec@5 100.000             Loss 0.03800
+Epoch [88] Training Class Recall: [0.841,0.988,0.968,0.880,0.951,0.980,0.986,0.994,0.995,0.996]
+Epoch [88] Testing Results: Prec@1 44.040 Prec@5 87.630             Loss 4.61130
+Epoch [88] Testing Class Recall: [0.489,0.992,0.728,0.146,0.471,0.294,0.506,0.571,0.189,0.018]
+Epoch [89] Training Results: Prec@1 98.225 Prec@5 99.975             Loss 0.05414
+Epoch [89] Training Class Recall: [0.683,0.993,0.939,0.891,0.923,0.974,0.982,0.993,0.985,0.996]
+Epoch [89] Testing Results: Prec@1 53.390 Prec@5 91.890             Loss 2.68467
+Epoch [89] Testing Class Recall: [0.487,0.974,0.676,0.168,0.242,0.433,0.804,0.634,0.422,0.499]
+Epoch [90] Training Results: Prec@1 98.825 Prec@5 100.000             Loss 0.03568
+Epoch [90] Training Class Recall: [0.857,0.992,0.975,0.880,0.934,0.978,0.991,0.994,0.992,0.997]
+Epoch [90] Testing Results: Prec@1 55.670 Prec@5 92.160             Loss 2.71756
+Epoch [90] Testing Class Recall: [0.330,0.970,0.550,0.114,0.522,0.798,0.687,0.553,0.542,0.501]
+Epoch [91] Training Results: Prec@1 98.750 Prec@5 100.000             Loss 0.03682
+Epoch [91] Training Class Recall: [0.778,0.991,0.963,0.880,0.951,0.978,0.993,0.996,0.987,0.997]
+Epoch [91] Testing Results: Prec@1 53.400 Prec@5 90.970             Loss 2.82680
+Epoch [91] Testing Class Recall: [0.365,0.990,0.729,0.140,0.371,0.624,0.837,0.603,0.491,0.190]
+Epoch [92] Training Results: Prec@1 99.025 Prec@5 100.000             Loss 0.03062
+Epoch [92] Training Class Recall: [0.841,0.996,0.975,0.902,0.958,0.986,0.990,0.993,0.997,0.998]
+Epoch [92] Testing Results: Prec@1 53.860 Prec@5 92.190             Loss 2.73949
+Epoch [92] Testing Class Recall: [0.303,0.973,0.714,0.318,0.460,0.364,0.664,0.808,0.477,0.305]
+Epoch [93] Training Results: Prec@1 99.100 Prec@5 100.000             Loss 0.02720
+Epoch [93] Training Class Recall: [0.873,0.996,0.966,0.946,0.944,0.984,0.991,0.996,1.000,0.999]
+Epoch [93] Testing Results: Prec@1 54.880 Prec@5 91.490             Loss 2.63043
+Epoch [93] Testing Class Recall: [0.422,0.980,0.738,0.220,0.296,0.455,0.686,0.808,0.546,0.337]
+Epoch [94] Training Results: Prec@1 98.925 Prec@5 100.000             Loss 0.03013
+Epoch [94] Training Class Recall: [0.794,0.995,0.970,0.913,0.927,0.990,0.993,0.993,0.995,0.997]
+Epoch [94] Testing Results: Prec@1 54.890 Prec@5 91.680             Loss 2.61093
+Epoch [94] Testing Class Recall: [0.441,0.877,0.738,0.202,0.152,0.487,0.906,0.740,0.519,0.427]
+Epoch [95] Training Results: Prec@1 98.808 Prec@5 99.992             Loss 0.03681
+Epoch [95] Training Class Recall: [0.841,0.992,0.966,0.891,0.944,0.974,0.992,0.996,0.995,0.996]
+Epoch [95] Testing Results: Prec@1 54.700 Prec@5 92.640             Loss 2.72946
+Epoch [95] Testing Class Recall: [0.349,0.978,0.661,0.361,0.487,0.631,0.730,0.563,0.405,0.305]
+Epoch [96] Training Results: Prec@1 99.058 Prec@5 100.000             Loss 0.02924
+Epoch [96] Training Class Recall: [0.857,0.997,0.973,0.902,0.937,0.986,0.993,0.994,0.997,0.998]
+Epoch [96] Testing Results: Prec@1 56.150 Prec@5 92.510             Loss 2.37166
+Epoch [96] Testing Class Recall: [0.094,0.937,0.776,0.178,0.443,0.623,0.648,0.690,0.624,0.602]
+Epoch [97] Training Results: Prec@1 99.092 Prec@5 100.000             Loss 0.02788
+Epoch [97] Training Class Recall: [0.841,0.996,0.973,0.913,0.955,0.986,0.992,0.995,1.000,0.998]
+Epoch [97] Testing Results: Prec@1 50.740 Prec@5 89.680             Loss 3.16186
+Epoch [97] Testing Class Recall: [0.094,0.961,0.667,0.198,0.209,0.744,0.859,0.578,0.305,0.459]
+Epoch [98] Training Results: Prec@1 99.125 Prec@5 100.000             Loss 0.02707
+Epoch [98] Training Class Recall: [0.873,0.996,0.977,0.924,0.955,0.986,0.994,0.995,0.992,0.997]
+Epoch [98] Testing Results: Prec@1 46.240 Prec@5 89.010             Loss 4.06485
+Epoch [98] Testing Class Recall: [0.262,0.985,0.794,0.409,0.266,0.504,0.608,0.503,0.032,0.261]
+Epoch [99] Training Results: Prec@1 98.775 Prec@5 100.000             Loss 0.04021
+Epoch [99] Training Class Recall: [0.794,0.990,0.967,0.880,0.951,0.982,0.989,0.997,0.992,0.997]
+Epoch [99] Testing Results: Prec@1 54.370 Prec@5 92.160             Loss 2.82983
+Epoch [99] Testing Class Recall: [0.371,0.948,0.476,0.193,0.351,0.780,0.811,0.489,0.381,0.637]
+Epoch [100] Training Results: Prec@1 98.867 Prec@5 99.992             Loss 0.03683
+Epoch [100] Training Class Recall: [0.857,0.996,0.968,0.935,0.948,0.979,0.990,0.992,0.990,0.997]
+Epoch [100] Testing Results: Prec@1 53.680 Prec@5 92.200             Loss 2.95300
+Epoch [100] Testing Class Recall: [0.330,0.974,0.602,0.163,0.183,0.675,0.788,0.851,0.503,0.299]
+Epoch [101] Training Results: Prec@1 98.358 Prec@5 99.992             Loss 0.04972
+Epoch [101] Training Class Recall: [0.794,0.991,0.952,0.848,0.927,0.980,0.986,0.992,0.989,0.994]
+Epoch [101] Testing Results: Prec@1 54.850 Prec@5 90.260             Loss 2.59120
+Epoch [101] Testing Class Recall: [0.747,0.941,0.584,0.134,0.654,0.545,0.700,0.654,0.276,0.250]
+Epoch [102] Training Results: Prec@1 99.200 Prec@5 100.000             Loss 0.02654
+Epoch [102] Training Class Recall: [0.841,0.997,0.977,0.902,0.969,0.984,0.994,0.996,0.990,1.000]
+Epoch [102] Testing Results: Prec@1 59.870 Prec@5 94.230             Loss 1.96015
+Epoch [102] Testing Class Recall: [0.290,0.951,0.696,0.477,0.366,0.566,0.822,0.642,0.692,0.485]
+Epoch [103] Training Results: Prec@1 99.150 Prec@5 100.000             Loss 0.02840
+Epoch [103] Training Class Recall: [0.873,0.997,0.974,0.924,0.958,0.988,0.991,0.996,0.995,0.997]
+Epoch [103] Testing Results: Prec@1 57.880 Prec@5 93.910             Loss 2.29581
+Epoch [103] Testing Class Recall: [0.536,0.964,0.481,0.563,0.370,0.547,0.842,0.769,0.325,0.391]
+Epoch [104] Training Results: Prec@1 99.150 Prec@5 100.000             Loss 0.02938
+Epoch [104] Training Class Recall: [0.873,0.996,0.977,0.946,0.951,0.983,0.995,0.996,0.992,0.997]
+Epoch [104] Testing Results: Prec@1 50.910 Prec@5 90.640             Loss 2.83472
+Epoch [104] Testing Class Recall: [0.123,0.963,0.794,0.110,0.173,0.583,0.587,0.780,0.513,0.465]
+Epoch [105] Training Results: Prec@1 99.125 Prec@5 100.000             Loss 0.02493
+Epoch [105] Training Class Recall: [0.810,0.993,0.973,0.891,0.962,0.991,0.993,0.998,0.993,0.999]
+Epoch [105] Testing Results: Prec@1 58.080 Prec@5 93.210             Loss 2.25913
+Epoch [105] Testing Class Recall: [0.618,0.947,0.737,0.183,0.391,0.524,0.773,0.700,0.403,0.532]
+Epoch [106] Training Results: Prec@1 99.042 Prec@5 100.000             Loss 0.02925
+Epoch [106] Training Class Recall: [0.825,0.994,0.977,0.880,0.962,0.982,0.990,0.997,0.998,0.997]
+Epoch [106] Testing Results: Prec@1 54.120 Prec@5 90.490             Loss 3.13118
+Epoch [106] Testing Class Recall: [0.542,0.927,0.494,0.046,0.255,0.530,0.726,0.812,0.375,0.705]
+Epoch [107] Training Results: Prec@1 98.925 Prec@5 100.000             Loss 0.03432
+Epoch [107] Training Class Recall: [0.841,0.995,0.976,0.859,0.951,0.978,0.992,0.994,0.997,0.996]
+Epoch [107] Testing Results: Prec@1 52.010 Prec@5 90.010             Loss 3.01002
+Epoch [107] Testing Class Recall: [0.482,0.976,0.758,0.289,0.308,0.506,0.672,0.788,0.321,0.101]
+Epoch [108] Training Results: Prec@1 98.958 Prec@5 100.000             Loss 0.03151
+Epoch [108] Training Class Recall: [0.889,0.996,0.971,0.880,0.965,0.976,0.988,0.995,0.992,0.999]
+Epoch [108] Testing Results: Prec@1 55.010 Prec@5 91.730             Loss 2.40482
+Epoch [108] Testing Class Recall: [0.176,0.956,0.652,0.332,0.258,0.727,0.659,0.625,0.594,0.522]
+Epoch [109] Training Results: Prec@1 98.842 Prec@5 99.992             Loss 0.03372
+Epoch [109] Training Class Recall: [0.905,0.994,0.971,0.848,0.944,0.975,0.989,0.995,0.990,0.998]
+Epoch [109] Testing Results: Prec@1 49.960 Prec@5 91.450             Loss 3.06846
+Epoch [109] Testing Class Recall: [0.243,0.973,0.838,0.212,0.300,0.397,0.671,0.710,0.186,0.466]
+Epoch [110] Training Results: Prec@1 99.133 Prec@5 100.000             Loss 0.02647
+Epoch [110] Training Class Recall: [0.825,0.997,0.978,0.913,0.962,0.983,0.993,0.995,0.997,0.997]
+Epoch [110] Testing Results: Prec@1 58.080 Prec@5 93.550             Loss 2.12030
+Epoch [110] Testing Class Recall: [0.201,0.937,0.769,0.252,0.542,0.681,0.560,0.682,0.599,0.585]
+Epoch [111] Training Results: Prec@1 98.467 Prec@5 100.000             Loss 0.04513
+Epoch [111] Training Class Recall: [0.746,0.991,0.954,0.902,0.930,0.967,0.989,0.993,0.997,0.996]
+Epoch [111] Testing Results: Prec@1 48.000 Prec@5 89.730             Loss 3.39538
+Epoch [111] Testing Class Recall: [0.116,0.981,0.712,0.097,0.667,0.531,0.636,0.573,0.150,0.337]
+Epoch [112] Training Results: Prec@1 98.775 Prec@5 99.992             Loss 0.03891
+Epoch [112] Training Class Recall: [0.778,0.991,0.970,0.891,0.944,0.982,0.993,0.994,0.995,0.994]
+Epoch [112] Testing Results: Prec@1 54.730 Prec@5 90.880             Loss 2.49973
+Epoch [112] Testing Class Recall: [0.295,0.970,0.669,0.256,0.440,0.251,0.858,0.778,0.502,0.454]
+Epoch [113] Training Results: Prec@1 99.058 Prec@5 99.983             Loss 0.02969
+Epoch [113] Training Class Recall: [0.794,0.996,0.978,0.924,0.962,0.982,0.988,0.997,0.998,0.997]
+Epoch [113] Testing Results: Prec@1 54.920 Prec@5 91.890             Loss 2.36215
+Epoch [113] Testing Class Recall: [0.250,0.842,0.854,0.121,0.432,0.467,0.695,0.727,0.327,0.777]
+Epoch [114] Training Results: Prec@1 98.808 Prec@5 99.992             Loss 0.03230
+Epoch [114] Training Class Recall: [0.841,0.993,0.969,0.815,0.951,0.979,0.991,0.995,0.992,0.997]
+Epoch [114] Testing Results: Prec@1 54.490 Prec@5 91.610             Loss 2.52246
+Epoch [114] Testing Class Recall: [0.271,0.971,0.524,0.470,0.243,0.549,0.670,0.556,0.696,0.499]
+Epoch [115] Training Results: Prec@1 99.050 Prec@5 100.000             Loss 0.02775
+Epoch [115] Training Class Recall: [0.889,0.996,0.977,0.859,0.955,0.987,0.986,0.997,0.993,0.998]
+Epoch [115] Testing Results: Prec@1 53.820 Prec@5 91.920             Loss 2.65012
+Epoch [115] Testing Class Recall: [0.346,0.965,0.748,0.145,0.373,0.372,0.766,0.784,0.409,0.474]
+Epoch [116] Training Results: Prec@1 99.167 Prec@5 100.000             Loss 0.02536
+Epoch [116] Training Class Recall: [0.905,0.995,0.978,0.913,0.958,0.983,0.992,0.997,0.997,0.999]
+Epoch [116] Testing Results: Prec@1 59.350 Prec@5 92.230             Loss 2.20208
+Epoch [116] Testing Class Recall: [0.121,0.887,0.671,0.275,0.387,0.654,0.797,0.791,0.735,0.617]
+Epoch [117] Training Results: Prec@1 98.833 Prec@5 100.000             Loss 0.03976
+Epoch [117] Training Class Recall: [0.857,0.994,0.965,0.880,0.941,0.971,0.991,0.996,0.993,0.998]
+Epoch [117] Testing Results: Prec@1 56.750 Prec@5 93.190             Loss 2.10177
+Epoch [117] Testing Class Recall: [0.284,0.953,0.718,0.355,0.522,0.575,0.755,0.631,0.341,0.541]
+Epoch [118] Training Results: Prec@1 99.125 Prec@5 99.992             Loss 0.02859
+Epoch [118] Training Class Recall: [0.857,0.996,0.973,0.924,0.972,0.983,0.995,0.995,0.993,0.998]
+Epoch [118] Testing Results: Prec@1 57.240 Prec@5 92.240             Loss 2.22038
+Epoch [118] Testing Class Recall: [0.457,0.942,0.794,0.218,0.569,0.456,0.654,0.670,0.289,0.675]
+Epoch [119] Training Results: Prec@1 99.358 Prec@5 100.000             Loss 0.02222
+Epoch [119] Training Class Recall: [0.873,0.998,0.973,0.978,0.976,0.991,0.994,0.997,0.995,0.999]
+Epoch [119] Testing Results: Prec@1 56.520 Prec@5 91.390             Loss 2.50548
+Epoch [119] Testing Class Recall: [0.477,0.971,0.699,0.121,0.389,0.534,0.689,0.888,0.476,0.408]
+Epoch [120] Training Results: Prec@1 99.050 Prec@5 99.992             Loss 0.02925
+Epoch [120] Training Class Recall: [0.905,0.994,0.975,0.935,0.944,0.984,0.991,0.996,0.997,0.997]
+Epoch [120] Testing Results: Prec@1 56.210 Prec@5 90.750             Loss 2.54562
+Epoch [120] Testing Class Recall: [0.345,0.942,0.723,0.055,0.450,0.586,0.713,0.814,0.419,0.574]
+Epoch [121] Training Results: Prec@1 98.900 Prec@5 100.000             Loss 0.03509
+Epoch [121] Training Class Recall: [0.825,0.996,0.973,0.913,0.941,0.982,0.991,0.994,0.987,0.997]
+Epoch [121] Testing Results: Prec@1 57.020 Prec@5 91.960             Loss 2.54017
+Epoch [121] Testing Class Recall: [0.343,0.936,0.551,0.277,0.403,0.624,0.854,0.820,0.524,0.370]
+Epoch [122] Training Results: Prec@1 98.733 Prec@5 99.992             Loss 0.04191
+Epoch [122] Training Class Recall: [0.825,0.994,0.965,0.902,0.948,0.973,0.986,0.993,0.998,0.997]
+Epoch [122] Testing Results: Prec@1 50.930 Prec@5 89.950             Loss 2.89597
+Epoch [122] Testing Class Recall: [0.136,0.953,0.653,0.108,0.346,0.572,0.842,0.823,0.257,0.403]
+Epoch [123] Training Results: Prec@1 99.225 Prec@5 100.000             Loss 0.02443
+Epoch [123] Training Class Recall: [0.873,0.997,0.975,0.924,0.972,0.978,0.996,0.997,0.998,0.997]
+Epoch [123] Testing Results: Prec@1 56.970 Prec@5 93.200             Loss 2.41492
+Epoch [123] Testing Class Recall: [0.413,0.978,0.704,0.231,0.391,0.718,0.750,0.774,0.442,0.296]
+Epoch [124] Training Results: Prec@1 99.250 Prec@5 100.000             Loss 0.02236
+Epoch [124] Training Class Recall: [0.857,0.992,0.981,0.957,0.986,0.992,0.993,0.997,0.992,0.997]
+Epoch [124] Testing Results: Prec@1 54.490 Prec@5 93.810             Loss 2.71394
+Epoch [124] Testing Class Recall: [0.427,0.980,0.659,0.383,0.303,0.537,0.765,0.815,0.320,0.260]
+Epoch [125] Training Results: Prec@1 99.225 Prec@5 99.992             Loss 0.02671
+Epoch [125] Training Class Recall: [0.921,0.995,0.977,0.902,0.955,0.993,0.991,0.998,0.997,0.997]
+Epoch [125] Testing Results: Prec@1 55.990 Prec@5 91.960             Loss 2.42449
+Epoch [125] Testing Class Recall: [0.281,0.978,0.725,0.142,0.394,0.590,0.776,0.771,0.505,0.437]
+Epoch [126] Training Results: Prec@1 99.492 Prec@5 100.000             Loss 0.01829
+Epoch [126] Training Class Recall: [0.841,0.998,0.986,0.913,0.972,0.993,0.997,0.998,0.995,1.000]
+Epoch [126] Testing Results: Prec@1 58.010 Prec@5 93.960             Loss 2.18536
+Epoch [126] Testing Class Recall: [0.488,0.968,0.779,0.201,0.444,0.599,0.587,0.672,0.568,0.495]
+Epoch [127] Training Results: Prec@1 99.067 Prec@5 100.000             Loss 0.03116
+Epoch [127] Training Class Recall: [0.873,0.996,0.977,0.902,0.951,0.983,0.993,0.993,0.998,0.998]
+Epoch [127] Testing Results: Prec@1 57.190 Prec@5 93.040             Loss 2.33413
+Epoch [127] Testing Class Recall: [0.449,0.980,0.748,0.168,0.494,0.602,0.665,0.643,0.540,0.430]
+Epoch [128] Training Results: Prec@1 99.117 Prec@5 100.000             Loss 0.02856
+Epoch [128] Training Class Recall: [0.873,0.994,0.981,0.924,0.958,0.983,0.994,0.996,0.995,0.996]
+Epoch [128] Testing Results: Prec@1 59.670 Prec@5 93.520             Loss 2.16943
+Epoch [128] Testing Class Recall: [0.304,0.878,0.757,0.232,0.442,0.534,0.767,0.707,0.560,0.786]
+Epoch [129] Training Results: Prec@1 99.225 Prec@5 100.000             Loss 0.02395
+Epoch [129] Training Class Recall: [0.857,0.992,0.978,0.924,0.986,0.991,0.994,0.997,0.993,0.998]
+Epoch [129] Testing Results: Prec@1 56.160 Prec@5 91.770             Loss 2.70358
+Epoch [129] Testing Class Recall: [0.583,0.979,0.609,0.117,0.389,0.575,0.873,0.618,0.462,0.411]
+Epoch [130] Training Results: Prec@1 99.042 Prec@5 99.992             Loss 0.02850
+Epoch [130] Training Class Recall: [0.825,0.995,0.968,0.957,0.951,0.992,0.987,0.998,0.995,0.996]
+Epoch [130] Testing Results: Prec@1 56.330 Prec@5 91.890             Loss 2.35373
+Epoch [130] Testing Class Recall: [0.387,0.969,0.639,0.204,0.289,0.730,0.647,0.717,0.628,0.423]
+Epoch [131] Training Results: Prec@1 98.625 Prec@5 100.000             Loss 0.04218
+Epoch [131] Training Class Recall: [0.825,0.994,0.962,0.880,0.920,0.984,0.987,0.993,0.990,0.995]
+Epoch [131] Testing Results: Prec@1 55.310 Prec@5 93.110             Loss 2.62465
+Epoch [131] Testing Class Recall: [0.443,0.977,0.550,0.269,0.413,0.759,0.720,0.653,0.266,0.481]
+Epoch [132] Training Results: Prec@1 98.750 Prec@5 100.000             Loss 0.03832
+Epoch [132] Training Class Recall: [0.778,0.996,0.957,0.913,0.937,0.982,0.990,0.992,0.993,0.998]
+Epoch [132] Testing Results: Prec@1 54.340 Prec@5 92.080             Loss 2.74366
+Epoch [132] Testing Class Recall: [0.365,0.952,0.829,0.138,0.381,0.435,0.805,0.500,0.545,0.484]
+Epoch [133] Training Results: Prec@1 99.208 Prec@5 100.000             Loss 0.02396
+Epoch [133] Training Class Recall: [0.873,0.995,0.971,0.978,0.979,0.988,0.993,0.995,0.998,0.998]
+Epoch [133] Testing Results: Prec@1 58.030 Prec@5 93.430             Loss 2.32189
+Epoch [133] Testing Class Recall: [0.566,0.909,0.758,0.265,0.212,0.414,0.812,0.793,0.640,0.434]
+Epoch [134] Training Results: Prec@1 98.633 Prec@5 99.992             Loss 0.04108
+Epoch [134] Training Class Recall: [0.810,0.995,0.969,0.891,0.944,0.969,0.978,0.994,0.997,0.998]
+Epoch [134] Testing Results: Prec@1 51.460 Prec@5 90.360             Loss 3.14445
+Epoch [134] Testing Class Recall: [0.204,0.971,0.727,0.191,0.307,0.617,0.809,0.793,0.269,0.258]
+Epoch [135] Training Results: Prec@1 98.950 Prec@5 99.983             Loss 0.03164
+Epoch [135] Training Class Recall: [0.841,0.992,0.975,0.870,0.951,0.980,0.993,0.998,0.995,0.995]
+Epoch [135] Testing Results: Prec@1 58.490 Prec@5 93.830             Loss 2.17037
+Epoch [135] Testing Class Recall: [0.406,0.953,0.808,0.305,0.295,0.587,0.746,0.723,0.462,0.564]
+Epoch [136] Training Results: Prec@1 98.983 Prec@5 100.000             Loss 0.03398
+Epoch [136] Training Class Recall: [0.889,0.992,0.973,0.902,0.951,0.987,0.993,0.997,0.995,0.994]
+Epoch [136] Testing Results: Prec@1 49.960 Prec@5 91.440             Loss 3.10247
+Epoch [136] Testing Class Recall: [0.304,0.982,0.638,0.173,0.182,0.659,0.442,0.868,0.430,0.318]
+Epoch [137] Training Results: Prec@1 99.083 Prec@5 100.000             Loss 0.03011
+Epoch [137] Training Class Recall: [0.889,0.995,0.973,0.924,0.962,0.986,0.992,0.994,1.000,0.997]
+Epoch [137] Testing Results: Prec@1 56.380 Prec@5 92.830             Loss 2.36860
+Epoch [137] Testing Class Recall: [0.501,0.951,0.664,0.148,0.398,0.486,0.559,0.793,0.465,0.673]
+Epoch [138] Training Results: Prec@1 99.283 Prec@5 100.000             Loss 0.02098
+Epoch [138] Training Class Recall: [0.857,0.996,0.984,0.946,0.969,0.987,0.990,0.997,0.998,1.000]
+Epoch [138] Testing Results: Prec@1 59.180 Prec@5 92.130             Loss 2.29529
+Epoch [138] Testing Class Recall: [0.572,0.920,0.706,0.251,0.313,0.663,0.796,0.787,0.401,0.509]
+Epoch [139] Training Results: Prec@1 99.292 Prec@5 100.000             Loss 0.02076
+Epoch [139] Training Class Recall: [0.889,0.996,0.975,0.946,0.972,0.986,0.991,0.999,0.997,0.999]
+Epoch [139] Testing Results: Prec@1 57.510 Prec@5 92.340             Loss 2.61805
+Epoch [139] Testing Class Recall: [0.450,0.966,0.533,0.136,0.465,0.606,0.865,0.790,0.504,0.436]
+Epoch [140] Training Results: Prec@1 98.708 Prec@5 100.000             Loss 0.03958
+Epoch [140] Training Class Recall: [0.873,0.995,0.962,0.880,0.941,0.974,0.987,0.993,0.990,0.998]
+Epoch [140] Testing Results: Prec@1 54.410 Prec@5 91.010             Loss 2.86038
+Epoch [140] Testing Class Recall: [0.214,0.873,0.568,0.252,0.233,0.412,0.761,0.878,0.624,0.626]
+Epoch [141] Training Results: Prec@1 99.067 Prec@5 100.000             Loss 0.02976
+Epoch [141] Training Class Recall: [0.857,0.993,0.978,0.935,0.955,0.982,0.993,0.996,0.992,0.998]
+Epoch [141] Testing Results: Prec@1 59.550 Prec@5 92.880             Loss 2.24142
+Epoch [141] Testing Class Recall: [0.175,0.948,0.700,0.230,0.532,0.587,0.825,0.778,0.676,0.504]
+Epoch [142] Training Results: Prec@1 99.217 Prec@5 100.000             Loss 0.02526
+Epoch [142] Training Class Recall: [0.825,0.996,0.969,0.946,0.972,0.992,0.992,0.997,0.998,0.999]
+Epoch [142] Testing Results: Prec@1 55.700 Prec@5 92.290             Loss 2.49685
+Epoch [142] Testing Class Recall: [0.323,0.960,0.816,0.220,0.337,0.514,0.884,0.682,0.448,0.386]
+Epoch [143] Training Results: Prec@1 99.358 Prec@5 100.000             Loss 0.02126
+Epoch [143] Training Class Recall: [0.857,0.996,0.986,0.946,0.965,0.991,0.995,0.996,0.997,0.999]
+Epoch [143] Testing Results: Prec@1 60.870 Prec@5 93.020             Loss 2.28146
+Epoch [143] Testing Class Recall: [0.365,0.909,0.579,0.178,0.386,0.638,0.792,0.797,0.699,0.744]
+Epoch [144] Training Results: Prec@1 99.208 Prec@5 100.000             Loss 0.02376
+Epoch [144] Training Class Recall: [0.841,0.995,0.973,0.924,0.972,0.993,0.990,0.997,0.997,0.999]
+Epoch [144] Testing Results: Prec@1 53.940 Prec@5 91.670             Loss 2.77675
+Epoch [144] Testing Class Recall: [0.335,0.973,0.805,0.110,0.465,0.508,0.603,0.774,0.375,0.446]
+Epoch [145] Training Results: Prec@1 99.208 Prec@5 99.992             Loss 0.02316
+Epoch [145] Training Class Recall: [0.778,0.996,0.978,0.946,0.969,0.979,0.996,0.997,0.990,1.000]
+Epoch [145] Testing Results: Prec@1 57.640 Prec@5 92.400             Loss 2.23303
+Epoch [145] Testing Class Recall: [0.329,0.979,0.709,0.160,0.340,0.590,0.774,0.799,0.518,0.566]
+Epoch [146] Training Results: Prec@1 99.050 Prec@5 100.000             Loss 0.02873
+Epoch [146] Training Class Recall: [0.905,0.997,0.973,0.913,0.955,0.984,0.992,0.994,0.997,0.996]
+Epoch [146] Testing Results: Prec@1 53.110 Prec@5 91.530             Loss 2.81026
+Epoch [146] Testing Class Recall: [0.475,0.967,0.803,0.147,0.305,0.398,0.795,0.672,0.507,0.242]
+Epoch [147] Training Results: Prec@1 98.825 Prec@5 100.000             Loss 0.03716
+Epoch [147] Training Class Recall: [0.857,0.993,0.966,0.946,0.962,0.980,0.991,0.991,0.997,0.994]
+Epoch [147] Testing Results: Prec@1 58.200 Prec@5 92.420             Loss 2.20259
+Epoch [147] Testing Class Recall: [0.360,0.894,0.799,0.143,0.302,0.700,0.726,0.743,0.582,0.571]
+Epoch [148] Training Results: Prec@1 99.242 Prec@5 100.000             Loss 0.02715
+Epoch [148] Training Class Recall: [0.873,0.997,0.977,0.924,0.955,0.986,0.993,0.998,0.997,0.999]
+Epoch [148] Testing Results: Prec@1 59.670 Prec@5 92.220             Loss 2.23333
+Epoch [148] Testing Class Recall: [0.390,0.927,0.732,0.251,0.517,0.471,0.787,0.802,0.494,0.596]
+Epoch [149] Training Results: Prec@1 99.308 Prec@5 100.000             Loss 0.02141
+Epoch [149] Training Class Recall: [0.921,0.994,0.982,0.946,0.979,0.991,0.991,0.998,1.000,0.997]
+Epoch [149] Testing Results: Prec@1 59.290 Prec@5 92.920             Loss 2.11326
+Epoch [149] Testing Class Recall: [0.391,0.954,0.704,0.349,0.372,0.682,0.705,0.776,0.423,0.573]
+Epoch [150] Training Results: Prec@1 99.342 Prec@5 99.992             Loss 0.02106
+Epoch [150] Training Class Recall: [0.937,0.993,0.991,0.978,0.979,0.988,0.995,0.997,0.982,0.997]
+Epoch [150] Testing Results: Prec@1 57.240 Prec@5 93.540             Loss 2.32004
+Epoch [150] Testing Class Recall: [0.511,0.980,0.718,0.269,0.583,0.478,0.684,0.703,0.404,0.394]
+Epoch [151] Training Results: Prec@1 98.967 Prec@5 100.000             Loss 0.02959
+Epoch [151] Training Class Recall: [0.810,0.996,0.966,0.924,0.948,0.979,0.991,0.995,0.997,0.999]
+Epoch [151] Testing Results: Prec@1 57.580 Prec@5 92.100             Loss 2.21773
+Epoch [151] Testing Class Recall: [0.151,0.950,0.671,0.274,0.662,0.588,0.775,0.739,0.536,0.412]
+Epoch [152] Training Results: Prec@1 98.983 Prec@5 99.992             Loss 0.03220
+Epoch [152] Training Class Recall: [0.841,0.994,0.970,0.891,0.958,0.986,0.989,0.995,0.998,0.998]
+Epoch [152] Testing Results: Prec@1 58.550 Prec@5 92.550             Loss 2.14447
+Epoch [152] Testing Class Recall: [0.339,0.894,0.785,0.222,0.381,0.524,0.784,0.836,0.422,0.668]
+Epoch [153] Training Results: Prec@1 98.783 Prec@5 99.992             Loss 0.03649
+Epoch [153] Training Class Recall: [0.810,0.996,0.960,0.913,0.948,0.979,0.983,0.996,0.997,0.997]
+Epoch [153] Testing Results: Prec@1 52.300 Prec@5 91.090             Loss 2.67528
+Epoch [153] Testing Class Recall: [0.276,0.973,0.714,0.086,0.135,0.620,0.812,0.634,0.477,0.503]
+Epoch [154] Training Results: Prec@1 98.908 Prec@5 99.992             Loss 0.03125
+Epoch [154] Training Class Recall: [0.905,0.996,0.974,0.848,0.951,0.987,0.989,0.995,0.993,0.994]
+Epoch [154] Testing Results: Prec@1 55.330 Prec@5 91.090             Loss 2.49758
+Epoch [154] Testing Class Recall: [0.381,0.972,0.710,0.377,0.238,0.421,0.798,0.778,0.265,0.593]
+Epoch [155] Training Results: Prec@1 99.275 Prec@5 100.000             Loss 0.02297
+Epoch [155] Training Class Recall: [0.794,0.996,0.978,0.967,0.972,0.991,0.995,0.996,0.992,0.999]
+Epoch [155] Testing Results: Prec@1 55.540 Prec@5 92.320             Loss 2.49365
+Epoch [155] Testing Class Recall: [0.439,0.969,0.764,0.285,0.224,0.508,0.834,0.740,0.501,0.290]
+Epoch [156] Training Results: Prec@1 99.283 Prec@5 100.000             Loss 0.02282
+Epoch [156] Training Class Recall: [0.857,0.994,0.982,0.957,0.969,0.979,0.995,0.997,0.998,0.999]
+Epoch [156] Testing Results: Prec@1 55.340 Prec@5 91.590             Loss 2.56529
+Epoch [156] Testing Class Recall: [0.634,0.973,0.720,0.225,0.418,0.255,0.779,0.708,0.443,0.379]
+Epoch [157] Training Results: Prec@1 98.892 Prec@5 100.000             Loss 0.03244
+Epoch [157] Training Class Recall: [0.921,0.995,0.966,0.902,0.941,0.976,0.991,0.993,0.995,0.998]
+Epoch [157] Testing Results: Prec@1 52.280 Prec@5 89.400             Loss 3.00926
+Epoch [157] Testing Class Recall: [0.067,0.952,0.647,0.249,0.628,0.404,0.665,0.764,0.331,0.521]
+Epoch [158] Training Results: Prec@1 99.008 Prec@5 100.000             Loss 0.02943
+Epoch [158] Training Class Recall: [0.778,0.995,0.973,0.902,0.958,0.987,0.991,0.995,0.992,0.998]
+Epoch [158] Testing Results: Prec@1 54.980 Prec@5 92.180             Loss 2.66122
+Epoch [158] Testing Class Recall: [0.566,0.976,0.653,0.395,0.460,0.504,0.803,0.618,0.134,0.389]
+Epoch [159] Training Results: Prec@1 99.050 Prec@5 99.992             Loss 0.02916
+Epoch [159] Training Class Recall: [0.873,0.993,0.976,0.924,0.951,0.982,0.991,0.998,0.993,0.997]
+Epoch [159] Testing Results: Prec@1 59.140 Prec@5 93.770             Loss 2.15463
+Epoch [159] Testing Class Recall: [0.413,0.972,0.735,0.302,0.620,0.454,0.720,0.788,0.425,0.485]
+Epoch [160] Training Results: Prec@1 99.367 Prec@5 100.000             Loss 0.01833
+Epoch [160] Training Class Recall: [0.921,0.993,0.985,0.935,0.993,0.992,0.990,0.996,1.000,1.000]
+Epoch [160] Testing Results: Prec@1 60.650 Prec@5 93.890             Loss 2.04193
+Epoch [160] Testing Class Recall: [0.429,0.970,0.718,0.216,0.537,0.645,0.800,0.772,0.468,0.510]
+Epoch [161] Training Results: Prec@1 99.583 Prec@5 100.000             Loss 0.01341
+Epoch [161] Training Class Recall: [0.937,0.997,0.987,0.957,0.997,0.988,0.994,0.999,1.000,1.000]
+Epoch [161] Testing Results: Prec@1 60.710 Prec@5 93.910             Loss 2.03565
+Epoch [161] Testing Class Recall: [0.446,0.968,0.728,0.230,0.532,0.649,0.800,0.767,0.450,0.501]
+Epoch [162] Training Results: Prec@1 99.717 Prec@5 100.000             Loss 0.01097
+Epoch [162] Training Class Recall: [0.921,0.998,0.991,0.967,0.993,0.996,0.997,0.998,1.000,1.000]
+Epoch [162] Testing Results: Prec@1 60.900 Prec@5 94.030             Loss 2.05020
+Epoch [162] Testing Class Recall: [0.451,0.971,0.728,0.207,0.550,0.636,0.806,0.780,0.474,0.487]
+Epoch [163] Training Results: Prec@1 99.642 Prec@5 100.000             Loss 0.01057
+Epoch [163] Training Class Recall: [0.937,0.998,0.985,0.957,1.000,0.992,0.998,0.998,1.000,1.000]
+Epoch [163] Testing Results: Prec@1 61.030 Prec@5 94.210             Loss 2.00360
+Epoch [163] Testing Class Recall: [0.457,0.973,0.732,0.239,0.530,0.630,0.793,0.769,0.486,0.494]
+Epoch [164] Training Results: Prec@1 99.675 Prec@5 100.000             Loss 0.01008
+Epoch [164] Training Class Recall: [0.921,0.999,0.990,0.978,0.993,0.992,0.994,0.999,1.000,1.000]
+Epoch [164] Testing Results: Prec@1 60.980 Prec@5 94.130             Loss 2.03548
+Epoch [164] Testing Class Recall: [0.444,0.974,0.736,0.229,0.539,0.652,0.805,0.755,0.475,0.489]
+Epoch [165] Training Results: Prec@1 99.742 Prec@5 100.000             Loss 0.00872
+Epoch [165] Training Class Recall: [0.937,0.998,0.996,0.989,0.990,0.990,0.998,0.999,1.000,1.000]
+Epoch [165] Testing Results: Prec@1 61.370 Prec@5 94.260             Loss 2.00463
+Epoch [165] Testing Class Recall: [0.456,0.978,0.734,0.239,0.533,0.646,0.794,0.786,0.487,0.484]
+Epoch [166] Training Results: Prec@1 99.733 Prec@5 100.000             Loss 0.00860
+Epoch [166] Training Class Recall: [0.952,0.999,0.992,0.946,1.000,0.999,0.995,0.998,1.000,1.000]
+Epoch [166] Testing Results: Prec@1 60.950 Prec@5 94.110             Loss 2.04476
+Epoch [166] Testing Class Recall: [0.449,0.976,0.737,0.258,0.550,0.633,0.804,0.760,0.455,0.473]
+Epoch [167] Training Results: Prec@1 99.817 Prec@5 100.000             Loss 0.00737
+Epoch [167] Training Class Recall: [0.952,0.999,0.998,0.978,0.993,0.996,0.997,0.999,0.998,1.000]
+Epoch [167] Testing Results: Prec@1 60.900 Prec@5 94.090             Loss 2.05233
+Epoch [167] Testing Class Recall: [0.466,0.978,0.736,0.232,0.548,0.625,0.803,0.782,0.456,0.464]
+Epoch [168] Training Results: Prec@1 99.850 Prec@5 100.000             Loss 0.00635
+Epoch [168] Training Class Recall: [0.937,1.000,0.993,1.000,0.997,0.996,0.998,1.000,1.000,1.000]
+Epoch [168] Testing Results: Prec@1 61.040 Prec@5 94.270             Loss 2.02910
+Epoch [168] Testing Class Recall: [0.458,0.979,0.744,0.254,0.536,0.630,0.797,0.769,0.460,0.477]
+Epoch [169] Training Results: Prec@1 99.750 Prec@5 100.000             Loss 0.00811
+Epoch [169] Training Class Recall: [0.921,0.999,0.986,1.000,0.997,0.993,0.998,1.000,1.000,1.000]
+Epoch [169] Testing Results: Prec@1 61.150 Prec@5 94.100             Loss 2.04057
+Epoch [169] Testing Class Recall: [0.445,0.978,0.738,0.240,0.521,0.640,0.819,0.779,0.474,0.481]
+Epoch [170] Training Results: Prec@1 99.883 Prec@5 100.000             Loss 0.00582
+Epoch [170] Training Class Recall: [0.937,1.000,0.996,1.000,0.997,0.996,0.999,1.000,1.000,1.000]
+Epoch [170] Testing Results: Prec@1 61.100 Prec@5 94.230             Loss 2.05751
+Epoch [170] Testing Class Recall: [0.464,0.980,0.746,0.238,0.544,0.638,0.791,0.783,0.470,0.456]
+Epoch [171] Training Results: Prec@1 99.917 Prec@5 100.000             Loss 0.00510
+Epoch [171] Training Class Recall: [0.952,1.000,0.999,0.989,1.000,0.997,0.999,1.000,1.000,1.000]
+Epoch [171] Testing Results: Prec@1 60.900 Prec@5 94.230             Loss 2.08683
+Epoch [171] Testing Class Recall: [0.480,0.983,0.744,0.244,0.524,0.632,0.805,0.769,0.454,0.455]
+Epoch [172] Training Results: Prec@1 99.817 Prec@5 100.000             Loss 0.00618
+Epoch [172] Training Class Recall: [0.952,0.999,0.993,0.989,0.993,0.999,0.998,1.000,0.998,1.000]
+Epoch [172] Testing Results: Prec@1 60.780 Prec@5 94.020             Loss 2.09461
+Epoch [172] Testing Class Recall: [0.458,0.983,0.749,0.242,0.528,0.639,0.802,0.780,0.456,0.441]
+Epoch [173] Training Results: Prec@1 99.850 Prec@5 100.000             Loss 0.00547
+Epoch [173] Training Class Recall: [0.937,0.999,0.997,0.989,0.990,1.000,0.999,0.999,1.000,1.000]
+Epoch [173] Testing Results: Prec@1 61.200 Prec@5 94.140             Loss 2.06706
+Epoch [173] Testing Class Recall: [0.445,0.974,0.754,0.257,0.536,0.658,0.810,0.772,0.453,0.461]
+Epoch [174] Training Results: Prec@1 99.900 Prec@5 99.992             Loss 0.00491
+Epoch [174] Training Class Recall: [0.952,1.000,0.997,0.978,0.997,1.000,0.999,1.000,1.000,1.000]
+Epoch [174] Testing Results: Prec@1 61.060 Prec@5 94.190             Loss 2.07402
+Epoch [174] Testing Class Recall: [0.441,0.980,0.754,0.254,0.534,0.643,0.807,0.767,0.491,0.435]
+Epoch [175] Training Results: Prec@1 99.925 Prec@5 100.000             Loss 0.00452
+Epoch [175] Training Class Recall: [0.968,1.000,0.997,1.000,0.997,0.999,0.999,1.000,1.000,1.000]
+Epoch [175] Testing Results: Prec@1 60.890 Prec@5 94.110             Loss 2.07962
+Epoch [175] Testing Class Recall: [0.439,0.982,0.747,0.245,0.534,0.642,0.802,0.776,0.484,0.438]
+Epoch [176] Training Results: Prec@1 99.908 Prec@5 100.000             Loss 0.00407
+Epoch [176] Training Class Recall: [0.921,1.000,0.997,0.989,1.000,1.000,0.999,1.000,1.000,1.000]
+Epoch [176] Testing Results: Prec@1 61.220 Prec@5 94.380             Loss 2.04265
+Epoch [176] Testing Class Recall: [0.463,0.982,0.742,0.262,0.524,0.628,0.803,0.778,0.492,0.448]
+Epoch [177] Training Results: Prec@1 99.883 Prec@5 100.000             Loss 0.00529
+Epoch [177] Training Class Recall: [0.937,1.000,0.997,0.989,0.997,0.997,0.999,1.000,1.000,1.000]
+Epoch [177] Testing Results: Prec@1 61.040 Prec@5 94.200             Loss 2.06866
+Epoch [177] Testing Class Recall: [0.450,0.980,0.755,0.256,0.525,0.648,0.803,0.775,0.464,0.448]
+Epoch [178] Training Results: Prec@1 99.892 Prec@5 100.000             Loss 0.00503
+Epoch [178] Training Class Recall: [0.968,1.000,0.992,0.989,0.997,0.999,1.000,1.000,1.000,1.000]
+Epoch [178] Testing Results: Prec@1 60.340 Prec@5 94.130             Loss 2.13914
+Epoch [178] Testing Class Recall: [0.452,0.984,0.760,0.237,0.521,0.630,0.791,0.776,0.456,0.427]
+Epoch [179] Training Results: Prec@1 99.892 Prec@5 100.000             Loss 0.00422
+Epoch [179] Training Class Recall: [0.889,1.000,0.997,1.000,0.997,0.999,1.000,1.000,1.000,1.000]
+Epoch [179] Testing Results: Prec@1 60.480 Prec@5 94.070             Loss 2.14167
+Epoch [179] Testing Class Recall: [0.453,0.983,0.760,0.249,0.508,0.650,0.797,0.778,0.453,0.417]
+Epoch [180] Training Results: Prec@1 99.908 Prec@5 100.000             Loss 0.00472
+Epoch [180] Training Class Recall: [0.968,1.000,0.997,1.000,0.997,0.997,1.000,0.999,1.000,1.000]
+Epoch [180] Testing Results: Prec@1 60.910 Prec@5 94.330             Loss 2.08413
+Epoch [180] Testing Class Recall: [0.464,0.983,0.740,0.256,0.515,0.638,0.810,0.766,0.472,0.447]
+Epoch [181] Training Results: Prec@1 99.900 Prec@5 100.000             Loss 0.00419
+Epoch [181] Training Class Recall: [0.937,1.000,0.997,0.989,1.000,0.999,0.998,1.000,1.000,1.000]
+Epoch [181] Testing Results: Prec@1 60.640 Prec@5 94.220             Loss 2.11834
+Epoch [181] Testing Class Recall: [0.456,0.985,0.756,0.261,0.509,0.643,0.800,0.775,0.447,0.432]
+Epoch [182] Training Results: Prec@1 99.925 Prec@5 100.000             Loss 0.00442
+Epoch [182] Training Class Recall: [0.952,1.000,0.999,0.989,0.997,1.000,0.999,1.000,1.000,1.000]
+Epoch [182] Testing Results: Prec@1 61.290 Prec@5 94.260             Loss 2.06693
+Epoch [182] Testing Class Recall: [0.456,0.980,0.763,0.253,0.528,0.648,0.796,0.775,0.490,0.440]
+Epoch [183] Training Results: Prec@1 99.892 Prec@5 100.000             Loss 0.00464
+Epoch [183] Training Class Recall: [0.968,0.999,0.996,1.000,0.993,1.000,1.000,0.999,1.000,1.000]
+Epoch [183] Testing Results: Prec@1 61.370 Prec@5 94.550             Loss 2.05374
+Epoch [183] Testing Class Recall: [0.467,0.984,0.739,0.291,0.537,0.644,0.792,0.780,0.473,0.430]
+Epoch [184] Training Results: Prec@1 99.917 Prec@5 100.000             Loss 0.00380
+Epoch [184] Training Class Recall: [0.921,1.000,0.998,1.000,0.997,1.000,0.999,1.000,1.000,1.000]
+Epoch [184] Testing Results: Prec@1 60.990 Prec@5 94.470             Loss 2.08375
+Epoch [184] Testing Class Recall: [0.472,0.984,0.754,0.263,0.517,0.648,0.779,0.781,0.476,0.425]
+Epoch [185] Training Results: Prec@1 99.900 Prec@5 100.000             Loss 0.00468
+Epoch [185] Training Class Recall: [0.921,1.000,0.995,0.989,1.000,0.999,1.000,1.000,1.000,1.000]
+Epoch [185] Testing Results: Prec@1 61.290 Prec@5 94.440             Loss 2.04451
+Epoch [185] Testing Class Recall: [0.483,0.981,0.756,0.271,0.505,0.610,0.798,0.786,0.494,0.445]
+Epoch [186] Training Results: Prec@1 99.908 Prec@5 100.000             Loss 0.00463
+Epoch [186] Training Class Recall: [0.937,1.000,0.997,0.989,1.000,0.999,0.999,1.000,1.000,1.000]
+Epoch [186] Testing Results: Prec@1 60.780 Prec@5 94.200             Loss 2.10766
+Epoch [186] Testing Class Recall: [0.442,0.981,0.755,0.268,0.517,0.646,0.803,0.782,0.462,0.422]
+Epoch [187] Training Results: Prec@1 99.917 Prec@5 100.000             Loss 0.00384
+Epoch [187] Training Class Recall: [0.952,1.000,0.996,0.989,1.000,1.000,0.999,1.000,1.000,1.000]
+Epoch [187] Testing Results: Prec@1 60.690 Prec@5 94.320             Loss 2.11279
+Epoch [187] Testing Class Recall: [0.461,0.985,0.763,0.278,0.511,0.621,0.797,0.767,0.465,0.421]
+Epoch [188] Training Results: Prec@1 99.908 Prec@5 100.000             Loss 0.00407
+Epoch [188] Training Class Recall: [0.937,1.000,0.999,0.989,0.997,0.999,0.999,1.000,1.000,1.000]
+Epoch [188] Testing Results: Prec@1 60.550 Prec@5 94.160             Loss 2.12885
+Epoch [188] Testing Class Recall: [0.454,0.984,0.763,0.261,0.523,0.628,0.796,0.772,0.458,0.416]
+Epoch [189] Training Results: Prec@1 99.867 Prec@5 100.000             Loss 0.00551
+Epoch [189] Training Class Recall: [0.905,1.000,0.998,0.989,1.000,0.993,0.999,1.000,1.000,1.000]
+Epoch [189] Testing Results: Prec@1 61.720 Prec@5 94.580             Loss 2.03298
+Epoch [189] Testing Class Recall: [0.472,0.979,0.768,0.278,0.530,0.636,0.792,0.762,0.506,0.449]
+Epoch [190] Training Results: Prec@1 99.942 Prec@5 100.000             Loss 0.00388
+Epoch [190] Training Class Recall: [0.968,1.000,0.998,1.000,0.997,1.000,0.999,1.000,1.000,1.000]
+Epoch [190] Testing Results: Prec@1 61.490 Prec@5 94.190             Loss 2.04276
+Epoch [190] Testing Class Recall: [0.465,0.977,0.759,0.241,0.539,0.645,0.804,0.784,0.487,0.448]
+Epoch [191] Training Results: Prec@1 99.875 Prec@5 100.000             Loss 0.00442
+Epoch [191] Training Class Recall: [0.937,1.000,0.998,0.967,0.997,0.999,0.998,1.000,1.000,1.000]
+Epoch [191] Testing Results: Prec@1 60.490 Prec@5 94.130             Loss 2.13096
+Epoch [191] Testing Class Recall: [0.455,0.985,0.762,0.244,0.526,0.639,0.802,0.759,0.454,0.423]
+Epoch [192] Training Results: Prec@1 99.917 Prec@5 100.000             Loss 0.00461
+Epoch [192] Training Class Recall: [0.952,1.000,0.997,1.000,1.000,0.997,0.999,1.000,1.000,1.000]
+Epoch [192] Testing Results: Prec@1 61.310 Prec@5 94.310             Loss 2.04813
+Epoch [192] Testing Class Recall: [0.465,0.981,0.741,0.246,0.534,0.648,0.809,0.766,0.473,0.468]
+Epoch [193] Training Results: Prec@1 99.925 Prec@5 100.000             Loss 0.00399
+Epoch [193] Training Class Recall: [0.952,1.000,0.998,0.989,0.997,1.000,0.999,1.000,1.000,1.000]
+Epoch [193] Testing Results: Prec@1 60.700 Prec@5 94.250             Loss 2.10048
+Epoch [193] Testing Class Recall: [0.459,0.982,0.752,0.256,0.518,0.655,0.802,0.766,0.457,0.423]
+Epoch [194] Training Results: Prec@1 99.908 Prec@5 100.000             Loss 0.00467
+Epoch [194] Training Class Recall: [0.968,1.000,0.998,0.989,0.997,0.999,0.999,0.999,1.000,1.000]
+Epoch [194] Testing Results: Prec@1 61.120 Prec@5 94.260             Loss 2.05834
+Epoch [194] Testing Class Recall: [0.444,0.982,0.749,0.244,0.541,0.653,0.800,0.766,0.482,0.451]
+Epoch [195] Training Results: Prec@1 99.942 Prec@5 100.000             Loss 0.00397
+Epoch [195] Training Class Recall: [0.952,1.000,0.998,1.000,1.000,0.999,1.000,1.000,1.000,1.000]
+Epoch [195] Testing Results: Prec@1 61.590 Prec@5 94.430             Loss 2.01395
+Epoch [195] Testing Class Recall: [0.466,0.976,0.750,0.265,0.522,0.658,0.807,0.776,0.478,0.461]
+Epoch [196] Training Results: Prec@1 99.908 Prec@5 100.000             Loss 0.00445
+Epoch [196] Training Class Recall: [0.937,1.000,0.996,0.989,0.997,1.000,1.000,1.000,1.000,1.000]
+Epoch [196] Testing Results: Prec@1 60.960 Prec@5 94.230             Loss 2.09049
+Epoch [196] Testing Class Recall: [0.467,0.979,0.761,0.253,0.516,0.649,0.805,0.771,0.452,0.443]
+Epoch [197] Training Results: Prec@1 99.883 Prec@5 100.000             Loss 0.00432
+Epoch [197] Training Class Recall: [0.937,1.000,0.995,1.000,1.000,1.000,0.999,0.999,1.000,1.000]
+Epoch [197] Testing Results: Prec@1 61.220 Prec@5 94.130             Loss 2.06127
+Epoch [197] Testing Class Recall: [0.456,0.981,0.750,0.239,0.531,0.651,0.806,0.784,0.478,0.446]
+Epoch [198] Training Results: Prec@1 99.925 Prec@5 100.000             Loss 0.00461
+Epoch [198] Training Class Recall: [0.952,1.000,0.997,1.000,1.000,0.997,1.000,1.000,1.000,1.000]
+Epoch [198] Testing Results: Prec@1 60.940 Prec@5 94.190             Loss 2.05651
+Epoch [198] Testing Class Recall: [0.462,0.981,0.737,0.248,0.509,0.642,0.806,0.784,0.471,0.454]
+Epoch [199] Training Results: Prec@1 99.908 Prec@5 100.000             Loss 0.00435
+Epoch [199] Training Class Recall: [0.937,1.000,0.997,1.000,0.993,0.999,0.999,1.000,1.000,1.000]
+Epoch [199] Testing Results: Prec@1 60.620 Prec@5 94.170             Loss 2.11367
+Epoch [199] Testing Class Recall: [0.464,0.983,0.751,0.249,0.526,0.636,0.800,0.774,0.462,0.417]

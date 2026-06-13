@@ -70,8 +70,8 @@ except:
 
 
 cost_routines = {
-    1: (lambda x, y: geomloss.utils.distances(x, y)),
-    2: (lambda x, y: geomloss.utils.squared_distances(x, y) / 2),
+    1: (lambda x, y: torch.cdist(x, y, p=2)),
+    2: (lambda x, y: (torch.cdist(x, y, p=2) ** 2) / 2),
 }
 
 last_dist = []
@@ -1893,9 +1893,9 @@ class FeatureCost:
                         X2.view(-1, *self.tgt_dim).to(self.device), "y"
                     ).reshape(B2, N2, -1)
         if self.p == 1:
-            c = geomloss.utils.distances(X1, X2)
+            c = torch.cdist(X1, X2, p=2)
         elif self.p == 2:
-            c = geomloss.utils.squared_distances(X1, X2) / 2
+            c = (torch.cdist(X1, X2, p=2) ** 2) / 2
         else:
             raise ValueError()
         return c.to(_orig_device)

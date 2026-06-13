@@ -3,7 +3,10 @@ import os
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
+<<<<<<< HEAD
 from imbalanceddl.utils.debug_logger import get_debug_logger
+=======
+>>>>>>> hieu
 
 # ----------------------------------------------------------------------
 # Path setup for SAVA modules (must be done before importing from api)
@@ -44,6 +47,7 @@ class IdentityExtractor(torch.nn.Module):
     def forward(self, x):
         return x
 
+<<<<<<< HEAD
 def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
                             batch_size=1024, num_classes=10, resize=32,
                             cache_label_distances=True, corrupt_por=0.0,
@@ -53,6 +57,29 @@ def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
     """
     logger = get_debug_logger(debug=debug)
     
+=======
+# ----------------------------------------------------------------------
+# Main function: compute SAVA scores and return sorted training indices
+# ----------------------------------------------------------------------
+def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
+                            batch_size=1024, num_classes=10, resize=32,
+                            cache_label_distances=True, corrupt_por=0.0):
+    """
+    Compute SAVA scores (sorted training indices by increasing value) using raw pixels.
+    
+    Args:
+        train_dataset: Training dataset (will be wrapped in DataLoader)
+        val_dataset: Validation dataset
+        device: 'cuda' or 'cpu'
+        batch_size: Batch size for OT computation
+        num_classes: Number of classes (for SAVA's internal use)
+        resize: Resize images to this size (default 32)
+        cache_label_distances: Cache label-to-label OT distances
+        corrupt_por: Fraction of training data to mark as corrupted (shuffled); default 0.0
+    Returns:
+        sorted_indices: 1D numpy array of training indices sorted from most valuable to least
+    """
+>>>>>>> hieu
     # Sanity checks
     if not isinstance(train_dataset, torch.utils.data.Dataset):
         raise TypeError("train_dataset must be a torch Dataset")
@@ -66,10 +93,13 @@ def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
                             shuffle=False, num_workers=0, pin_memory=True)
     training_size = len(train_dataset)
     
+<<<<<<< HEAD
     if debug:
         logger.debug(f"train_dataset size: {training_size}, val_dataset size: {len(val_dataset)}")
         logger.debug(f"batch_size: {batch_size}, device: {device}")
     
+=======
+>>>>>>> hieu
     # Use identity feature extractor (raw pixels)
     model = IdentityExtractor().to(device)
     model.eval()
@@ -80,16 +110,22 @@ def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
     if n_corrupt > 0:
         shuffle_ind = list(range(n_corrupt))
         print(f"Using shuffle_ind with {len(shuffle_ind)} samples (corrupt_por={corrupt_por})")
+<<<<<<< HEAD
         if debug:
             logger.debug(f"First 10 shuffle_ind: {shuffle_ind[:10]}")
+=======
+>>>>>>> hieu
     else:
         shuffle_ind = []
         print("shuffle_ind is empty (corrupt_por=0).")
     
     # Run SAVA hierarchical OT experiment
     print(f"Running SAVA with: batch_size={batch_size}, device={device}")
+<<<<<<< HEAD
     if debug:
         logger.debug("Calling hierarchical_ot_experiment...")
+=======
+>>>>>>> hieu
     result = hierarchical_ot_experiment(
         feature_extractor=model,
         train_loader=train_loader,
@@ -98,11 +134,16 @@ def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
         batch_size=batch_size,
         shuffle_ind=shuffle_ind,
         resize=resize,
+<<<<<<< HEAD
         portion=0.0,
+=======
+        portion=0.0,                      # Important: avoids division by zero
+>>>>>>> hieu
         device=device,
         cache_label_distances=cache_label_distances,
         visualise_hot=False,
         tag="",
+<<<<<<< HEAD
         feat_repr=False,
         num_classes=num_classes,
         parallel=False,
@@ -163,4 +204,39 @@ def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
         logger.debug(f"First 10 training indices (most valuable): {sorted_indices[:10]}")
         logger.debug(f"Last 10 training indices (least valuable): {sorted_indices[-10:]}")
     
+=======
+        num_classes=num_classes,
+        parallel=False,                   # Not used with raw pixels
+        cuda_num=0,
+        n_gpu=1,
+    )
+    
+    # Extract sorted indices from the result
+    if isinstance(result, tuple):
+        sorted_indices = result[0]   # assume first element is the sorted indices
+    else:
+        sorted_indices = result
+    
+    # Convert to flat int64 numpy array
+    if isinstance(sorted_indices, list):
+        # Handle case where each element is a list/tuple of one element
+        if len(sorted_indices) > 0 and hasattr(sorted_indices[0], '__len__') and len(sorted_indices[0]) == 1:
+            sorted_indices = np.array([int(x[0]) for x in sorted_indices], dtype=np.int64)
+        else:
+            clean_indices = []
+            for item in sorted_indices:
+                # Convert whatever the item is to a numpy array, flatten it, and grab the very first number
+                val = np.array(item).flatten()[0]
+                clean_indices.append(int(val))
+
+            sorted_indices = np.array(clean_indices, dtype=np.int64)
+    else:
+        sorted_indices = np.asarray(sorted_indices).ravel().astype(np.int64)
+    
+    # Final sanity: the number of indices should equal training_size
+    if len(sorted_indices) != training_size:
+        raise RuntimeError(f"Expected {training_size} indices but got {len(sorted_indices)}")
+    
+    print(f"Sorted indices shape: {sorted_indices.shape}, dtype: {sorted_indices.dtype}")
+>>>>>>> hieu
     return sorted_indices
