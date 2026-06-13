@@ -47,35 +47,37 @@ class Trainer(BaseTrainer):
                 'epoch', 'train loss', 'gen loss', 'train acc', 'gen_acc', 'prob_orig', 'prob_targ',
                 'test loss', 'major test acc', 'neutral test acc', 'minor test acc', 'test acc', 'f1 score'
             ]
-        # Initialize wandb
-        wandb.login(key="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")
-        wandb.init(
-            project="imbalanced_training",  # Replace with your project name
-            config={
-                "dataset": self.cfg.dataset,
-                "imb_type": self.cfg.imb_type,
-                "imb_factor": self.cfg.imb_factor,
-                "backbone": self.cfg.backbone,
-                "classifier": self.cfg.classifier,
-                "optimizer": self.cfg.optimizer,
-                "learning_rate": self.cfg.learning_rate,
-                "momentum": self.cfg.momentum,
-                "weight_decay": self.cfg.weight_decay,
-                "batch_size": self.cfg.batch_size,
-                "epochs": self.cfg.epochs,
-                "sampling_method": self.cfg.sampling,
-                "alpha": self.cfg.alpha,
-                "n_batches": self.cfg.n_batches,
-                "selection_method": self.cfg.selection_method
-            },
-            name=(
-                f"{self.cfg.dataset}_{self.cfg.backbone}_"
-                f"Select-{self.cfg.selection_method}_" 
-                f"Sample-{self.cfg.sampling}" 
-                + (f"_alpha{self.cfg.alpha}" if self.cfg.sampling in ["WeightedRandomBatchSampler", "WeightedFixedBatchSampler"] else "")
-            )
-        )
 
+        # Conditional WandB initialisation
+        self.use_wandb = getattr(self.cfg, 'use_wandb', False)
+        if self.use_wandb:
+            wandb.login(key="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")
+            wandb.init(
+                project="imbalanced_training",
+                config={
+                    "dataset": self.cfg.dataset,
+                    "imb_type": self.cfg.imb_type,
+                    "imb_factor": self.cfg.imb_factor,
+                    "backbone": self.cfg.backbone,
+                    "classifier": self.cfg.classifier,
+                    "optimizer": self.cfg.optimizer,
+                    "learning_rate": self.cfg.learning_rate,
+                    "momentum": self.cfg.momentum,
+                    "weight_decay": self.cfg.weight_decay,
+                    "batch_size": self.cfg.batch_size,
+                    "epochs": self.cfg.epochs,
+                    "sampling_method": self.cfg.sampling,
+                    "alpha": self.cfg.alpha,
+                    "n_batches": self.cfg.n_batches,
+                    "selection_method": self.cfg.selection_method
+                },
+                name=(
+                    f"{self.cfg.dataset}_{self.cfg.backbone}_"
+                    f"Select-{self.cfg.selection_method}_" 
+                    f"Sample-{self.cfg.sampling}" 
+                    + (f"_alpha{self.cfg.alpha}" if self.cfg.sampling in ["WeightedRandomBatchSampler", "WeightedFixedBatchSampler"] else "")
+                )
+            )
 
     def get_criterion(self):
         return NotImplemented
@@ -97,13 +99,11 @@ class Trainer(BaseTrainer):
                                    self.cfg.learning_rate,
                                    weight_decay = self.cfg.weight_decay)
             return optimizer
-
         else:
             raise ValueError("[Warning] Selected Optimizer not supported !")
 
     def adjust_learning_rate(self):
         """Sets the learning rate"""
-        # total 200 epochs scheme
         if self.cfg.epochs == 200:
             epoch = self.epoch + 1
             if epoch <= 5:
@@ -114,7 +114,6 @@ class Trainer(BaseTrainer):
                 lr = self.cfg.learning_rate * 0.01
             else:
                 lr = self.cfg.learning_rate
-        # total 300 epochs scheme
         elif self.cfg.epochs == 300:
             epoch = self.epoch + 1
             if epoch <= 5:
@@ -125,7 +124,6 @@ class Trainer(BaseTrainer):
                 lr = self.cfg.learning_rate * 0.1
             else:
                 lr = self.cfg.learning_rate
-        # total 400 epochs scheme for testing phase -> should be removed then
         elif self.cfg.epochs == 400:
             epoch = self.epoch + 1
             if epoch <=5:
@@ -142,57 +140,25 @@ class Trainer(BaseTrainer):
                     self.cfg.epochs))
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
-    
-    # Do and train M2m Strategy here
+
     def do_train_val_m2m(self):
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         device = self.cfg.gpu
         self.logger.log('==> Building model: %s' % self.cfg.backbone)
         net = self.model
         net_seed = self.model
-        # net = models.__dict__[self.cfg.backbone](self.cfg.num_classes)
-        # net_seed = models.__dict__[self.cfg.backbone](self.cfg.num_classes)
-
         net, net_seed = net.to(device), net_seed.to(device)
-        # optimizer = optim.SGD(net.parameters(), lr=self.cfg.learning_rate, momentum=self.cfg.momentum, weight_decay=self.cfg.weight_decay)
         optimizer = self._init_optimizer()
-        
         SUCCESS = torch.zeros(self.cfg.epochs, self.cfg.num_classes, 2)
         self.train_oversamples = []
 
         if self.cfg.over:
-            # Stage 2: Train f model with synthetic dataset.
             for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
                 self.epoch = epoch
                 self.train_one_epoch(net, net_seed, optimizer, SUCCESS)
 
-    # def do_train_val(self):
-    #     if self.cfg.dataset == 'cifar10':
-    #         # To avoid it will process all datasets when running M2m method frist time, just import specific dataset.
-    #         from imbalanceddl.dataset.m2m_imbalance_cifar10 import cifar10_train_val_oversamples
-    #         train_in_loader, val_in_loader, train_oversamples_loader = cifar10_train_val_oversamples(self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha)
-    #         self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
-    #     elif self.cfg.dataset == 'cifar100':
-    #         from imbalanceddl.dataset.m2m_imbalance_cifar100 import cifar100_train_val_oversamples
-    #         train_in_loader, val_in_loader, train_oversamples_loader = cifar100_train_val_oversamples(self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha)
-    #         self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
-        
-    #     for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
-    #         self.epoch = epoch
-
-    #         # learning rate control
-    #         self.adjust_learning_rate()
-
-    #         # criterion
-    #         self.get_criterion()
-    #         assert self.criterion is not None, "No criterion !"
-    #         # change to train_one_epoch_balance_mixup() to use mixup
-    #         self.train_one_epoch()
-    #         acc1 = self.validate()
     def do_train_val(self):
         if hasattr(self, 'dataset') and hasattr(self.dataset, 'train_val_sets'):
             train_ds, val_ds = self.dataset.train_val_sets
-            # create loaders with the selected dataset
             self.train_loader = DataLoader(
                 train_ds, batch_size=self.cfg.batch_size,
                 shuffle=True, num_workers=self.cfg.workers, pin_memory=True
@@ -226,19 +192,20 @@ class Trainer(BaseTrainer):
             assert self.criterion is not None, "No criterion !"
             self.train_one_epoch()
             acc1 = self.validate()
-            # remember best acc@1 and save checkpoint
             is_best = acc1 > self.best_acc1
             self.best_acc1 = max(acc1, self.best_acc1)
 
-            self.tf_writer.add_scalar('acc/test_top1_best', self.best_acc1,
-                                      self.epoch)
-            output_best = 'Best Prec@1: %.3f\n' % (self.best_acc1)
-            print(output_best)
-            self.log_testing.write(output_best + '\n')
-            self.log_testing.flush()
-
-            if epoch == self.cfg.epochs - 1:
-                collect_result(self.cfg, output_best)
+            # TensorBoard and CSV logging are disabled (set to None in base.py)
+            if self.tf_writer is not None:
+                self.tf_writer.add_scalar('acc/test_top1_best', self.best_acc1, self.epoch)
+            if self.log_testing is not None:
+                output_best = 'Best Prec@1: %.3f\n' % (self.best_acc1)
+                print(output_best)
+                self.log_testing.write(output_best + '\n')
+                self.log_testing.flush()
+            else:
+                output_best = 'Best Prec@1: %.3f\n' % (self.best_acc1)
+                print(output_best)
 
             save_checkpoint(
                 self.cfg, {
@@ -249,12 +216,9 @@ class Trainer(BaseTrainer):
                     'best_acc1': self.best_acc1,
                     'optimizer': self.optimizer.state_dict()
                 }, is_best, self.epoch)
-           
 
     def eval_best_model(self):
-        assert self.cfg.best_model is not None, "[Warning] Best Model \
-                                                    must be loaded !"
-
+        assert self.cfg.best_model is not None, "[Warning] Best Model must be loaded !"
         assert 'best' in self.cfg.best_model, "[Need Best Model]"
 
         if os.path.isfile(self.cfg.best_model):
@@ -263,10 +227,8 @@ class Trainer(BaseTrainer):
             self.epoch = checkpoint['epoch']
             best_acc1 = checkpoint['best_acc1']
             if self.cfg.gpu is not None:
-                # best_acc1 may be from a checkpoint from a different GPU
                 best_acc1 = best_acc1.to(self.cfg.gpu)
             self.model.load_state_dict(checkpoint['state_dict'])
-            # optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> [Loaded Best Model] '{}' (epoch {})".format(
                 self.cfg.best_model, checkpoint['epoch']))
         else:
@@ -288,21 +250,10 @@ class Trainer(BaseTrainer):
         losses = AverageMeter('Loss', ':.4e')
         top1 = AverageMeter('Acc@1', ':6.2f')
         top5 = AverageMeter('Acc@5', ':6.2f')
-        # # f1 = F1Score(num_classes=self.cfg.num_classes).to(self.cfg.gpu)
-        # f1 = F1Score(task="multiclass", num_classes=self.cfg.num_classes).to(self.cfg.gpu)
-
-        # switch to evaluate mode
         self.model.eval()
 
         all_preds = []
         all_targets = []
-
-        # all_preds = list()
-        # all_targets = list()
-        # all_f1_scores = []
-
-        # all_precisions = []
-        # all_recalls = []
 
         with torch.no_grad():
             for i, (images, labels) in enumerate(self.val_loader):
@@ -310,52 +261,33 @@ class Trainer(BaseTrainer):
                     images = images.cuda(self.cfg.gpu, non_blocking=True)
                     labels = labels.cuda(self.cfg.gpu, non_blocking=True)
 
-                # compute output
                 output, _ = self.model(images)
-
                 labels = labels.to(output.device)
-
-                # output = self.model(_input)
                 loss = self.criterion(output, labels.to(output.device)).mean()
-
-                # measure accuracy and record loss
                 acc1, acc5 = accuracy(output, labels.to(output.device), topk=(1, 5))
                 losses.update(loss.item(), images.size(0))
                 top1.update(acc1[0], images.size(0))
                 top5.update(acc5[0], images.size(0))
 
                 _, pred = torch.max(output, 1)
-                # pred = pred.to(self.cfg.gpu)
-                # target = target.to(self.cfg.gpu)
                 all_preds.extend(pred.cpu().numpy())
                 all_targets.extend(labels.cpu().numpy())
 
-                # F1_value = f1(pred, target)
-                # prec_val = multiclass_precision(pred, target, num_classes=self.cfg.num_classes, average='macro')
-                # recall_val = multiclass_recall(pred, target, num_classes=self.cfg.num_classes, average='macro')
-
-                # all_preds.extend(pred.cpu().numpy())
-                # all_targets.extend(target.cpu().numpy())
-                # all_f1_scores.append(F1_value.item())
-                # all_precisions.append(prec_val.item())
-                # all_recalls.append(recall_val.item())
-
                 if i % self.cfg.print_freq == 0:
                     stats_log = ('Epoch: [{0}][{1}/{2}]\t'
-                              'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                              'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                              'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                                  self.epoch,
-                                  i,
-                                  len(self.val_loader),
-                                  loss=losses,
-                                  top1=top1,
-                                  top5=top5))
+                                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                                 'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                                 'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                                     self.epoch,
+                                     i,
+                                     len(self.val_loader),
+                                     loss=losses,
+                                     top1=top1,
+                                     top5=top5))
                     print(stats_log)
 
             all_preds_t = torch.tensor(all_preds)
             all_targets_t = torch.tensor(all_targets)
-
             if self.cfg.gpu is not None:
                 all_preds_t = all_preds_t.cuda(self.cfg.gpu)
                 all_targets_t = all_targets_t.cuda(self.cfg.gpu)
@@ -364,25 +296,22 @@ class Trainer(BaseTrainer):
             final_prec = multiclass_precision(all_preds_t, all_targets_t, num_classes=self.cfg.num_classes, average='macro').item()
             final_recall = multiclass_recall(all_preds_t, all_targets_t, num_classes=self.cfg.num_classes, average='macro').item()
 
-        
-            wandb.log({
-            "val_loss": losses.avg,
-            "val_accuracy": top1.avg,
-            "val_f1_score": final_f1,
-            "val_precision": final_prec,
-            "val_recall": final_recall,
-            "epoch": self.epoch,
-            })
+            if self.use_wandb:
+                wandb.log({
+                    "val_loss": losses.avg,
+                    "val_accuracy": top1.avg,
+                    "val_f1_score": final_f1,
+                    "val_precision": final_prec,
+                    "val_recall": final_recall,
+                    "epoch": self.epoch,
+                })
 
             cls_acc_string = self.compute_metrics_and_record(all_preds,
-                                            all_targets,
-                                            losses,
-                                            top1,
-                                            top5,
-                                            flag='Testing')
-
-            # all_f1_scores = np.array(all_f1_scores)
-            # f1=np.mean(all_f1_scores)
+                                                             all_targets,
+                                                             losses,
+                                                             top1,
+                                                             top5,
+                                                             flag='Testing')
             print("==========F1_Score of TESTING dataset: {:.4f}% =============".format(final_f1*100))
 
         if cls_acc_string is not None:

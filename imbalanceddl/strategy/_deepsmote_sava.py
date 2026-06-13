@@ -14,10 +14,13 @@ from imbalanceddl.utils._augmentation import get_weak_augmentation, get_trivial_
 from imbalanceddl.strategy.build_trainer import build_trainer
 from torchvision import datasets
 from imbalanceddl.utils.sava_key_generation import SavaCacheKey
+from imbalanceddl.utils.debug_logger import get_debug_logger
 import torch
 
 class DeepSMOTESavaTrainer(Trainer):
     def __init__(self, cfg, dataset, model, strategy="DeepSMOTESava"):
+        self.debug = getattr(cfg, 'debug', False)
+        self.debug_logger = get_debug_logger(debug=self.debug)
         print("\n" + "="*60)
         print("DeepSMOTESavaTrainer Initialization")
         print("="*60)
@@ -32,6 +35,8 @@ class DeepSMOTESavaTrainer(Trainer):
         else:
             raise NotImplementedError
         print(f"   Validation set size: {len(val_ds)}")
+        if self.debug:
+            self.debug_logger.debug(f"val_transform = {val_transform}")
 
         noise_first = hasattr(cfg, 'noise_first') and cfg.noise_first
         noise_ratio = getattr(cfg, 'noise_ratio', 0.0)
@@ -51,18 +56,16 @@ class DeepSMOTESavaTrainer(Trainer):
                 rand_number=cfg.rand_number,
                 train=True,
                 download=True,
-                transform=None   # no transform, we want raw arrays
+                transform=None
             )
-            X_raw = raw_ds.data          # numpy array (N, 32, 32, 3)
+            X_raw = raw_ds.data
             Y_raw = np.array(raw_ds.targets)
             print(f"[VERIFY] Raw imbalanced data shape: X={X_raw.shape}, Y={Y_raw.shape}")
             print(f"[VERIFY] Raw class distribution: {dict(zip(*np.unique(Y_raw, return_counts=True)))}")
 
-            # Inject noise into imbalanced labels
             print(f"Applying {noise_ratio*100}% label noise to imbalanced data (noise_first=True)")
             Y_noisy = inject_label_noise(Y_raw, noise_ratio, cfg.num_classes, seed=cfg.rand_number)
             print(f"[VERIFY] After noise injection: class distribution: {dict(zip(*np.unique(Y_noisy, return_counts=True)))}")
-
 
             deepsmote_folder = 'deepsmote_models'
             noise_key = f"noise{noise_ratio}_seed{cfg.rand_number}"
@@ -75,10 +78,8 @@ class DeepSMOTESavaTrainer(Trainer):
                     f"Please pre‑generate it using Deepsmote_Generate_Balance.py with the same noise_ratio and seed.\n"
                     f"Missing: {data_file}"
                 )
-            # Load the pre‑generated balanced DeepSMOTE data
             X_balanced = np.loadtxt(data_file)
             Y_balanced = np.loadtxt(label_file).astype(int)
-            # Reshape to image format
             X_balanced = X_balanced.reshape(-1, 3, 32, 32)
             X_balanced = np.transpose(X_balanced, (0, 2, 3, 1))
             X_balanced = np.clip(X_balanced * 255, 0, 255).astype(np.uint8)
@@ -92,7 +93,6 @@ class DeepSMOTESavaTrainer(Trainer):
             X_raw, Y_raw = load_deepsmote_raw(cfg.dataset, cfg.imb_type, cfg.imb_factor)
             print(f"[VERIFY] Balanced data shape: X={X_raw.shape}, Y={Y_raw.shape}")
             if noise_ratio > 0 and not noise_first:
-                # Inject noise after balancing
                 print(f"Applying {noise_ratio*100}% label noise to balanced data (noise_first=False)")
                 Y_noisy = inject_label_noise(Y_raw, noise_ratio, cfg.num_classes, seed=cfg.rand_number)
                 Y_final = Y_noisy
@@ -102,14 +102,20 @@ class DeepSMOTESavaTrainer(Trainer):
                 X_final = X_raw
                 Y_final = Y_raw
 
+        if self.debug:
+            self.debug_logger.debug(f"Final X_final shape: {X_final.shape}, Y_final shape: {Y_final.shape}")
+            self.debug_logger.debug(f"Y_final unique classes: {np.unique(Y_final)}")
+
         # ============================================================
-        # Create plain and augmented datasets (same as before)
+        # Create plain and augmented datasets
         # ============================================================
-        plain_transform = val_transform   # ToTensor + Normalize
+        plain_transform = val_transform
         plain_dataset = CustomImageDataset(X_final, Y_final, transform=plain_transform)
         print(f"\n3. Plain dataset (for scoring) created with {len(plain_dataset)} samples")
+        if self.debug:
+            self.debug_logger.debug(f"plain_dataset transform: {plain_transform}")
 
-        # Training transform - pass cfg.dataset
+        # Training transform
         print(f"\n4. Training transform: cfg.augmentation = {cfg.augmentation}")
         if cfg.augmentation == 'weak':
             train_transform, _ = get_weak_augmentation(cfg.dataset)
@@ -130,9 +136,11 @@ class DeepSMOTESavaTrainer(Trainer):
         original_cls_num_list = aug_dataset.get_cls_num_list()
         cfg.original_cls_num_list = original_cls_num_list
         print(f"\n5. Augmented dataset (for training) created with {len(aug_dataset)} samples")
+        if self.debug:
+            self.debug_logger.debug(f"Original cls_num_list (before selection): {original_cls_num_list}")
 
         # ============================================================
-        # Apply SAVA selection (if ratio < 1.0) – unchanged
+        # Apply SAVA selection (if ratio < 1.0)
         # ============================================================
         print(f"\n6. Selection: method={cfg.selection_method}, ratio={cfg.selection_ratio}")
         if cfg.selection_ratio < 1.0:
@@ -148,7 +156,8 @@ class DeepSMOTESavaTrainer(Trainer):
                     is_selection_first=False
                 )
                 file_key = key_gen.generate()
-                print(f"[DEBUG] SAVA cache key: {file_key}")
+                if self.debug:
+                    self.debug_logger.debug(f"SAVA cache key: {file_key}")
                 indices = get_sava_selection_indices(
                     train_dataset=plain_dataset,
                     val_dataset=val_ds,
@@ -159,22 +168,28 @@ class DeepSMOTESavaTrainer(Trainer):
                     num_classes=cfg.num_classes,
                     resize=32,
                     cache_label_distances=getattr(cfg, 'sava_cache_label_distances', True),
-                    corrupt_por=0.0
+                    corrupt_por=0.0,
+                    debug=self.debug
                 )
                 print(f"   SAVA selection completed. Kept {len(indices)} indices.")
             elif cfg.selection_method == 'random':
                 total = len(plain_dataset)
                 n_keep = int(total * cfg.selection_ratio)
                 indices = random.sample(range(total), n_keep)
+                if self.debug:
+                    self.debug_logger.debug(f"Random selection kept {len(indices)} indices")
             else:
                 raise ValueError(f"Unknown selection_method: {cfg.selection_method}")
             final_train = Subset(aug_dataset, indices)
             print(f"\n7. Final training set: {len(final_train)} samples (selected subset)")
+            if self.debug:
+                self.debug_logger.debug(f"Selected indices first 10: {indices[:10]}")
+                self.debug_logger.debug(f"Selected indices last 10: {indices[-10:]}")
         else:
             final_train = aug_dataset
             print(f"\n7. Final training set: all {len(final_train)} samples (no selection)")
 
-        # Wrapper and inner trainer delegation – same as before
+        # Wrapper and inner trainer delegation
         class SimpleWrapper:
             def __init__(self, train, val, cfg):
                 self.train_val_sets = (train, val)
@@ -187,11 +202,15 @@ class DeepSMOTESavaTrainer(Trainer):
                 print(f"   Wrapper class counts: {self.cls_num_list}")
         wrapper = SimpleWrapper(final_train, val_ds, cfg)
         cfg.cls_num_list = wrapper.cls_num_list
+        if self.debug:
+            self.debug_logger.debug(f"cfg.cls_num_list after wrapper: {cfg.cls_num_list}")
 
         base_strategy = getattr(cfg, 'base_strategy', 'ERM')
         print(f"\n8. Building inner trainer with base_strategy={base_strategy}")
         self.inner_trainer = build_trainer(cfg, wrapper, model, base_strategy)
         print("   Inner trainer initialized successfully")
+        if self.debug:
+            self.debug_logger.debug(f"inner_trainer type: {type(self.inner_trainer)}")
 
         # Delegate attributes
         self.cfg = cfg
@@ -201,10 +220,11 @@ class DeepSMOTESavaTrainer(Trainer):
         self.train_loader = self.inner_trainer.train_loader
         self.val_loader = self.inner_trainer.val_loader
         self.optimizer = self.inner_trainer.optimizer
-        self.logger = self.inner_trainer.logger
+        self.logger = self.inner_trainer.logger        # main logger
         self.log_training = self.inner_trainer.log_training
         self.log_testing = self.inner_trainer.log_testing
         self.tf_writer = self.inner_trainer.tf_writer
+        self.use_wandb = getattr(self.cfg, 'use_wandb', False)   # wandb flag for possible use
 
         print("="*60)
         print("DeepSMOTESavaTrainer initialization complete.\n")

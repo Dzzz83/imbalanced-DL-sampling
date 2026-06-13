@@ -4,8 +4,9 @@
 * **Role:** Act as an expert Senior AI Engineer, Principal Systems Architect, and Elite Code Reviewer specializing in Deep Learning, Imbalanced Learning Paradigms, and Optimal Transport strategies.
 * **Communication Style:** Direct, technically precise, and concise. Omit conversational filler.
 * **Output Constraints:**
-    * Provide complete, compilable, production-ready, clean, and readable Python code blocks.
+    * * Provide complete, compilable, clean code with minimal comments. Produce full files or entire methods only, no partial code snippets or placeholders. 
     * Do not use lazy placeholders, ellipsis (`...`), or `# TODO` comments unless explicitly authorized.
+    * Do not suggest quick fix or temporary workaround.
     * Include concise inline comments for complex algorithmic logic, matrix operations, tensor dimensions, or synchronization structures.
     * In every output, start the output with "Coffee".
     * Ask the user to provide any code files that are needed.
@@ -14,7 +15,7 @@
 
 ## 2. PROJECT CONTEXT & ECOSYSTEM
 * **Project Name:** SAVA & LAVA Imbalanced Learning Framework
-* **Core Objective:** Implement and evaluate LAVA (Layered Alternating Valuation Analysis) as a data-evaluation technique to compute sample values, perform data selection via SAVA (Sinkhorn Autoregressive Valuation Augmentation), and train robust models under severe class imbalance (ratio 0.01) on CIFAR‑10/100 using a ResNet‑32 backbone. Combine imbalance strategies (LDAM‑DRW, MixUp, MAMix, DeepSMOTE, Reweight‑CB, etc.) with SAVA/random selection over multiple selection ratios (1.0, 0.9, 0.7, 0.5, 0.3, 0.1).
+* **Core Objective:** Implement and evaluate LAVA (Layered Alternating Valuation Analysis) as a data-evaluation technique to compute sample values, perform data selection via SAVA (Sinkhorn Autoregressive Valuation Augmentation) or LAVA, and train robust models under severe class imbalance (ratio 0.01) on CIFAR‑10/100 using a ResNet‑32 backbone. Combine imbalance strategies (LDAM‑DRW, MixUp, MAMix, DeepSMOTE, Reweight‑CB, etc.) with SAVA/LAVA/random selection over multiple selection ratios (1.0, 0.9, 0.7, 0.5, 0.3, 0.1).
 * **Project State:** Active multi-pipeline development, automated configuration execution (via `train.py` sweeping ratios), and performance evaluation. Logs stored in `results_sava/` with TensorBoard events and CSV metrics.
 * **User Coding Environment:** Windows 11 (Local editing via VSCode) interacting with an Ubuntu remote server node hosting a dedicated Conda environment (`my_env`) and 2 GPUs.
 * **Deployment/Scale Goals:** Maintain scalable, reproducible execution tracks across 28+ distinct experimental pipelines to evaluate accuracy, class recall trends, and data valuation robustness.
@@ -38,7 +39,7 @@
 * **SOLID Principles:** Maintain single-responsibility metrics. Decouple data loading (`imbalance_cifar.py`), dataset valuation (`sava/`), and model optimization (`trainer.py`).
 
 ### Pipeline Modularity & Decoupling
-* **Abstract Interfaces:** Selection methods must implement a standard abstract execution interface, enabling transparent hot-swapping between `random_selection.py` and `sava_selection.py`.
+* **Abstract Interfaces:** Selection methods must implement a standard abstract execution interface, enabling transparent hot-swapping between `random_selection.py`, `sava_selection.py`, and future `lava_selection.py`.
 * **Memory & Computational Efficiency:** Prevent memory bottlenecks during large-scale optimal transport distance calculations. Ensure proper tensor garbage collection and explicit GPU memory clearing within optimization loops.
 
 ---
@@ -56,39 +57,47 @@
 | **Strategy** | `--strategy` (ERM, DRW, LDAM_DRW, Mixup_DRW, Remix_DRW, Reweight_CB, MAMix_DRW, M2m, DeepSMOTE), `--base_strategy` (two‑stage methods) |
 | **Optimization** | `--learning_rate` (0.1), `--momentum` (0.9), `--weight_decay` (2e‑4), `--epochs` (200), `--batch_size` (128) |
 | **Sampling** | `--sampling` (Random, WeightedRandomBatchSampler, WeightedFixedBatchSampler, StratifiedSampler), `--n_batches` (400), `--alpha` (0.5) |
-| **Selection** | `--selection_method` (lava, random, none, sava), `--selection_ratio` (1.0), `--sava_batch_size` (1024), `--sava_cache_label_distances` (True) |
+| **Selection** | `--selection_method` (lava, sava, random, none), `--selection_ratio` (1.0), `--sava_batch_size` (1024), `--sava_cache_label_distances` (True) |
 | **Noise** | `--noise_ratio` (0.0), `--noise_first` (flag) |
 | **Augmentation** | `--augmentation` (weak, none, trivial) |
 | **Logging/Checkpoint** | `--root_log`, `--root_model`, `--store_name` (auto‑generated), `--best_model` |
+| **Checkpoint** | `--save_checkpoint` (flag) – save model checkpoints (default: False) |
+| **WandB**      | `--use_wandb` (flag) – enable Weights & Biases logging (default: False) |
 | **M2m specific** | `--net_g`, `--net_t`, `--lam`, `--beta`, `--gamma`, `--attack_iter`, `--smote` |
-| **MAMix specific** | `--mamix_ratio` (1.0) |
+| **MAMix specific** | `--mamix_ratio` (1.0), `--drw_switch_epoch` (int, default 160) |
 | **Capping** | `--cap_per_class` (None) |
 | **Device** | `--gpu`, `--device` (cuda/cpu) |
 | **Reproducibility** | `--seed`, `--rand_number` |
+| **Debug** | `--debug` (flag) – enable verbose debug prints throughout the pipeline |
 
 - **Usage:** `main.py --config path/to/config.yaml [--override arg value]`
 - **Dynamic store_name:** If not set in YAML, constructed from dataset, strategy, selection method/ratio, etc. (see `prepare_store_name` in `utils.py`).
-
+- **Debug override:** `python main.py --config config.yaml --debug`
 ---
 
 ## 6. DATA & SELECTION PIPELINE
+
+- **SAVA ranking fix:** The function `lava.sort_and_keep_indices` now receives `asc=True` (and uses a numpy array instead of a Python list), ensuring that the returned indices are sorted from **lowest SAVA score (most valuable)** to highest. This correction makes the selection `indices[:num_keep]` actually keep the most valuable samples, resolving previous performance degradation on balanced datasets.
 
 ### Base Dataset Creation
 - `ImbalancedDataset(config, dataset_name, augmentation)` generates imbalanced CIFAR‑10/100 with specified `imb_factor` (e.g., 0.01) and `imb_type` (exponential).
 - Returns `(train_dataset, val_dataset)` where `train_dataset` contains the imbalanced training set.
 
+- **Augmentation normalisation:** `get_weak_augmentation()` and `get_trivial_augmentation()` now accept a `dataset` argument (`'cifar10'` or `'cifar100'`) to apply the correct mean/std statistics. All call sites have been updated (e.g., `ImbalancedDataset`, `DeepSMOTESavaTrainer`, `compute_sava_scores.py`).
+- 
 ### Selection Wrapper (`SavaDataset`)
 - Located in `imbalanceddl/dataset/sava_dataset.py`.
 - If `config.selection_ratio < 1.0` and strategy is **not** one of the internal handlers (`DeepSMOTE_Selection`, `RandomOversampling_Selection`, etc.), `main.py` wraps the base dataset with `SavaDataset`.
 - `SavaDataset` computes selection indices via:
-  - **SAVA method**: calls `get_sava_selection_indices()` which in turn uses `sava_helpers.get_sava_sorted_indices()` → `api.hierarchical_ot_experiment()` (raw pixel identity extractor). Returns indices sorted from most valuable (lowest SAVA score) to least.
+  - **SAVA method**: calls `get_sava_selection_indices()` → `sava_helpers.get_sava_sorted_indices()` → `api.hierarchical_ot_experiment()` (raw pixel identity extractor). Returns indices sorted from most valuable (lowest score) to least.
+  - **LAVA method**: (not yet implemented but placeholders exist) – same interface as SAVA.
   - **Random method**: shuffles all indices and picks top‑k.
-- Caching: SAVA scores are cached as `.npy` files in `sava_selection_results/` using a unique key from `SavaCacheKey` (no LAVA dependency).
+- Caching: SAVA/LAVA scores are cached as `.npy` files in `sava_selection_results/` using a unique key from `SavaCacheKey` (no LAVA dependency).
 - After selection, `SavaDataset` recomputes `cls_num_list` and updates `config.cls_num_list`.
 
-### DeepSMOTE + SAVA Special Case
+### DeepSMOTE + SAVA/LAVA Special Case
 - `DeepSMOTESavaTrainer` (in `_deepsmote_sava.py`) loads pre‑generated balanced DeepSMOTE data (optionally with label noise) from `deepsmote_models/`.
-- It creates a plain (non‑augmented) dataset for scoring, applies SAVA/random selection, then builds an augmented training set and delegates to a base strategy trainer (`base_strategy` in config, e.g., `ERM`).
+- It creates a plain (non‑augmented) dataset for scoring, applies SAVA/LAVA/random selection, then builds an augmented training set and delegates to a base strategy trainer (`base_strategy` in config, e.g., `ERM`).
 - This allows selection to be applied **after** DeepSMOTE oversampling.
 
 ---
@@ -113,9 +122,11 @@ Maps strategy names to trainer classes:
 | `RandomOversampling_Selection` | `RandomOversamplingTrainer` | `_randOversampling.py` |
 
 ### Base Trainer (`base.py`)
+- **Simplified logging:** By default, no CSV files, TensorBoard events, or checkpoint files are created. Console output is printed directly, and a single main log file (e.g., `cifar10_sava0.7_erm_exp1.0_seed42_20260613_071316.log`) is written to `config.root_log`. The log file uses line buffering, so entries appear immediately.
+- **Optional logging:** Use `--save_checkpoint` to enable model checkpoint saving, and `--use_wandb` to enable Weights & Biases tracking.
 - Handles data loader creation with different samplers: `WeightedRandomBatchSampler`, `WeightedFixedBatchSampler`, `StratifiedSampler`, or standard random sampler.
 - Manages logging (TensorBoard, CSV), metrics (top‑1, top‑5, per‑class recall, many/median/low shot accuracy), and checkpointing.
-- Derived trainers override `get_criterion()` and `train_one_epoch()`.
+- **Fixed:** `shot_acc()` now correctly handles `Subset` objects (when selection ratio < 1.0) by extracting labels from the original dataset, preventing `AttributeError` during many/median/low‑shot accuracy computation.
 
 ### Model Architecture
 - Backbone: ResNet‑32 (defined in `resnet_cifar.py` with `resnet32()` → `ResNet_s` with `[5,5,5]` blocks).
@@ -125,21 +136,42 @@ Maps strategy names to trainer classes:
 ---
 
 ## 8. EXPERIMENTAL PIPELINE MATRIX
-The system evaluates performance using combinations of dataset variations, noise injection, selection ratios ($1.0 \rightarrow 0.1$), and specific data augmentation techniques:
 
-| Dataset Configuration | Data Selection / Ratio | Augmentation & Optimization Strategy |
-| :--- | :--- | :--- |
-| `cifar10` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | Weak Augmentation |
-| `cifar10_noise0.15` / `0.20` / `0.25` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | Weak Augmentation |
-| `deepSMOTE_cifar10_exp0.01` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | Weak Augmentation |
-| `deepSMOTE_cifar10_exp0.01_noise0.15`/`0.20`/`0.25` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | Weak Augmentation |
-| `cifar10` | SAVA (0.7) | `mixup_drw` (Epoch thresholds: 140, 150, 160, 170, 180) |
-| `imb_cifar10` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | `MAMix_DRW` |
-| `imb_cifar10_noise0.15` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | `MAMix_DRW` |
-| `randOversamp_imb_cifar10` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | Weak Augmentation |
-| `randOversamp_imb_cifar10_noise0.15`/`0.20`/`0.25` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | Weak Augmentation |
-| `noise0.15`/`0.20`/`0.25_imb_cifar10_randOversamp(2)` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | Weak Augmentation |
-| `cifar100` | Baseline (1.0) / SAVA ($0.9 \rightarrow 0.1$) | Weak Augmentation |
+The system evaluates performance using combinations of dataset variations, noise injection, selection ratios (1.0, 0.9, 0.7, 0.5, 0.3, 0.1), and specific data augmentation techniques.
+
+### ERM (Weak Augmentation)
+| Dataset Configuration | Data Selection / Ratio |
+|-----------------------|------------------------|
+| `cifar10`             | Baseline (1.0) / SAVA (0.9→0.1) / LAVA (0.9→0.1) |
+| `cifar10_noise0.15`   | Baseline / SAVA / LAVA |
+| `cifar10_noise0.20`   | Baseline / SAVA / LAVA |
+| `cifar10_noise0.25`   | Baseline / SAVA / LAVA |
+| `cifar100`            | Baseline / SAVA / LAVA |
+| `cifar100_noise0.15`  | Baseline / SAVA / LAVA |
+| `cifar100_noise0.20`  | Baseline / SAVA / LAVA |
+| `cifar100_noise0.25`  | Baseline / SAVA / LAVA |
+
+### DeepSMOTE (Weak Augmentation)
+| Dataset Configuration | Data Selection / Ratio |
+|-----------------------|------------------------|
+| `deepSMOTE_cifar10_exp0.01` | Baseline (1.0) / SAVA (0.9→0.1) / LAVA (0.9→0.1) |
+| `deepSMOTE_cifar10_exp0.01_noise0.15` | Baseline / SAVA / LAVA |
+| `deepSMOTE_cifar10_exp0.01_noise0.20` | Baseline / SAVA / LAVA |
+| `deepSMOTE_cifar10_exp0.01_noise0.25` | Baseline / SAVA / LAVA |
+| `deepSMOTE_cifar100_exp0.01` | Baseline / SAVA / LAVA |
+| `deepSMOTE_cifar100_exp0.01_noise0.15` | Baseline / SAVA / LAVA |
+| `deepSMOTE_cifar100_exp0.01_noise0.20` | Baseline / SAVA / LAVA |
+| `deepSMOTE_cifar100_exp0.01_noise0.25` | Baseline / SAVA / LAVA |
+
+### MAMix_DRW (Weak Augmentation, imb_factor=0.01)
+| Dataset | DRW Switch Epoch | Selection Ratios |
+|---------|------------------|------------------|
+| `cifar10` | 140,150,160,170,180 | Baseline (1.0) / SAVA (0.9→0.1) / LAVA (0.9→0.1) |
+| `cifar100` | 140,150,160,170,180 | Baseline (1.0) / SAVA (0.9→0.1) / LAVA (0.9→0.1) |
+
+### Additional Pipelines (Planned)
+- `MAMix_DRW` on noisy CIFAR‑10/100 with SAVA/LAVA (future)
+- MixUp_DRW, Remix_DRW, Reweight_CB, M2m with SAVA/LAVA (future)
 
 ---
 
@@ -150,8 +182,9 @@ The system evaluates performance using combinations of dataset variations, noise
 - Sets up logging, seed, device.
 - Builds model (`build_model`).
 - Creates `ImbalancedDataset`.
-- If `selection_ratio < 1.0` and strategy not internal, wraps with `SavaDataset`.
+- If `selection_ratio < 1.0` and strategy not internal, wraps with `SavaDataset` (supports `selection_method` = `'sava'`, `'lava'`, `'random'`, `'none'`).
 - Builds trainer via `build_trainer()` and calls `do_train_val()`.
+- **Folder creation:** `prepare_folders()` now only creates `config.root_log` (top‑level log directory). No experiment subfolders are created unless checkpoint saving is enabled (via `--save_checkpoint`). This keeps the filesystem clean.
 
 ### `train.py` – Ratio Sweep
 - Takes a base YAML config and a list of selection ratios (`--ratios`).
@@ -159,12 +192,23 @@ The system evaluates performance using combinations of dataset variations, noise
 - Logs errors to `ratio_sweep_errors.log`.
 - Allows batch experimentation across ratios without manual editing.
 
----
+### `train_all.py` – Multi‑Config Sweep
+- Iterates over all YAML files in a given directory, runs `train.py` on each, logs errors, continues on failure.
+
+### Debugging Mode
+
+Set `debug: true` in any YAML config (or pass `--debug` on the command line) to enable detailed logging from:
+- Data selection (SavaDataset, sava_selection, sava_helpers)
+- Trainer initialisation (DeepSMOTESavaTrainer, BaseTrainer)
+- Training loop (ERM trainer: gradient norms, device checks)
+- Metrics computation (shot_acc: per‑class counts, many/median/low shot breakdown)
+
+**All debug output is written to `./debug/debug_YYYYMMDD_HHMMSS.log`** (relative to the project root), separate from experiment logs. The main experiment log (console and file) remains clean of debug noise.
 
 ## 10. REPOSITORY BLUEPRINT (UPDATED)
 ```text
 imbalanced-DL-sampling/
-├── config/                  # YAML configurations (cifar10/, cifar100/, cifar10_noisy/)
+├── config/                  # YAML configurations (cifar10/, cifar100/, cifar10_noisy/, deepsmote/, mamix/)
 ├── data/                    # Raw CIFAR datasets
 ├── deepsmote/               # DeepSMOTE generation engine
 ├── deepsmote_models/        # Pre‑generated balanced DeepSMOTE features/labels
@@ -172,86 +216,15 @@ imbalanced-DL-sampling/
 │   ├── dataset/             # ImbalanceDataset, SavaDataset, noise injection
 │   ├── loss/                # LDAM, CB loss
 │   ├── net/                 # resnet_cifar.py, network.py
-│   └── strategy/            # Trainers + selection_method/ (sava_selection.py, random_selection.py)
+│   ├── strategy/            # Trainers + selection_method/ (sava_selection.py, random_selection.py)
+│   └── utils/               # _augmentation.py, metrics.py (fixed Subset handling), sava_helpers.py
 ├── results_sava/            # Experiment logs (TensorBoard, CSVs)
 ├── sava/                    # LAVA/SAVA core (api.py, otdd/, models/)
-├── sava_selection_results/  # Cached SAVA sorted indices (.npy files)
+├── sava_selection_results/  # Cached SAVA/LAVA sorted indices (.npy files)
 ├── temp_ratio_configs/      # Dynamic configs generated by train.py
 ├── config.py                # Unified argument parser + YAML loader
 ├── main.py                  # Single experiment entry point
 ├── train.py                 # Ratio sweep orchestrator
+├── train_all.py             # Multi‑config launcher
 └── structurePrinter.py      # Utility to print project tree
-```
-
-## 11. CONFIGURATION ATTRIBUTE MATRIX
-
-When interacting with the parsed configuration namespace (`config` or `args`), fields map strictly to the following parameters:
-
-### Core Dataset & Imbalance
-- `config.dataset`: str (`'cifar10'`, `'cifar100'`)
-- `config.imb_factor`: float (e.g., `0.01` for severe imbalance)
-- `config.imb_type`: str (`'exp'`, `'step'`)
-- `config.num_classes`: int (inferred from dataset: 10 or 100)
-- `config.data_path`: str (path to raw data, default `'./data'`)
-- `config.cifar_root`: str (alternative root for CIFAR, default `'./data'`)
-
-### Selection & Filtering
-- `config.selection_method`: str (`'sava'`, `'random'`, `'lava'`, `'none'`)
-- `config.selection_ratio`: float in `[0.1, 1.0]`
-- `config.sava_batch_size`: int (default 1024, configurable up to 5000)
-- `config.sava_cache_label_distances`: bool (default True)
-
-### Training Strategy
-- `config.strategy`: str (e.g., `'ERM'`, `'DRW'`, `'LDAM_DRW'`, `'Mixup_DRW'`, `'MAMix_DRW'`, `'DeepSMOTE'`, `'DeepSMOTE_Sava'`, `'RandomOversampling_Selection'`)
-- `config.base_strategy`: str (for two‑stage methods: `'ERM'`, `'Mixup'`, `'DRW'`, `'LDAM_DRW'`, `'Reweight_CB'`)
-- `config.loss_type`: str (`'CE'`, `'Focal'`, `'LDAM'`)
-- `config.train_rule`: str or None (e.g., `'DRW'` to enable deferred re‑weighting)
-
-### Noise & Augmentation
-- `config.noise_ratio`: float in `[0.0, 0.25]`
-- `config.noise_first`: bool (inject noise before oversampling)
-- `config.augmentation`: str (`'weak'`, `'none'`, `'trivial'`)
-
-### Classifier & Backbone
-- `config.classifier`: str (`'dot_product_classifier'` or `'cosine_similarity_classifier'`)
-- `config.backbone`: str (default `'resnet32'`)
-
-### Logging & Output
-- `config.store_name`: str (output directory identifier, auto‑generated if not set)
-- `config.root_log`: str (default `'log'`, e.g., `'results_sava/...'`)
-- `config.root_model`: str (default `'checkpoint'`)
-
-### Optimization Hyperparameters
-- `config.epochs`: int (default 200)
-- `config.start_epoch`: int (default 0)
-- `config.batch_size`: int (default 128)
-- `config.learning_rate`: float (default 0.1)
-- `config.weight_decay`: float (default 2e-4)
-- `config.momentum`: float (default 0.9)
-- `config.optimizer`: str (default `'sgd'`)
-- `config.lr_steps`: list of int (epochs where LR decays, e.g., `[120, 160]`)
-- `config.gamma`: float (LR decay factor, default 0.1)
-- `config.print_freq`: int (logging interval, default 10)
-
-### Mixup / MAMix Specific
-- `config.mixup_alpha`: float (strength of mixup interpolation, default 1.0)
-- `config.mamix_ratio`: float (MAMix interpolation ratio, default 1.0)
-
-### Sampling
-- `config.sampling`: str (`'Random'`, `'WeightedRandomBatchSampler'`, `'WeightedFixedBatchSampler'`, `'StratifiedSampler'`)
-- `config.n_batches`: int (for weighted samplers, default 400)
-- `config.alpha`: float (for weighted samplers, default 0.5)
-
-### Reproducibility
-- `config.seed`: int or None
-- `config.rand_number`: int (default 0)
-
-### Hardware & Workers
-- `config.gpu`: int or None (specific GPU id)
-- `config.device`: str (`'cuda'` or `'cpu'`)
-- `config.workers`: int (number of data loading workers, default 4)
-
-## 12. Current Objectives
-1. Find out what pipelines has been trained.
-2. Prepare config files and code implementions for pipelines that has not been changed.
-3. Train the remaining tasks.
+├── debug/                    # Debug logs (created only when --debug is used)

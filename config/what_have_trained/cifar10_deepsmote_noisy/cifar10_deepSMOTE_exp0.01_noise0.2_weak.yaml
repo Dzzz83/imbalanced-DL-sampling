@@ -2,7 +2,7 @@
 dataset: cifar10
 num_classes: 10
 imb_type: exp        # Exponential imbalance
-imb_factor: 1.0     # 100:1 ratio between head and tail classes
+imb_factor: 0.01     # 100:1 ratio between head and tail classes
 data_path: ./data
 classifier: 'dot_product_classifier'
 augmentation: weak
@@ -16,10 +16,15 @@ device: cuda
 sava_batch_size: 5000          # Batch size for hierarchical OT computation
 sava_cache_label_distances: true   # Cache label‑to‑label OT distances across batches
 
+# Noise
+noise_first: False
+noise_ratio: 0.2
+
 # Training Strategy
-strategy: ERM
+strategy: DeepSMOTE_Sava
 loss_type: CE        # Cross Entropy (can be LDAM or CB)
 train_rule: None     # Can be 'DRW' to trigger re‑weighting mid‑training
+base_strategy: ERM
 
 # Hyperparameters
 epochs: 200
@@ -40,12 +45,9 @@ workers: 4
 optimizer: sgd
 
 # Logging & Checkpoints
-root_log: results/test/results_sava/cifar10_weak
+root_log: results/results_sava/cifar10/cifar10_exp0.01_deepSMOTE_noise0.2
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_sava_0.7_weakAug_exp0.01
 cifar_root: ./data
 gpu: 0
 seed: 42
-
-# Debug
-debug: true

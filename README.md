@@ -1,157 +1,286 @@
-# imbalanced-DL: Deep Imbalanced Learning in Python
+# SAVA & LAVA Imbalanced Learning Framework
 
+A modular framework for training robust models under severe class imbalance using **SAVA** (Sinkhorn Autoregressive Valuation Augmentation) and **LAVA** (Layered Alternating Valuation Analysis) data‑valuation techniques. Supports CIFAR‑10/100, label noise injection, DeepSMOTE oversampling, and multiple imbalance‑aware strategies (LDAM‑DRW, MAMix, MixUp, etc.). Includes automated ratio sweeps and extensive logging.
+
+---
+
+## Table of Contents
+
+* [Overview](https://www.google.com/search?q=%23overview)Q
+* [Key Features](https://www.google.com/search?q=%23key-features)
+* [Repository Structure](https://www.google.com/search?q=%23repository-structure)
+* [Installation](https://www.google.com/search?q=%23installation)
+* [Usage](https://www.google.com/search?q=%23usage)
+* [Single Experiment](https://www.google.com/search?q=%23single-experiment)
+* [Ratio Sweep](https://www.google.com/search?q=%23ratio-sweep)
+* [Multi‑Config Sweep](https://www.google.com/search?q=%23multi%E2%80%91config-sweep)
+* [DeepSMOTE Data Generation](https://www.google.com/search?q=%23deepsmote-data-generation)
+
+
+* [Configuration](https://www.google.com/search?q=%23configuration)
+* [Strategies Implemented](https://www.google.com/search?q=%23strategies-implemented)
+* [Results & Logging](https://www.google.com/search?q=%23results--logging)
+* [Extending the Framework](https://www.google.com/search?q=%23extending-the-framework)
+* [Acknowledgements](https://www.google.com/search?q=%23acknowledgements)
+
+---
 
 ## Overview
-`imbalanced-DL` (imported as imbalanceddl) is a Python package designed to make deep imbalanced learning easier for researchers and real-world users. From our experiences, we observe that to tackcle deep imbalanced learning, there is a need for a strategy. That is, we may not just address this problem with one single model or approach. Thus in this package, we seek to provide several **strategies for deep imbalanced learning**. The package not only implements several popular deep imbalanced learning strategies, but also provides benchmark results on several image classification tasks. Futhermore, this package provides an interface for implementing more datasets and strategies.
 
+Imbalanced datasets cause standard ERM models to bias toward majority classes. This framework tackles the problem by:
 
-## Strategy
-We provide some baseline strategies as well as some state-of-the-are strategies in this package as the following:
-* Empirical Risk Minimization (baseline strategy)
-* [Reweighting with Class Balance (CB) Loss](https://arxiv.org/pdf/1901.05555.pdf)
-* [Deferred Re-Weighting (DRW)](https://arxiv.org/pdf/1906.07413.pdf)
-* [M2m: Major-to-minor translation](https://arxiv.org/pdf/2004.00431.pdf)
-* [Label Distribution Aware Margin (LDAM) Loss with DRW](https://arxiv.org/pdf/1906.07413.pdf)
-* [DeepSMOTE: Fusing Deep Learning and SMOTE for Imbalanced Data](https://arxiv.org/pdf/2105.02340.pdf)
-* [Mixup with DRW](https://arxiv.org/pdf/1710.09412.pdf)
-* [Remix with DRW](https://arxiv.org/pdf/2007.03943.pdf)
-* [MAMix with DRW (Link Coming Soon)]()
+1. **Valuating each training sample** with SAVA/LAVA scores (based on optimal transport).
+2. **Selecting the most valuable subset** (e.g., 70% of the data) to train a downstream model.
+3. **Combining selection with advanced imbalance strategies** like LDAM‑DRW, MAMix, DeepSMOTE, and reweighting.
 
+The system is fully configurable via YAML files, supports label noise injection, and automates ratio sweeps (1.0 → 0.1) for reproducible experiments.
 
-## Environments
-* This package is tested on Linux OS.
-* You are suggested to use a different virtual environment so as to avoid package dependency issue.
-* For Pyenv & Virtualenv users, you can follow the below steps to create a new virtual environment or you can also skip this step.
-##### Pyenv & Virtualenv (Optinal)
-* For dependency isolation, it's better to create another virtual environment for usage.
-* The following will be the demo for creating and managing virtual environment.
-* Install `pyenv` & `virtualenv` first.
-* `pyenv virtualenv [version] [virtualenv_name]`
-    *  For example, if you'd like to use python 3.6.8, you can do: `pyenv virtualenv 3.6.8 TestEnv`
-* `mkdir [dir_name]`
-* `cd [dir_name]`
-* `pyenv local [virtualenv_name]`
-* Then, you will have a new (clean) python virtual environment for the package installation.
+---
 
+## Key Features
 
-## Installation 
-### Basic Requirement
-* Python >= 3.6
+* **Data valuation** – SAVA and LAVA scoring using Sinkhorn distances on raw pixels.
+* **Selection** – Keep top‑k most valuable samples (lowest score). Also supports random selection.
+* **Caching** – Pre‑computed scores are cached (`sava_selection_results/`) for reuse.
+* **Imbalanced datasets** – Exponential or step imbalance (CIFAR‑10/100), configurable imbalance factor (0.01, 0.02, …).
+* **Label noise** – Symmetric label noise (0.15, 0.20, 0.25) injected either before or after oversampling.
+* **DeepSMOTE integration** – Generate balanced data once; then apply SAVA/LAVA selection on the balanced set.
+* **Training strategies** – ERM, DRW, LDAM‑DRW, MixUp_DRW, Remix_DRW, MAMix_DRW, Reweight‑CB, M2m, DeepSMOTE.
+* **Samplers** – Random, WeightedRandomBatchSampler, WeightedFixedBatchSampler, StratifiedSampler.
+* **Automation** – `train.py` sweeps ratios; `train_all.py` sweeps over multiple YAML configs.
+* **Logging** – TensorBoard, CSV logs, per‑class recall, many/median/low‑shot accuracy.
+
+---
+
+## Repository Structure
+
+```text
+imbalanced-DL-sampling/
+├── config/                       # YAML configurations (grouped by dataset/strategy)
+├── data/                         # Raw CIFAR datasets (downloaded automatically)
+├── deepsmote/                    # DeepSMOTE generation scripts
+├── deepsmote_models/             # Pre‑generated balanced DeepSMOTE data
+├── imbalanceddl/                 # Core package
+│   ├── dataset/                  # ImbalancedDataset, SavaDataset, noise injection
+│   ├── loss/                     # LDAM, Class‑Balanced loss
+│   ├── net/                      # ResNet‑32 backbone, classifier
+│   ├── strategy/                 # All trainers + selection_method/ (sava_selection.py)
+│   └── utils/                    # Augmentations, metrics (shot_acc), logging, etc.
+├── results_sava/                 # Experiment logs (TensorBoard events, CSV, text logs)
+├── sava/                         # SAVA/LAVA core (optimal transport, hierarchical OT)
+├── sava_selection_results/       # Cached sorted indices (.npy files)
+├── temp_ratio_configs/           # Temporary configs generated by train.py
+├── main.py                       # Entry point for a single experiment
+├── train.py                      # Ratio sweep launcher
+├── train_all.py                  # Run all YAMLs in a directory
+├── config.py                     # Unified argument parser + YAML loader
+└── structurePrinter.py           # Utility to print project tree
 
 ```
-git clone https://github.com/ntucllab/imbalanced-DL.git
-cd imbalanceddl
-python -m pip install -r requirements.txt
-python setup.py install
+
+---
+
+## Installation
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/your-username/imbalanced-DL-sampling.git
+cd imbalanced-DL-sampling
+
 ```
-### Note
-* If you would like to further develop your own algorithm within this package, or modifying existing files, please remember to build again locally with `python setup.py install` so that the change will be updated in the package.
-* Please also note that by default, `CIFAR10`, `CIFAR100`, and `SVHN` are defaulted available when you are using PyTorch, you can experiment with these three basic datasets first, and if you would like to further test your algorithm on larger images, you can follow the instruction in the `/example/README.md` for further downloading information for `CINIC10` and `Tiny-ImageNet`.
+
+### 2. Create and activate Conda environment
+
+```bash
+conda create -n my_env python=3.10.20
+conda activate my_env
+
+```
+
+### 3. Install PyTorch (CUDA 11.8 example)
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
+```
+
+### 4. Install other dependencies
+
+```bash
+pip install -r requirements.txt
+
+```
+
+*(If `requirements.txt` is not provided, install manually: `numpy`, `scikit-learn`, `tensorboardX`, `wandb`, `matplotlib`, `pyyaml`, `tqdm`, `POT` (Python Optimal Transport).)*
+
+### 5. Set up SAVA submodule
+
+The `sava/` folder must contain the optimal transport backend. If missing, copy it from the original source or ensure the path is correct. The framework automatically inserts `sava/` into `sys.path`.
+
+---
 
 ## Usage
-We highlight three key features of `imbalanced-DL` as the following:
 
-(0) Imbalanced Dataset:
-* We support 5 benchmark image datasets for deep imbalanced learing.
-* To create and ImbalancedDataset object, you will need to provide a `config_file` as well as the dataset name you would like to use.
-* Specifically, inside the `config_file`, you will need to specify three key parameters for creating imbalanced dataset.
-    * `imb_type`: you can choose from `exp` (long-tailed imbalance) or `step` imbalanced type.
-    * `imb_ratio`: you can specify the imbalanceness of your data, typically researchers choose `0.1` or `0.01`.
-    * `dataset_name`: you can specify 5 benchmark image datasets we provide, or you can implement your own dataset.
-    * For an example of the `config_file`, you can see [example/config](https://github.com/ntucllab/imbalanced-DL/blob/main/example/config/config_cifar10.yaml).
-* To contruct your own dataset, you should inherit from [`BaseDataset`](https://github.com/ntucllab/imbalanced-DL/blob/e63acaab958bf206edad9418e9c30352e9566356/imbalanceddl/dataset/dataset_base.py#L4), and you can follow [`torchvision.datasets.ImageFolder`](https://pytorch.org/vision/stable/_modules/torchvision/datasets/folder.html#ImageFolder) to construct your dataset in PyTorch format.
+### Single Experiment
 
+Run a single configuration (e.g., ERM on CIFAR‑10 with SAVA selection ratio 0.7 and noise 0.25):
 
-```python
-from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
-
-# specify the dataset name
-imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset)
+```bash
+python main.py --config config/cifar10_noisy/cifar10_noise0.25_weak.yaml
 
 ```
 
-(1) Strategy Trainer:
-* We support 6 different strategies for deep imbalance learning, and you can either choose to train from scratch, or evaluate with the best model after training. To evaluate with the best model, you can get more in-depth metrics such as per class accuracy for further evaluation on the performance of the selected strategy. We provide one trained model in [example/checkpoint_cifar10](https://github.com/ntucllab/imbalanced-DL/tree/main/example/checkpoint_cifar10).
-* For each strategy trainer, it is associated with a `config_file`, `ImbalancedDataset object`, `model`, and `strategy_name`.
-* Specifically, the `config_file` will provide some training parameters, where the default settings for reproducing benchmark result can be found in [example/config](https://github.com/ntucllab/imbalanced-DL/tree/main/example/config). You can also set these training parameters based on your own need.
-* For `model`, we currently provide `resnet32` and `resnet18` for reproducing the benchmark results.
-* We provide a `build_trainer()` function to return the specified trainer as the following.
+The YAML file specifies all hyperparameters. Command‑line overrides are also possible:
 
-```python
-from imbalanceddl.strategy.build_trainer import build_trainer
-
-# specify the strategy
-trainer = build_trainer(config,
-                        imbalance_dataset,
-                        model=model,
-                        strategy=config.strategy)
-# train from scratch
-trainer.do_train_val()
-
-# Evaluate with best model
-trainer.eval_best_model()
+```bash
+python main.py --config config/example.yaml --epochs 1 --selection_ratio 1.0
 
 ```
-* Or you can also just select the specific strategy you would like to use as:
 
+### Ratio Sweep
 
-```python
-from imbalanceddl.strategy import LDAMDRWTrainer
+Use `train.py` to sweep a base YAML over multiple selection ratios (1.0, 0.9, 0.7, 0.5, 0.3, 0.1):
 
-# pick the trainer
-trainer = LDAMDRWTrainer(config,
-                         imbalance_dataset,
-                         model=model,
-                         strategy=config.strategy)
-
-# train from scratch
-trainer.do_train_val()
-
-# Evaluate with best model
-trainer.eval_best_model()
+```bash
+python train.py --config config/mamix_cifar10_epoch140.yaml --ratios 1.0 0.9 0.7 0.5 0.3 0.1
 
 ```
-* To construct your own strategy trainer, you need to inherit from [`Trainer`](https://github.com/ntucllab/imbalanced-DL/blob/e63acaab958bf206edad9418e9c30352e9566356/imbalanceddl/strategy/trainer.py#L11) class, where in your own strategy you will have to implement `get_criterion()` and `train_one_epoch()` method. After this you can choose whether to add your strategy to `build_trainer()` function or you can just use it as the above demonstration.
 
+For each ratio, a temporary YAML is created and executed via `main.py`. All outputs are streamed to the console; errors are logged to `ratio_sweep_errors.log`.
 
-(2) Benchmark research environment:
-* To conduct deep imbalanced learning research, we provide example codes for training with different strategies, and provide benchmark results on five image datasets. To quickly start training CIFAR-10 with ERM strategy, you can do:
+### Multi‑Config Sweep
+
+To run all YAML files in a directory (e.g., all MAMix epoch variants), use `train_all.py`:
+
+```bash
+python train_all.py --config_dir config/mamix_cifar100/ --ratios 1.0 0.9 0.7 0.5 0.3 0.1
 
 ```
-cd example
-python main.py --gpu 0 --seed 1126 --c config/config_cifar10.yaml --strategy ERM
+
+It processes each `.yaml` file sequentially, logs errors, and continues. A summary of failed configs is printed at the end.
+
+### DeepSMOTE Data Generation
+
+Before using DeepSMOTE strategies, you must generate the balanced data:
+
+```bash
+cd deepsmote
+python Deepsmote_Generate_Balance.py --dataset cifar100 --imb_factor 0.01 --imb_type exp --epochs 200 --batch_size 128 --lr 0.001 --train
 
 ```
-* Following the example code, you can not only get results from baseline training as well as state-of-the-art performance such as [LDAM](https://arxiv.org/pdf/1906.07413.pdf) or [Remix](https://arxiv.org/pdf/2007.03943.pdf), but also use this environment to develop your own algorithm / strategy. Feel free to add your own strategy into this package.
-* For more information about example and usage, please see the [Example README](https://github.com/ntucllab/imbalanced-DL/tree/main/example)
 
-## Benchmark Results
-We provide benchmark results on 5 image datasets, including **CIFAR-10**, **CIFAR-100**, **CINIC-10**, **SVHN**, and **Tiny-ImageNet**. We follow standard procedure to generate imbalanced training dataset for these 5 datasets, and provide their top 1 validation accuracy results for research benchmark. For example, below you can see the result table of **Long-tailed Imbalanced CIFAR-10** trained on different strategies. For more detailed benchmark results, please see [example/README.md](https://github.com/ntucllab/imbalanced-DL/tree/main/example).
+This creates `deepsmote_models/cifar100/cifar100_exp_R100_train_data.txt` and corresponding labels. For noisy variants, the trainer injects noise on the fly (`noise_first: false`). If you need noise‑first pipelines, pre‑generate noise‑specific files.
 
-* `Long-tailed Imbalanced CIFAR-10`
+---
 
-| `imb_type` |`imb_factor`|   Model   | Strategy | Validation Top 1 |
-|:----------:|:----------:|:---------:|:--------:|:----------------:|
-|long-tailed | 100        | ResNet32  | ERM      | 71.23            |
-|long-tailed | 100        | ResNet32  | DRW      | 75.08            |
-|long-tailed | 100        | ResNet32  | M2m      | 76.15            |
-|long-tailed | 100        | ResNet32  | DeepSMOTE| 76.66            |
-|long-tailed | 100        | ResNet32  | LDAM-DRW | 77.75            |
-|long-tailed | 100        | ResNet32  | Mixup-DRW| 82.11            |
-|long-tailed | 100        | ResNet32  | Remix-DRW| 81.82            |
-|long-tailed | 100        | ResNet32  | MAMix-DRW| 82.29            |
+## Configuration
 
+Configuration uses YAML files. Below is a minimal example for ERM with SAVA selection:
 
-## Test
-* `python -m unittest -v`
+```yaml
+dataset: cifar10
+imb_factor: 0.01
+imb_type: exp
+augmentation: weak
+selection_method: sava
+selection_ratio: 0.7
+strategy: ERM
+epochs: 200
+batch_size: 128
+learning_rate: 0.1
+seed: 42
 
+```
 
-## Contact
-If you have any question, please don't hesitate to email `wccheng3011@gmail.com` or `maitanhaksdtvt6@gmail.com`. Thanks !
+For a complete list of options, see the Configuration Attribute Matrix or inspect `config.py`.
 
+### Key Parameters
 
-## Acknowledgement
-The authors thank members of the Computational Learning Lab at National Taiwan University for valuable discussions and various contributions to making this package better.
+| Parameter | Description |
+| --- | --- |
+| `dataset` | `cifar10` or `cifar100` |
+| `imb_factor` | Imbalance ratio (e.g., 0.01 = 100:1) |
+| `noise_ratio` | Label noise fraction (0.0 – 0.25) |
+| `selection_method` | `sava`, `lava`, `random`, `none` |
+| `selection_ratio` | Fraction of data to keep (1.0 = no selection) |
+| `strategy` | Training strategy (see table below) |
+| `drw_switch_epoch` | For MAMix_DRW – epoch when class‑balanced weights are enabled (default 160) |
 
-## Notice for Tiny200 dataset.
-You might face the issue with validation dataset of Tiny200 when you reproduce on this dataset, because the structure of validate dataset is not well-organized yet. Therefore, you need to preprocess the validation dataset of it by running the `make.py` file to reorganize it before training. You need to copy the `make.py` to `tiny/val/` folder and then just run this file.
+---
+
+## Strategies Implemented
+
+| Strategy Name | Trainer Class | Key Feature |
+| --- | --- | --- |
+| `ERM` | `ERMTrainer` | Standard cross‑entropy |
+| `DRW` | `DRWTrainer` | Deferred re‑weighting |
+| `LDAM_DRW` | `LDAMDRWTrainer` | LDAM loss + DRW |
+| `Mixup_DRW` | `MixupTrainer` | Mixup data augmentation + DRW |
+| `Remix_DRW` | `RemixTrainer` | Remix (label‑aware mixup) + DRW |
+| `MAMix_DRW` | `MAMixTrainer` | Multi‑head mixup (class‑dependent interpolation) + DRW |
+| `Reweight_CB` | `ReweightCBTrainer` | Class‑balanced loss |
+| `M2m` | `M2mTrainer` | Meta‑learning for imbalanced data |
+| `DeepSMOTE` | `DeepSMOTETrainer` | Synthetic oversampling in feature space |
+| `DeepSMOTE_Sava` | `DeepSMOTESavaTrainer` | DeepSMOTE + SAVA/LAVA selection |
+| `RandomOversampling_Selection` | `RandomOversamplingTrainer` | Random oversampling + selection |
+
+---
+
+## Results & Logging
+
+Each experiment creates a unique directory under `results_sava/`, for example:
+
+```text
+results_sava/cifar100/cifar100_exp0.01_mamix_epoch140/cifar100_exp_0.01_MAMix_DRW_0.7_42/
+├── args.txt                 # Full configuration
+├── log_train.csv            # Training metrics per epoch
+├── log_test.csv             # Validation metrics per epoch
+├── events.out.tfevents.* # TensorBoard logs
+└── checkpoint.pth.tar       # Best model (if saving enabled)
+
+```
+
+* **TensorBoard**: Launch with `tensorboard --logdir results_sava`.
+* **CSV logs**: Contain epoch, loss, top1, top5, and per‑class recall.
+* **Console logs**: Also saved as `.log` files for each run.
+
+---
+
+## Extending the Framework
+
+### Adding a New Strategy
+
+1. Create a new file `imbalanceddl/strategy/_my_strategy.py` with a class inheriting from `Trainer`.
+2. Implement `get_criterion()` and `train_one_epoch()`.
+3. Register the strategy in `build_trainer.py` by adding a mapping.
+
+### Adding a New Selection Method
+
+1. Implement a function similar to `get_sava_selection_indices` in `selection_method/`.
+2. Modify `SavaDataset` to call your function when `selection_method` matches.
+3. Update `SavaCacheKey` if caching is needed.
+
+### Adding a New Dataset
+
+1. Create a dataset loader in `imbalanceddl/dataset/` that returns `(train_dataset, val_dataset)`.
+2. Extend `ImbalancedDataset` with a new `_my_dataset()` method.
+3. Update the `train_val_sets` property accordingly.
+
+---
+
+## Acknowledgements
+
+This framework builds upon prior work:
+
+* **SAVA/LAVA** – original optimal transport valuation methods.
+* **LDAM‑DRW** – Cao et al. (2019).
+* **MAMix** – Clark et al. (2022).
+* **DeepSMOTE** – Dablain et al. (2021).
+* **CIFAR‑10/100** – Krizhevsky (2009).
+
+---
+
+## License
+
+MIT License. See [LICENSE](https://www.google.com/search?q=LICENSE) for details.

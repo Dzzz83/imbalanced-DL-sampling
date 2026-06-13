@@ -109,6 +109,15 @@ def get_args():
     parser.add_argument('--sava_cache_label_distances', default=True, type=bool,
                         help='Cache label-to-label OT distances across batches')
     
+    # Debug 
+    parser.add_argument('--debug', action='store_true', help='Enable verbose debug prints')
+
+    # Save checkpoint
+    parser.add_argument('--save_checkpoint', action='store_true', help='Save model checkpoints (default: False)')
+    
+    # wandb
+    parser.add_argument('--use_wandb', action='store_true', help='Enable Weights & Biases logging (default: False)')
+
     # update config from command line
     parser.set_defaults(**config)
     args = parser.parse_args()

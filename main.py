@@ -35,6 +35,7 @@ from imbalanceddl.net.network import build_model
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.strategy.build_trainer import build_trainer
 from imbalanceddl.utils.config import get_args
+from imbalanceddl.utils.debug_logger import get_debug_logger
 
 # Only keep SavaDataset (random selection is handled inside SavaDataset)
 from imbalanceddl.dataset.sava_dataset import SavaDataset
@@ -43,10 +44,19 @@ def main():
     # 1. Load Configuration
     config = get_args()
     
-    # 2. Setup Logging and Folders
+    # 2. Setup Logging and Folders (only creates root_log, no subfolders)
     prepare_store_name(config)
     print(f"=> Store Name = {config.store_name}")
-    prepare_folders(config)
+    prepare_folders(config)   # now only creates root_log
+
+    # 2b. Initialise debug logger if requested – use global './debug' folder
+    if getattr(config, 'debug', False):
+        # No custom log_dir – uses default './debug'
+        get_debug_logger(debug=True)
+        logger = get_debug_logger(debug=True)
+        logger.debug("Debug logging enabled for this run.")
+    else:
+        get_debug_logger(debug=False)
 
     # 3. Seed for Reproducibility
     if config.seed is None:

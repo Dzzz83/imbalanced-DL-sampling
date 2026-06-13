@@ -16,10 +16,15 @@ device: cuda
 sava_batch_size: 5000          # Batch size for hierarchical OT computation
 sava_cache_label_distances: true   # Cache label‑to‑label OT distances across batches
 
+# Noise
+noise_first: False
+noise_ratio: 0.25
+
 # Training Strategy
 strategy: ERM
 loss_type: CE        # Cross Entropy (can be LDAM or CB)
 train_rule: None     # Can be 'DRW' to trigger re‑weighting mid‑training
+base_strategy: ERM
 
 # Hyperparameters
 epochs: 200
@@ -40,12 +45,9 @@ workers: 4
 optimizer: sgd
 
 # Logging & Checkpoints
-root_log: results/test/results_sava/cifar10_weak
+root_log: results/results_sava/test/cifar10/cifar10_exp1.0_noise0.25
 root_model: ./example/checkpoint_cifar10
 store_name: cifar10_sava_0.7_weakAug_exp0.01
 cifar_root: ./data
-gpu: 0
+gpu: 1
 seed: 42
-
-# Debug
-debug: true

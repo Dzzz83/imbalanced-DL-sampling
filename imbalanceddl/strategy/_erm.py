@@ -45,15 +45,14 @@ class ERMTrainer(Trainer):
                 _input = _input.cuda(self.cfg.gpu, non_blocking=True)
                 target = target.cuda(self.cfg.gpu, non_blocking=True)
 
-            if i == 0: # Only print for the first batch to avoid flooding the console
-                print(f"\n[DEBUG] Device Check - Batch {i}")
-                print(f"  Config GPU ID: {self.cfg.gpu}")
-                print(f"  Input Device:  {_input.device}")
-                print(f"  Target Device: {target.device}")
-                print(f"  Model Device:  {next(self.model.parameters()).device}")
-                print(f"  Criterion Weight Device: {self.criterion.weight.device if hasattr(self.criterion, 'weight') and self.criterion.weight is not None else 'No weights'}")
+            if i == 0 and self.debug:  # Only log the first batch debug info
+                self.debug_logger.debug(f"Device Check - Batch {i}")
+                self.debug_logger.debug(f"  Config GPU ID: {self.cfg.gpu}")
+                self.debug_logger.debug(f"  Input Device:  {_input.device}")
+                self.debug_logger.debug(f"  Target Device: {target.device}")
+                self.debug_logger.debug(f"  Model Device:  {next(self.model.parameters()).device}")
+                self.debug_logger.debug(f"  Criterion Weight Device: {self.criterion.weight.device if hasattr(self.criterion, 'weight') and self.criterion.weight is not None else 'No weights'}")
 
-            # print("=> ERM training")
             out, _ = self.model(_input)
             loss = self.criterion(out, target).mean()
             acc1, acc5 = accuracy(out, target, topk=(1, 5))
@@ -70,6 +69,16 @@ class ERMTrainer(Trainer):
             loss.backward()
             self.optimizer.step()
 
+            # Debug: gradient norm (logged only)
+            if self.debug and i % self.cfg.print_freq == 0:
+                total_norm = 0.0
+                for p in self.model.parameters():
+                    if p.grad is not None:
+                        param_norm = p.grad.data.norm(2)
+                        total_norm += param_norm.item() ** 2
+                total_norm = total_norm ** 0.5
+                self.debug_logger.debug(f"Batch {i} grad norm: {total_norm:.6f}")
+
             if i % self.cfg.print_freq == 0:
                 output = ('Epoch: [{0}][{1}/{2}], lr: {lr:.5f}\t'
                           'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -83,14 +92,16 @@ class ERMTrainer(Trainer):
                               top5=top5,
                               lr=self.optimizer.param_groups[-1]['lr'] * 0.1))
                 print(output)
-                self.log_training.write(output + '\n')
-                self.log_training.flush()
-                wandb.log({
-                    "epoch": self.epoch,
-                    "epoch_train_loss": losses.avg,
-                    "epoch_train_acc@1": top1.avg,
-                    "epoch_train_acc@5": top5.avg,
-                    "lr": self.optimizer.param_groups[-1]['lr'] * 0.1
+                if self.log_training is not None:
+                    self.log_training.write(output + '\n')
+                    self.log_training.flush()
+                if self.use_wandb:
+                    wandb.log({
+                        "epoch": self.epoch,
+                        "epoch_train_loss": losses.avg,
+                        "epoch_train_acc@1": top1.avg,
+                        "epoch_train_acc@5": top5.avg,
+                        "lr": self.optimizer.param_groups[-1]['lr'] * 0.1
                     })
 
         self.compute_metrics_and_record(all_preds,

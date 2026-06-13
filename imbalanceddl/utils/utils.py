@@ -31,23 +31,13 @@ def fix_all_seed(seed):
 
 
 def prepare_folders(args):
-    """
-    Usage: Prepare folders for training log
-
-    Args: args for setting
-
-    Return: None
-
-    """
-    folders_util = [
-        args.root_log, args.root_model,
-        os.path.join(args.root_log, args.store_name),
-        os.path.join(args.root_model, args.store_name)
-    ]
-    for folder in folders_util:
-        if not os.path.exists(folder):
-            print('creating folder ' + folder)
-            os.makedirs(folder, exist_ok=True)
+    if not os.path.exists(args.root_log):
+        print('creating folder ' + args.root_log)
+        os.makedirs(args.root_log, exist_ok=True)
+    if getattr(args, 'save_checkpoint', False):
+        if not os.path.exists(args.root_model):
+            print('creating folder ' + args.root_model)
+            os.makedirs(args.root_model, exist_ok=True)
 
 
 def prepare_store_name(args):
@@ -110,11 +100,13 @@ def prepare_store_name(args):
 
 
 def save_checkpoint(args, state, is_best, epoch):
-    """
-    Save modle checkpoint
-
-    """
-    filename = '%s/%s/ckpt.pth.tar' % (args.root_model, args.store_name)
+    """Save model checkpoint only if save_checkpoint flag is True."""
+    if not getattr(args, 'save_checkpoint', False):
+        return
+    # Ensure the directory exists
+    checkpoint_dir = os.path.join(args.root_model, args.store_name)
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    filename = os.path.join(checkpoint_dir, 'ckpt.pth.tar')
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, filename.replace('pth.tar', 'best.pth.tar'))

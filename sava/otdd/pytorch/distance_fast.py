@@ -306,8 +306,8 @@ class DatasetDistance:
         # idx: (n, ) indexes which we use for subsampling
         targets1, classes1, idxs1 = extract_data_targets(D1)
         targets2, classes2, idxs2 = extract_data_targets(D2)
-        print(f"len D1: {idxs1.shape}")
-        print(f"len D2: {idxs2.shape}")
+        # print(f"len D1: {idxs1.shape}")
+        # print(f"len D2: {idxs2.shape}")
 
         ## Get effective dataset number of samples
         self.idxs1, self.idxs2 = idxs1, idxs2
@@ -480,8 +480,8 @@ class DatasetDistance:
                     reindex=True,
                     reindex_start=reindex_start_d2,
                 )
-        to_save = [self.X1, self.Y1, self.X2, self.Y2]
-        pickle.dump(to_save, open("save_x1y1x2y2.txt", "wb"))
+        # to_save = [self.X1, self.Y1, self.X2, self.Y2]
+        # pickle.dump(to_save, open("save_x1y1x2y2.txt", "wb"))
 
         logger.info("Full datasets sizes")
         logger.info(
@@ -1971,7 +1971,7 @@ def batch_augmented_cost(
     elif feature_cost is None or feature_cost == "euclidean":  # default is euclidean
         C1 = cost_routines[p](Z1[:, :, :-1], Z2[:, :, :-1])  # Get from GeomLoss
     else:
-        print(f"batch_augmented_cost | featurecost {Z1[: ,:, :-1].shape}, {Z2[:, :, :-1].shape}")
+        # print(f"batch_augmented_cost | featurecost {Z1[: ,:, :-1].shape}, {Z2[:, :, :-1].shape}")
         C1 = feature_cost(Z1[:, :, :-1], Z2[:, :, :-1])  # Feature Embedding
 
     # Label Distances

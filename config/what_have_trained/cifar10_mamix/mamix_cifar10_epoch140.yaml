@@ -1,0 +1,50 @@
+# Dataset
+dataset: cifar10
+num_classes: 10
+imb_type: exp
+imb_factor: 0.01
+data_path: ./data
+classifier: dot_product_classifier
+augmentation: weak
+
+# Selection (SAVA)
+selection_method: sava
+selection_ratio: 0.7          # will be swept: 1.0,0.9,0.7,0.5,0.3,0.1
+device: cuda
+sava_batch_size: 5000
+sava_cache_label_distances: true
+
+# Noise
+noise_first: false
+noise_ratio: 0.0
+
+# Strategy
+strategy: MAMix_DRW
+loss_type: CE
+train_rule: null
+base_strategy: MAMix_DRW
+drw_switch_epoch: 140
+mamix_ratio: 1.0
+
+# Optimisation
+epochs: 200
+start_epoch: 0
+print_freq: 10
+batch_size: 128
+learning_rate: 0.1
+momentum: 0.9
+weight_decay: 0.0002
+lr_steps: [120, 160]
+gamma: 0.1
+rand_number: 0
+mixup_alpha: 1.0
+workers: 4
+optimizer: sgd
+
+# Logging
+root_log: results/results_sava/cifar10/cifar10_exp0.01_mamix_epoch140
+root_model: ./checkpoint_cifar10
+store_name: cifar10_mamix_sava_epoch140
+cifar_root: ./data
+gpu: 0
+seed: 42

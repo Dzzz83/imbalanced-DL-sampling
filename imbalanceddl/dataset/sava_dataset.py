@@ -4,7 +4,8 @@ import numpy as np
 import os
 from imbalanceddl.dataset import ImbalancedDataset
 from imbalanceddl.strategy.selection_method.sava_selection import get_sava_selection_indices
-from imbalanceddl.utils.sava_key_generation import SavaCacheKey   # ADDED
+from imbalanceddl.utils.sava_key_generation import SavaCacheKey
+from imbalanceddl.utils.debug_logger import get_debug_logger
 
 
 class SavaDataset(Dataset):
@@ -22,9 +23,26 @@ class SavaDataset(Dataset):
         self.ratio = ratio
         self.method = method
         self.device = device
+        self.debug = getattr(config, 'debug', False)
+        self.logger = get_debug_logger(debug=self.debug)
 
         train_ds, val_ds = self.base_dataset.train_val_sets
-        
+
+        # ----- BEGIN FIX: Save original class distribution before selection -----
+        if hasattr(train_ds, 'get_cls_num_list'):
+            original_counts = train_ds.get_cls_num_list()
+        elif hasattr(train_ds, 'targets'):
+            original_counts = np.bincount(train_ds.targets, minlength=self.config.num_classes).tolist()
+        else:
+            # Fallback: iterate (slow but one‑time)
+            all_targets = [train_ds[i][1] for i in range(len(train_ds))]
+            original_counts = np.bincount(all_targets, minlength=self.config.num_classes).tolist()
+        if not hasattr(self.config, 'original_cls_num_list') or self.config.original_cls_num_list is None:
+            self.config.original_cls_num_list = original_counts
+            if self.debug:
+                self.logger.debug(f"Saved original_cls_num_list: {self.config.original_cls_num_list}")
+        # ----- END FIX -----
+
         print(f"==> Starting Data Selection via SAVA...")
 
         method_str = str(method).lower()
@@ -32,7 +50,6 @@ class SavaDataset(Dataset):
         if method_str == 'sava':
             # Generate a unique cache key using SavaCacheKey (no LAVA dependency)
             is_noisy = hasattr(self.config, 'noise_ratio') and self.config.noise_ratio > 0
-            # Use SavaCacheKey instead of LavaCacheKey
             key_gen = SavaCacheKey(
                 config=self.config,
                 is_deepsmote=False,
@@ -42,39 +59,44 @@ class SavaDataset(Dataset):
                 is_selection_first=False
             )
             file_key = key_gen.generate()
-            # NOTE: SavaCacheKey.generate() already appends "_sava", so no need to add again.
-            # But if your existing cache files have "_sava" appended, keep as is.
-            # To be safe, we can leave it as is (it will produce e.g. "cifar10_exp_0.01_0_sava")
-            # No extra appending needed.
+
+            if self.debug:
+                self.logger.debug(f"SAVA cache key: {file_key}")
 
             print("Creating dataset (no augmentation) for SAVA scoring...")
             no_aug_dataset = ImbalancedDataset(self.config, self.config.dataset, augmentation='none')
             no_aug_train_dataset, _ = no_aug_dataset.train_val_sets
 
-            # Optional: If cap_per_class is used, we must apply the same cap to no_aug_train_dataset
-            # Otherwise indices will mismatch. For now, we warn and proceed.
             if hasattr(self.config, 'cap_per_class') and self.config.cap_per_class is not None:
                 print("WARNING: cap_per_class is set. SAVA scoring uses uncapped dataset, "
                       "but selection will be applied to capped dataset. This may cause index errors.")
-                # To fix, you could disable capping when selection_method=='sava' in the main script.
 
             indices = get_sava_selection_indices(
-            train_dataset=no_aug_train_dataset,
-            val_dataset=val_ds,
-            keep_ratio=self.ratio,
-            device=self.device,
-            file_key=file_key,
-            batch_size=getattr(self.config, 'sava_batch_size', 1024),
-            num_classes=self.config.num_classes,
-            resize=32,  # CIFAR images are 32x32
-            cache_label_distances=getattr(self.config, 'sava_cache_label_distances', True),
-            corrupt_por=0.0   # no corruption
-        )
+                train_dataset=no_aug_train_dataset,
+                val_dataset=val_ds,
+                keep_ratio=self.ratio,
+                device=self.device,
+                file_key=file_key,
+                batch_size=getattr(self.config, 'sava_batch_size', 1024),
+                num_classes=self.config.num_classes,
+                resize=32,
+                cache_label_distances=getattr(self.config, 'sava_cache_label_distances', True),
+                corrupt_por=0.0,
+                debug=self.debug
+            )
+
+            if self.debug:
+                self.logger.debug(f"SAVA returned {len(indices)} indices out of {len(no_aug_train_dataset)}")
+                self.logger.debug(f"First 10 indices: {indices[:10]}")
+                self.logger.debug(f"Last 10 indices: {indices[-10:]}")
 
             if hasattr(train_ds, 'targets'):
                 selected_targets = np.array(train_ds.targets)[indices]
                 unique, counts = np.unique(selected_targets, return_counts=True)
                 print(f"[SavaDataset] Selected class distribution: {dict(zip(unique, counts))}")
+                if self.debug:
+                    self.logger.debug(f"Original class distribution (full train set): "
+                                      f"{dict(zip(*np.unique(np.array(train_ds.targets), return_counts=True)))}")
 
         elif method_str == 'random':
             from imbalanceddl.strategy.selection_method.random_selection import random_selection
@@ -83,6 +105,8 @@ class SavaDataset(Dataset):
                 selected_targets = np.array(train_ds.targets)[indices]
                 unique, counts = np.unique(selected_targets, return_counts=True)
                 print(f"[SavaDataset] Random selection class distribution: {dict(zip(unique, counts))}")
+            if self.debug:
+                self.logger.debug(f"Random selection kept {len(indices)} samples")
         elif method_str == 'none':
             indices = list(range(len(train_ds)))
             print("==> No selection method specified. Using full dataset.")
@@ -103,6 +127,10 @@ class SavaDataset(Dataset):
         self.val_dataset = val_ds
         self.cls_num_list = self._compute_new_cls_num_list(indices, train_ds)
         self.config.cls_num_list = self.cls_num_list
+
+        if self.debug:
+            self.logger.debug(f"New cls_num_list: {self.cls_num_list}")
+            self.logger.debug(f"Total selected samples: {len(self.subset)}")
 
         print(f"[SavaDataset] Final cls_num_list: {self.cls_num_list}")
         print(f"==> Selection Complete. New training size: {len(self.subset)}")
@@ -135,7 +163,6 @@ class SavaDataset(Dataset):
         belonging to a particular class (0 .. num_classes-1).
         """
         targets_np = np.array(self.targets, dtype=np.int64)
-        # Ensure we have entries for all classes, even if count=0
         class_idxs = []
         for c in range(self.config.num_classes):
             idxs = np.where(targets_np == c)[0].tolist()
@@ -148,7 +175,7 @@ class SavaDataset(Dataset):
         to class frequency.
         """
         cls_counts = np.bincount(self.targets, minlength=self.config.num_classes)
-        cls_counts = np.maximum(cls_counts, 1)  # avoid division by zero
+        cls_counts = np.maximum(cls_counts, 1)
         total = len(self.targets)
         class_weights = total / (self.config.num_classes * cls_counts)
         sample_weights = [class_weights[t] for t in self.targets]

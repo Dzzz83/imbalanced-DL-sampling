@@ -163,13 +163,12 @@ def hierarchical_ot_experiment(
                 assert dual_sol[1].shape[1] == x_val.shape[0]
                 dual_sol_dict[i][j] = dual_sol
 
-    # line 7: compute dual sol on \bar{C}
-    a = np.ones(costs_bar.shape[0]) # vector 1, dimension = row of barC
-    b = np.ones(costs_bar.shape[1]) # vector 1, dimension = column of barC
+    # line 7: compute dual sol on \bar{C}
+    a = np.ones(costs_bar.shape[0])
+    b = np.ones(costs_bar.shape[1])
     eps = np.max(costs_bar)
-    #f_bar, g_bar = lava.dual_lp(a, b, costs_bar / eps) # (num_train_batches, ) (num_val_batces, )
-    #plan_bar = (np.eye(costs_bar.shape[0]) * np.squeeze(f_bar)) @ np.exp(-costs_bar / eps) @ (np.eye(costs_bar.shape[1]) * np.squeeze(g_bar)) # (num_tr_batches, num_val_batches)
     plan_bar = ot.sinkhorn(a, b, costs_bar / eps, 1e-02, verbose=False)
+
     if visualise_hot:
         cache_dict = {
             'cost_batches': costs_bar,
@@ -182,8 +181,7 @@ def hierarchical_ot_experiment(
             'output',
             "sava_artifacts.pickle"
         )
-        with open(filename, 'wb') as file:  # 'wb' indicates that you are writing in binary mode
-        # Pickle the dictionary and write it to the file
+        with open(filename, 'wb') as file:
             pickle.dump(cache_dict, file)
         
     # important data point selection
@@ -195,37 +193,31 @@ def hierarchical_ot_experiment(
             threshold_gradients = np.zeros((len(val_loader)))
             # iterate over all the val batches
             for m in range(len(val_loader)):
-            
                 dual_sol = dual_sol_dict[k][m]
-                # len x_tr.shape[0]
                 calibrated_gradient = lava.get_calibrated_gradients(
                     dual_sol, 
                     training_size=x_tr.shape[0], 
                 )
-            
                 threshold_gradients[m] = calibrated_gradient[l]
-
-            # line 13 in Alg1
+            # line 13 in Alg1
             s_l = np.sum(plan_bar[k] * threshold_gradients)
-
             values.append(s_l)
     
-    # training size is min(training_size, len(values)) since for the poison frogs
-    # corrution some of the perturned points don;t meet a certain requirement and are dropped
-    # to the final training set from the datasets.py might not be the same size as is specified in the 
-    # training_size variable
-    sorted_gradient_ind = lava.sort_and_keep_indices(train_gradient=values, training_size=min(training_size, len(values)))
+    # Convert scores to a 1D numpy array (same order as original training set)
+    scores_array = np.array(values, dtype=np.float64)
     
-    # for Clothing1M experiments we don't know a priori
-    # which instances are noisy, so we don't have portion and 
-    # shuffle_ind variables nor can we calculate a detection
-    # rate. Let's just return values.
+    # Sort indices by increasing SAVA score (most valuable first)
+    # FIX: pass the numpy array scores_array instead of the list 'values'
+    sorted_gradient_ind = lava.sort_and_keep_indices(train_gradient=scores_array, training_size=min(training_size, len(scores_array)), asc=True)
+
+    # Return structure:
+    # - For standard usage (portion=0, shuffle_ind empty): (sorted_indices, scores_array)
+    # - For corrupted data experiments: (sorted_indices, trained_with_flag, scores_array)
     if portion is None and shuffle_ind is None:
-        return sorted_gradient_ind
+        return sorted_gradient_ind, scores_array
     else:
         trained_indices = lava.get_indices(train_loader)
         trained_with_flag = lava.train_with_corrupt_flag(train_loader, shuffle_ind, trained_indices)
-        # Only log if there are corrupted points (portion > 0)
         if portion > 0:
             visualise.log_values_sorted(
                 trained_with_flag,
@@ -234,4 +226,4 @@ def hierarchical_ot_experiment(
                 portion,
                 tag=tag,
             )
-        return sorted_gradient_ind, trained_with_flag
+        return sorted_gradient_ind, trained_with_flag, scores_array
