@@ -4,28 +4,27 @@ import torchvision.transforms as transforms
 from torch.utils.data import Subset
 from .trainer import Trainer
 
-# Import SAVA method
 from imbalanceddl.strategy.selection_method.sava_selection import get_sava_selection_indices
-
 from imbalanceddl.utils.deep_smote_data_loader import CustomImageDataset, inject_label_noise
 from imbalanceddl.utils._augmentation import get_weak_augmentation, get_trivial_augmentation
 from imbalanceddl.strategy.build_trainer import build_trainer
 from torchvision import datasets
-
-# Import cache key generator
 from imbalanceddl.utils.sava_key_generation import SavaCacheKey
-
-from imbalanceddl.dataset.imbalance_cifar import IMBALANCECIFAR10
+from imbalanceddl.dataset.imbalance_cifar import IMBALANCECIFAR10, IMBALANCECIFAR100
+from imbalanceddl.utils.debug_logger import get_debug_logger
 import torch
 
 class RandomOversamplingTrainer(Trainer):
     def __init__(self, cfg, dataset, model, strategy="RandomOversampling_Selection"):
+        self.debug = getattr(cfg, 'debug', False)
+        self.debug_logger = get_debug_logger(debug=self.debug)
+
         print("\n" + "="*60)
         print("RandomOversamplingSelectionTrainer Initialization (No Capping)")
         print("="*60)
 
-        # Validation dataset
-        _, val_transform = get_weak_augmentation()
+        # Validation dataset: pass dataset name to augmentation function
+        _, val_transform = get_weak_augmentation(cfg.dataset)
         print(f"1. Loading validation dataset: {cfg.dataset}")
         if cfg.dataset == 'cifar10':
             val_ds = datasets.CIFAR10(root='./data', train=False, download=True, transform=val_transform)
@@ -34,26 +33,46 @@ class RandomOversamplingTrainer(Trainer):
         else:
             raise NotImplementedError
         print(f"   Validation set size: {len(val_ds)}")
+        if self.debug:
+            self.debug_logger.debug(f"val_transform = {val_transform}")
 
         # 2. Load original clean imbalanced dataset (always clean as base)
         print(f"\n2. Loading original imbalanced dataset for {cfg.dataset}, imb_type={cfg.imb_type}, imb_factor={cfg.imb_factor}")
-        base_dataset = IMBALANCECIFAR10(
-            root='./data',
-            imb_type=cfg.imb_type,
-            imb_factor=cfg.imb_factor,
-            rand_number=cfg.rand_number,
-            train=True,
-            download=True,
-            transform=None
-        )
+        if cfg.dataset == 'cifar10':
+            base_dataset = IMBALANCECIFAR10(
+                root='./data',
+                imb_type=cfg.imb_type,
+                imb_factor=cfg.imb_factor,
+                rand_number=cfg.rand_number,
+                train=True,
+                download=True,
+                transform=None
+            )
+        elif cfg.dataset == 'cifar100':
+            base_dataset = IMBALANCECIFAR100(
+                root='./data',
+                imb_type=cfg.imb_type,
+                imb_factor=cfg.imb_factor,
+                rand_number=cfg.rand_number,
+                train=True,
+                download=True,
+                transform=None
+            )
+        else:
+            raise NotImplementedError
+
         X = base_dataset.data          # numpy array (N, H, W, C) uint8
         Y = np.array(base_dataset.targets).astype(int)
         print(f"[DEBUG] Loaded clean dataset: X.shape={X.shape}, Y.shape={Y.shape}")
         print(f"[DEBUG] Original class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
+        if self.debug:
+            self.debug_logger.debug(f"Loaded dataset: X shape {X.shape}, Y shape {Y.shape}")
 
         # Determine the pipeline order based on cfg.noise_first
         noise_first = hasattr(cfg, 'noise_first') and cfg.noise_first
         print(f"[DEBUG] noise_first = {noise_first}")
+        if self.debug:
+            self.debug_logger.debug(f"noise_first = {noise_first}")
 
         if noise_first:
             # ------------------------------------------------------------
@@ -67,6 +86,8 @@ class RandomOversamplingTrainer(Trainer):
                 print(f"Applying {cfg.noise_ratio*100}% label noise to original dataset (before oversampling)")
                 Y = inject_label_noise(Y, cfg.noise_ratio, cfg.num_classes, seed=cfg.rand_number)
                 print(f"[DEBUG] After noise injection: class distribution: {dict(zip(*np.unique(Y, return_counts=True)))}")
+                if self.debug:
+                    self.debug_logger.debug(f"After noise injection: Y distribution {dict(zip(*np.unique(Y, return_counts=True)))}")
 
             majority_count = orig_majority
             print(f"Majority class size (original): {majority_count}")
@@ -85,6 +106,8 @@ class RandomOversamplingTrainer(Trainer):
             Y_bal = Y[oversampled_indices]
             print(f"[DEBUG] Oversampled dataset size: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
             print(f"[DEBUG] Oversampled class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+            if self.debug:
+                self.debug_logger.debug(f"Oversampled class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
 
         else:
             # ------------------------------------------------------------
@@ -110,12 +133,16 @@ class RandomOversamplingTrainer(Trainer):
             Y_bal = Y[oversampled_indices]
             print(f"[DEBUG] Oversampled dataset size: X_bal.shape={X_bal.shape}, Y_bal.shape={Y_bal.shape}")
             print(f"[DEBUG] Oversampled class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+            if self.debug:
+                self.debug_logger.debug(f"Oversampled class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
 
             # 6b. Inject label noise after oversampling (if configured)
             if hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0:
                 print(f"Applying {cfg.noise_ratio*100}% label noise to balanced dataset")
                 Y_bal = inject_label_noise(Y_bal, cfg.noise_ratio, cfg.num_classes, seed=cfg.rand_number)
                 print(f"[DEBUG] After noise injection: class distribution: {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
+                if self.debug:
+                    self.debug_logger.debug(f"After noise injection: Y_bal distribution {dict(zip(*np.unique(Y_bal, return_counts=True)))}")
 
         # 7. Create plain dataset (no augmentation, only normalization)
         plain_transform = val_transform   # ToTensor + Normalize
@@ -123,14 +150,16 @@ class RandomOversamplingTrainer(Trainer):
         print(f"\n3. Plain dataset (for scoring) created with {len(plain_dataset)} samples")
         print(f"   Transform: ToTensor + Normalize (no augmentation)")
         print(f"[DEBUG] Plain dataset class distribution: {dict(zip(*np.unique(plain_dataset.Y, return_counts=True)))}")
+        if self.debug:
+            self.debug_logger.debug(f"Plain dataset size: {len(plain_dataset)}")
 
         # 8. Determine training transform
         print(f"\n4. Training transform: cfg.augmentation = {cfg.augmentation}")
         if cfg.augmentation == 'weak':
-            train_transform, _ = get_weak_augmentation()
+            train_transform, _ = get_weak_augmentation(cfg.dataset)
             print("   Using weak augmentation (RandomCrop + RandomHorizontalFlip)")
         elif cfg.augmentation == 'trivial':
-            train_transform, _ = get_trivial_augmentation()
+            train_transform, _ = get_trivial_augmentation(cfg.dataset)
             print("   Using trivial augmentation (only ToTensor + Normalize)")
         elif cfg.augmentation == 'none':
             if cfg.dataset == 'cifar10':
@@ -150,6 +179,8 @@ class RandomOversamplingTrainer(Trainer):
         cfg.original_cls_num_list = original_cls_num_list
         print(f"\n5. Augmented dataset (for training) created with {len(aug_dataset)} samples")
         print(f"[DEBUG] Augmented dataset class distribution: {dict(zip(*np.unique(aug_dataset.Y, return_counts=True)))}")
+        if self.debug:
+            self.debug_logger.debug(f"Augmented dataset size: {len(aug_dataset)}")
 
         # 9. Apply selection (SAVA or random) on the plain dataset
         print(f"\n6. Selection: method={cfg.selection_method}, ratio={cfg.selection_ratio}")
@@ -157,17 +188,16 @@ class RandomOversamplingTrainer(Trainer):
             is_noisy = hasattr(cfg, 'noise_ratio') and cfg.noise_ratio > 0
             is_noise_first = noise_first and is_noisy
 
-            # --- SUB-ROUTE A: SAVA CALCULATOR ---
             if cfg.selection_method == 'sava':
                 print("   Computing SAVA scores...")
                 key_gen = SavaCacheKey(config=cfg, is_deepsmote=False, is_noisy=is_noisy,
                                        is_oversampled=True, is_noise_first=is_noise_first)
                 file_key = key_gen.generate()
                 print(f"[DEBUG] SAVA file_key = {file_key}")
-                
-                # Fetch SAVA arguments from config or safely assign expected backend defaults
+                if self.debug:
+                    self.debug_logger.debug(f"SAVA file_key: {file_key}")
+
                 sava_batch_size = getattr(cfg, 'sava_batch_size', 1024)
-                
                 indices = get_sava_selection_indices(
                     train_dataset=plain_dataset,
                     val_dataset=val_ds,
@@ -175,29 +205,32 @@ class RandomOversamplingTrainer(Trainer):
                     device=cfg.device,
                     file_key=file_key,
                     batch_size=sava_batch_size,
-                    num_classes=cfg.num_classes
+                    num_classes=cfg.num_classes,
+                    debug=self.debug
                 )
                 print(f"[DEBUG] Selected {len(indices)} indices via SAVA")
 
-            # --- SUB-ROUTE B: RANDOM SELECTION ---
             elif cfg.selection_method == 'random':
                 print("   Randomly selecting samples...")
                 total = len(plain_dataset)
                 n_keep = int(total * cfg.selection_ratio)
                 indices = random.sample(range(total), n_keep)
                 print(f"[DEBUG] Randomly selected {len(indices)} indices")
-            
+                if self.debug:
+                    self.debug_logger.debug(f"Random selection kept {len(indices)} samples")
             else:
                 raise ValueError(f"Unknown selection_method: {cfg.selection_method}")
 
-            # Print tracking distributions for diagnostic monitoring
             selected_targets = [plain_dataset.Y[i] for i in indices]
             unique, counts = np.unique(selected_targets, return_counts=True)
             print(f"[DEBUG] Selected class distribution: {dict(zip(unique, counts))}")
+            if self.debug:
+                self.debug_logger.debug(f"Selected distribution: {dict(zip(unique, counts))}")
             print(f"   Selection completed. Kept {len(indices)} indices out of {len(plain_dataset)}.")
-            
             final_train = Subset(aug_dataset, indices)
             print(f"\n7. Final training set: {len(final_train)} samples (selected subset)")
+            if self.debug:
+                self.debug_logger.debug(f"Final training indices first 10: {indices[:10]}")
         else:
             final_train = aug_dataset
             print(f"\n7. Final training set: all {len(final_train)} samples (no selection)")
@@ -216,6 +249,8 @@ class RandomOversamplingTrainer(Trainer):
                     targets = train.Y
                 self.cls_num_list = np.bincount(targets, minlength=cfg.num_classes).tolist()
                 print(f"   Wrapper class counts: {self.cls_num_list}")
+                if self.debug:
+                    self.debug_logger.debug(f"Wrapper cls_num_list: {self.cls_num_list}")
         wrapper = SimpleWrapper(final_train, val_ds, cfg)
         cfg.cls_num_list = wrapper.cls_num_list
 
@@ -224,6 +259,8 @@ class RandomOversamplingTrainer(Trainer):
         print(f"\n8. Building inner trainer with base_strategy={base_strategy}")
         self.inner_trainer = build_trainer(cfg, wrapper, model, base_strategy)
         print("   Inner trainer initialized successfully")
+        if self.debug:
+            self.debug_logger.debug(f"Inner trainer type: {type(self.inner_trainer)}")
 
         # Delegate attributes
         self.cfg = cfg
