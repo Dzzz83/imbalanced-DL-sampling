@@ -115,10 +115,10 @@ def main_worker(gpu, args):
             print("=> no checkpoint found at '{}'".format(args.resume))
     log_format = '%(asctime)s %(message)s'
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_format, datefmt='%m/%d %I:%M:%S %p')
-    fh = logging.FileHandler(os.path.join(args.root_log + args.store_name, 'log.txt'))
-    fh.setFormatter(logging.Formatter(log_format))
-    logger = logging.getLogger()
-    logger.addHandler(fh)
+    # fh = logging.FileHandler(os.path.join(args.root_log + args.store_name, 'log.txt'))
+    # fh.setFormatter(logging.Formatter(log_format))
+    # logger = logging.getLogger()
+    # logger.addHandler(fh)
 
     # Data loading code
     train_dataset,val_dataset = get_dataset(args)
