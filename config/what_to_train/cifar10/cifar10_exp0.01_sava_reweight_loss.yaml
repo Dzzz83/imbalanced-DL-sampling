@@ -18,7 +18,7 @@ sava_cache_label_distances: true   # Cache label‑to‑label OT distances acros
 # Training Strategy
 strategy: SAVA_Reweight
 reweight_mode: loss            # Apply weights via per‑sample loss multiplication
-# sava_reweight_temp: 1.0        # Temperature for exponential weighting (higher = softer)
+sava_reweight_temp: 500        # Temperature for exponential weighting (higher = softer)
 sava_weights_clip: 1e-3        # Minimum weight to avoid zero values
 # Optional: sava_scores_file: /path/to/scores.npy  # Uncomment to load pre‑computed scores
 # SAVA reweighting options
