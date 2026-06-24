@@ -1,5 +1,3 @@
-# imbalanceddl/strategy/_sava_reweight.py
-
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
@@ -7,7 +5,7 @@ from torch.utils.data.sampler import WeightedRandomSampler
 import torch.nn as nn
 
 from imbalanceddl.strategy.trainer import Trainer
-from imbalanceddl.utils.utils import AverageMeter
+from imbalanceddl.utils.utils import AverageMeter, save_checkpoint
 from imbalanceddl.utils.metrics import accuracy
 
 
@@ -51,7 +49,6 @@ class SAVAReweightTrainer(Trainer):
         self._override_loader()
 
         # Criterion will be created in get_criterion() during training loop.
-        # Do not call self.get_criterion() here.
 
     def _prepare_weights(self):
         """Obtain scores and convert to positive weights."""
@@ -120,7 +117,6 @@ class SAVAReweightTrainer(Trainer):
             self.criterion = nn.CrossEntropyLoss(reduction='none').cuda(self.cfg.gpu)
             print("Created CrossEntropyLoss with reduction='none' for loss weighting.")
         else:
-            # Sampler mode uses standard mean reduction.
             self.criterion = nn.CrossEntropyLoss(reduction='mean').cuda(self.cfg.gpu)
             print("Created CrossEntropyLoss with reduction='mean' for sampler weighting.")
         return self.criterion
@@ -179,3 +175,36 @@ class SAVAReweightTrainer(Trainer):
         self.compute_metrics_and_record(
             all_preds, all_targets, losses, top1, top5, flag='Training'
         )
+
+    def do_train_val(self):
+        """
+        Override to prevent parent from resetting the train loader.
+        Replicates the training loop from Trainer.do_train_val but preserves
+        our custom loader set in __init__.
+        """
+        for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
+            self.epoch = epoch
+            self.adjust_learning_rate()
+            self.get_criterion()
+            assert self.criterion is not None, "No criterion !"
+            self.train_one_epoch()
+            acc1 = self.validate()
+            is_best = acc1 > self.best_acc1
+            self.best_acc1 = max(acc1, self.best_acc1)
+
+            output_best = f'Best Prec@1: {self.best_acc1:.3f}\n'
+            print(output_best)
+            if self.log_testing is not None:
+                self.log_testing.write(output_best)
+                self.log_testing.flush()
+
+            save_checkpoint(
+                self.cfg, {
+                    'epoch': self.epoch + 1,
+                    'backbone': self.cfg.backbone,
+                    'classifier': self.cfg.classifier,
+                    'state_dict': self.model.state_dict(),
+                    'best_acc1': self.best_acc1,
+                    'optimizer': self.optimizer.state_dict()
+                }, is_best, self.epoch
+            )
