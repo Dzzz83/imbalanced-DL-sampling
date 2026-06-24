@@ -8,23 +8,26 @@ classifier: 'dot_product_classifier'
 augmentation: weak
 
 # Selection Settings (SAVA)
-selection_method: sava         # Compute SAVA scores (uses cached version if available)
-selection_ratio: 1.0          # Keep all samples; scores are used for reweighting
+selection_method: sava         
+selection_ratio: 1.0          
 
 # SAVA specific options
-sava_batch_size: 5000          # Batch size for hierarchical OT computation
-sava_cache_label_distances: true   # Cache label‑to‑label OT distances across batches
+sava_batch_size: 5000          
+sava_cache_label_distances: true   
 
 # Training Strategy
 strategy: SAVA_Reweight
-reweight_mode: loss            # Apply weights via per‑sample loss multiplication
-sava_reweight_temp: 100        # Temperature for exponential weighting (higher = softer)
-sava_weights_clip: 1e-3        # Minimum weight to avoid zero values
-# Optional: sava_scores_file: /path/to/scores.npy  # Uncomment to load pre‑computed scores
-# SAVA reweighting options
-sava_reweight_method: exp          # or 'inv' for inverse weighting
-sava_max_weight: 10.0              # global cap on individual sample weights
-sava_balance_classes: true         # (we always balance now; remove if not needed)
+reweight_mode: loss            
+
+# --- CRITICAL CHANGES HERE ---
+sava_reweight_temp: 1.0         # Changed from 100. Must be ~1.0 because scores are normalized to [0,1]
+sava_weights_clip: 0.1          # Changed from 1e-3. Prevents any sample from being completely zeroed out
+sava_max_weight: 10.0           # Keeps the cap at 10.0
+warm: 160                       # Added explicitly. The model will train normally for 160 epochs, then apply SAVA weights.
+
+# SAVA reweighting options (These are no longer used by the new code, but harmless to keep)
+sava_reweight_method: exp          
+sava_balance_classes: true         
 
 loss_type: CE
 train_rule: None

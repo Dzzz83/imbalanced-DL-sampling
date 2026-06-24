@@ -1,15 +1,13 @@
-# imbalanceddl/strategy/_sava_reweight.py
-
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import WeightedRandomSampler
 import torch.nn as nn
+import torch.nn.functional as F
 
 from imbalanceddl.strategy.trainer import Trainer
 from imbalanceddl.utils.utils import AverageMeter, save_checkpoint
 from imbalanceddl.utils.metrics import accuracy
-
 
 class WeightedDataset(Dataset):
     """Wraps a dataset to return (image, label, weight) for loss‑weighting mode."""
@@ -31,18 +29,15 @@ class WeightedDataset(Dataset):
 
 class SAVAReweightTrainer(Trainer):
     """
-    Trainer that uses SAVA scores as sample weights.
-    Two modes:
-        - 'loss'   : multiply per‑sample loss by weight (reduction='none')
-        - 'sampler': use WeightedRandomSampler to oversample valuable samples
+    Trainer that uses SAVA/LAVA scores as sample weights with Deferred Re-Weighting.
     """
     def __init__(self, cfg, dataset, model, strategy="SAVA_Reweight"):
         self.reweight_mode = getattr(cfg, 'reweight_mode', 'loss')
-        self.temp = getattr(cfg, 'sava_reweight_temp', None)
-        self.clip_min = getattr(cfg, 'sava_weights_clip', 1e-3)
+        self.temp = getattr(cfg, 'sava_reweight_temp', 1.0)
+        self.clip_min = getattr(cfg, 'sava_weights_clip', 0.1)
+        self.clip_max = getattr(cfg, 'sava_max_weight', 10.0)
         self.scores_file = getattr(cfg, 'sava_scores_file', None)
-        self.method = getattr(cfg, 'sava_reweight_method', 'exp')  # 'exp' or 'inv'
-        self.max_weight = getattr(cfg, 'sava_max_weight', 10.0)    # global cap per sample
+        self.warm_epochs = getattr(cfg, 'warm', 160)  # DRW starts at 160 by default
 
         super().__init__(cfg, dataset, model=model, strategy=strategy)
         self.debug = getattr(cfg, 'debug', False)
@@ -51,81 +46,47 @@ class SAVAReweightTrainer(Trainer):
         self._override_loader()
 
     def _prepare_weights(self):
-        """Obtain scores and convert to weights with class balancing and clipping."""
+        """Obtain scores and convert to weights with proper scaling."""
         if self.scores_file is not None:
             print(f"Loading SAVA scores from {self.scores_file}")
             scores = np.load(self.scores_file)
         elif hasattr(self.train_dataset, 'scores') and self.train_dataset.scores is not None:
             scores = self.train_dataset.scores
         else:
-            raise RuntimeError(
-                "No SAVA scores found. Provide --sava_scores_file or ensure the dataset "
-                "has a 'scores' attribute (e.g., from SavaDataset with method='sava')."
-            )
+            raise RuntimeError("No SAVA scores found.")
 
         scores = np.asarray(scores, dtype=np.float64)
-        if len(scores) != len(self.train_dataset):
-            raise ValueError(
-                f"Scores length {len(scores)} != dataset size {len(self.train_dataset)}"
-            )
+        
+        # 1. Global Min-Max Normalization to [0, 1]
+        min_s, max_s = np.min(scores), np.max(scores)
+        norm_scores = (scores - min_s) / (max_s - min_s + 1e-6)
 
-        # ---- Auto‑scale temperature if not set ----
-        if self.temp is None or self.temp <= 0:
-            auto_temp = max(2.0 * scores.std(), 1.0)
-            print(f"Auto‑set SAVA reweight temperature = {auto_temp:.2f} (std={scores.std():.2f})")
-            self.temp = auto_temp
-        else:
-            score_range = scores.max() - scores.min()
-            if score_range > 0 and self.temp < score_range * 0.01:
-                print(f"Warning: temperature {self.temp} is very small relative to score range {score_range:.2f}.")
-
-        # ---- Convert scores to raw weights (lower score → higher weight) ----
-        scores_shifted = scores - np.min(scores)
-        if self.method == 'exp':
-            raw_weights = np.exp(-scores_shifted / self.temp)
-        elif self.method == 'inv':
-            raw_weights = 1.0 / (scores_shifted + 1e-6)
-        else:
-            raise ValueError(f"Unknown reweight method: {self.method}")
-
-        raw_weights = np.clip(raw_weights, self.clip_min, None)
-
-        # ---- Class balancing ----
-        # Get class labels
+        # 2. Convert scores to weights (Lower score = Higher weight)
+        # Using temperature to control sharpness. temp=1.0 is a good default.
+        raw_weights = np.exp(-norm_scores / self.temp)
+        
+        # 3. Class-aware Boost (Inverse frequency square root, prevents explosion)
         if hasattr(self.train_dataset, 'targets'):
             targets = np.array(self.train_dataset.targets)
         else:
             targets = np.array([self.train_dataset[i][1] for i in range(len(self.train_dataset))])
 
         class_counts = np.bincount(targets, minlength=self.cfg.num_classes).astype(np.float64)
-        class_counts = np.maximum(class_counts, 1.0)   # avoid division by zero
+        class_counts = np.maximum(class_counts, 1.0)
+        
+        # Use sqrt of inverse frequency to balance without exploding minority gradients
+        class_boost = np.sqrt(np.max(class_counts) / class_counts)
+        
+        # Apply boost
+        boosted_weights = raw_weights * class_boost[targets]
 
-        # Balance: each class gets total weight equal to 1
-        class_weight_per_sample = 1.0 / class_counts
-        balanced_weights = raw_weights * class_weight_per_sample[targets]
-
-        # ---- Global clipping to avoid extreme individual weights ----
-        balanced_weights = np.clip(balanced_weights, self.clip_min, self.max_weight)
-
-        # Normalise so mean = 1 (keeps loss scale)
-        weights = balanced_weights / np.mean(balanced_weights)
+        # 4. Clipping and Normalization
+        clipped_weights = np.clip(boosted_weights, self.clip_min, self.clip_max)
+        weights = clipped_weights / np.mean(clipped_weights)
+        
         self.sample_weights = weights.astype(np.float32)
 
-        # Print per‑class average weights (should be ~1 for all classes)
-        print("SAVA reweighting: per‑class average weights (after balancing):")
-        class_avg = []
-        for c in range(self.cfg.num_classes):
-            mask = (targets == c)
-            avg = np.mean(weights[mask]) if np.any(mask) else 0.0
-            class_avg.append(avg)
-            print(f"  Class {c}: {avg:.6f}")
-
-        print(f"SAVA reweighting: final mean weight={weights.mean():.4f}, "
-              f"min={weights.min():.4f}, max={weights.max():.4f}")
-
-        # Additional debug: warn if any class average deviates significantly
-        if np.any(np.abs(np.array(class_avg) - 1.0) > 0.2):
-            print("Warning: Some class average weights deviate from 1.0; balancing may not be perfect.")
+        print(f"SAVA Reweight Stats: Min={weights.min():.4f}, Max={weights.max():.4f}, Mean={weights.mean():.4f}")
 
     def _override_loader(self):
         """Replace self.train_loader based on reweight_mode."""
@@ -153,44 +114,44 @@ class SAVAReweightTrainer(Trainer):
                 pin_memory=True
             )
             print("Using loss weighting for SAVA reweighting.")
-        else:
-            raise ValueError(f"Unknown reweight_mode: {self.reweight_mode}")
-
-        if self.debug:
-            # Optionally log loader info
-            pass
 
     def get_criterion(self):
-        if self.reweight_mode == 'loss':
-            self.criterion = nn.CrossEntropyLoss(reduction='none').cuda(self.cfg.gpu)
-            print("Created CrossEntropyLoss with reduction='none' for loss weighting.")
-        else:
-            self.criterion = nn.CrossEntropyLoss(reduction='mean').cuda(self.cfg.gpu)
-            print("Created CrossEntropyLoss with reduction='mean' for sampler weighting.")
+        # We always use reduction='none' and handle the mean manually for loss mode
+        self.criterion = nn.CrossEntropyLoss(reduction='none').cuda(self.cfg.gpu)
         return self.criterion
 
     def train_one_epoch(self):
-        if self.reweight_mode == 'sampler':
-            super().train_one_epoch()
-        else:
-            self._train_one_epoch_weighted_loss()
-
-    def _train_one_epoch_weighted_loss(self):
         losses = AverageMeter('Loss', ':.4e')
         top1 = AverageMeter('Acc@1', ':6.2f')
         top5 = AverageMeter('Acc@5', ':6.2f')
         all_preds, all_targets = [], []
 
         self.model.train()
-        for i, (images, labels, weights) in enumerate(self.train_loader):
+        for i, data in enumerate(self.train_loader):
+            if self.reweight_mode == 'loss':
+                images, labels, weights = data
+                weights = weights.cuda(self.cfg.gpu, non_blocking=True)
+            else:
+                images, labels = data
+                weights = None
+
             if self.cfg.gpu is not None:
                 images = images.cuda(self.cfg.gpu, non_blocking=True)
                 labels = labels.cuda(self.cfg.gpu, non_blocking=True)
-                weights = weights.cuda(self.cfg.gpu, non_blocking=True)
 
             outputs, _ = self.model(images)
             loss_per_sample = self.criterion(outputs, labels)
-            loss = (loss_per_sample * weights).mean()
+
+            # DEFERRED RE-WEIGHTING LOGIC
+            if self.epoch >= self.warm_epochs and self.reweight_mode == 'loss':
+                # Apply LAVA weights only after warm-up epochs
+                loss = (loss_per_sample * weights).mean()
+            elif self.epoch >= self.warm_epochs and self.reweight_mode == 'sampler':
+                # Sampler already handles the distribution, just take mean
+                loss = loss_per_sample.mean()
+            else:
+                # During warm-up (first 160 epochs), train as standard ERM (no weights)
+                loss = loss_per_sample.mean()
 
             acc1, acc5 = accuracy(outputs, labels, topk=(1, 5))
             _, pred = torch.max(outputs, 1)
@@ -210,8 +171,7 @@ class SAVAReweightTrainer(Trainer):
                     f'Epoch: [{self.epoch}][{i}/{len(self.train_loader)}], '
                     f'lr: {self.optimizer.param_groups[-1]["lr"]:.5f}\t'
                     f'Loss {losses.val:.4f} ({losses.avg:.4f})\t'
-                    f'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                    f'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'
+                    f'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'
                 )
                 print(output)
                 if self.log_training is not None:
@@ -229,6 +189,11 @@ class SAVAReweightTrainer(Trainer):
             self.adjust_learning_rate()
             self.get_criterion()
             assert self.criterion is not None, "No criterion !"
+            
+            # Re-print whether weights are active this epoch
+            if epoch == self.warm_epochs:
+                print(f"--- Epoch {epoch}: Activating SAVA Weights ---")
+                
             self.train_one_epoch()
             acc1 = self.validate()
             is_best = acc1 > self.best_acc1
