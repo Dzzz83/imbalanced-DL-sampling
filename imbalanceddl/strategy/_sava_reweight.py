@@ -1,5 +1,4 @@
 # imbalanceddl/strategy/_sava_reweight.py
-# Complete, compilable implementation of the SAVA reweighting trainer.
 
 import torch
 import numpy as np
@@ -13,10 +12,7 @@ from imbalanceddl.utils.metrics import accuracy
 
 
 class WeightedDataset(Dataset):
-    """
-    Wraps a dataset to return (image, label, weight) for loss‑weighting mode.
-    Preserves .targets and .get_cls_num_list if available.
-    """
+    """Wraps a dataset to return (image, label, weight) for loss‑weighting mode."""
     def __init__(self, base_dataset, weights):
         self.base = base_dataset
         self.weights = torch.tensor(weights, dtype=torch.float32)
@@ -49,17 +45,13 @@ class SAVAReweightTrainer(Trainer):
         # Parent init sets up train/val loaders, model, optimizer, etc.
         super().__init__(cfg, dataset, model=model, strategy=strategy)
 
-        # Prepare weights from scores (either from file or dataset.scores)
+        # Prepare weights from scores
         self._prepare_weights()
         # Override the train loader according to mode
         self._override_loader()
 
-        # For loss mode, force reduction='none' on the criterion.
-        if self.reweight_mode == 'loss':
-            self._force_reduction_none = True
-            self.get_criterion()   # recreates or modifies criterion
-            if hasattr(self.criterion, 'cuda'):
-                self.criterion.cuda(self.cfg.gpu)
+        # Criterion will be created in get_criterion() during training loop.
+        # Do not call self.get_criterion() here.
 
     def _prepare_weights(self):
         """Obtain scores and convert to positive weights."""
@@ -123,22 +115,15 @@ class SAVAReweightTrainer(Trainer):
             raise ValueError(f"Unknown reweight_mode: {self.reweight_mode}")
 
     def get_criterion(self):
-        """Override to ensure reduction='none' for loss mode."""
-        super().get_criterion()   # sets self.criterion
+        """Create the loss function. For loss mode, use reduction='none'; for sampler, reduction='mean'."""
         if self.reweight_mode == 'loss':
-            if isinstance(self.criterion, nn.CrossEntropyLoss):
-                weight = getattr(self.criterion, 'weight', None)
-                self.criterion = nn.CrossEntropyLoss(
-                    weight=weight, reduction='none'
-                ).cuda(self.cfg.gpu)
-                print("Recreated CrossEntropyLoss with reduction='none' for loss weighting.")
-            else:
-                # For custom losses (LDAM, Focal, etc.) try to set reduction attribute
-                if hasattr(self.criterion, 'reduction'):
-                    self.criterion.reduction = 'none'
-                    print(f"Set reduction='none' for {type(self.criterion).__name__}")
-                else:
-                    print(f"Warning: {type(self.criterion).__name__} may not support reduction='none'.")
+            self.criterion = nn.CrossEntropyLoss(reduction='none').cuda(self.cfg.gpu)
+            print("Created CrossEntropyLoss with reduction='none' for loss weighting.")
+        else:
+            # Sampler mode uses standard mean reduction.
+            self.criterion = nn.CrossEntropyLoss(reduction='mean').cuda(self.cfg.gpu)
+            print("Created CrossEntropyLoss with reduction='mean' for sampler weighting.")
+        return self.criterion
 
     def train_one_epoch(self):
         if self.reweight_mode == 'sampler':
@@ -162,7 +147,7 @@ class SAVAReweightTrainer(Trainer):
                 weights = weights.cuda(self.cfg.gpu, non_blocking=True)
 
             outputs, _ = self.model(images)
-            loss_per_sample = self.criterion(outputs, labels, reduction='none')
+            loss_per_sample = self.criterion(outputs, labels)  # reduction already 'none'
             loss = (loss_per_sample * weights).mean()
 
             acc1, acc5 = accuracy(outputs, labels, topk=(1, 5))
