@@ -29,7 +29,7 @@ class WeightedDataset(Dataset):
 
 class SAVAReweightTrainer(Trainer):
     """
-    Trainer that uses SAVA/LAVA scores as sample weights with Deferred Re-Weighting.
+    Trainer that uses SAVA/LAVA scores as sample weights from Epoch 0.
     """
     def __init__(self, cfg, dataset, model, strategy="SAVA_Reweight"):
         self.reweight_mode = getattr(cfg, 'reweight_mode', 'loss')
@@ -37,7 +37,6 @@ class SAVAReweightTrainer(Trainer):
         self.clip_min = getattr(cfg, 'sava_weights_clip', 0.1)
         self.clip_max = getattr(cfg, 'sava_max_weight', 10.0)
         self.scores_file = getattr(cfg, 'sava_scores_file', None)
-        self.warm_epochs = getattr(cfg, 'warm', 160)  # DRW starts at 160 by default
 
         super().__init__(cfg, dataset, model=model, strategy=strategy)
         self.debug = getattr(cfg, 'debug', False)
@@ -142,15 +141,10 @@ class SAVAReweightTrainer(Trainer):
             outputs, _ = self.model(images)
             loss_per_sample = self.criterion(outputs, labels)
 
-            # DEFERRED RE-WEIGHTING LOGIC
-            if self.epoch >= self.warm_epochs and self.reweight_mode == 'loss':
-                # Apply LAVA weights only after warm-up epochs
+            # APPLY WEIGHTS FROM EPOCH 0 (NO DRW)
+            if self.reweight_mode == 'loss':
                 loss = (loss_per_sample * weights).mean()
-            elif self.epoch >= self.warm_epochs and self.reweight_mode == 'sampler':
-                # Sampler already handles the distribution, just take mean
-                loss = loss_per_sample.mean()
-            else:
-                # During warm-up (first 160 epochs), train as standard ERM (no weights)
+            else: # 'sampler'
                 loss = loss_per_sample.mean()
 
             acc1, acc5 = accuracy(outputs, labels, topk=(1, 5))
@@ -189,10 +183,6 @@ class SAVAReweightTrainer(Trainer):
             self.adjust_learning_rate()
             self.get_criterion()
             assert self.criterion is not None, "No criterion !"
-            
-            # Re-print whether weights are active this epoch
-            if epoch == self.warm_epochs:
-                print(f"--- Epoch {epoch}: Activating SAVA Weights ---")
                 
             self.train_one_epoch()
             acc1 = self.validate()

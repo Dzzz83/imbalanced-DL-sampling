@@ -23,7 +23,7 @@ reweight_mode: loss
 sava_reweight_temp: 1.0         # Changed from 100. Must be ~1.0 because scores are normalized to [0,1]
 sava_weights_clip: 0.1          # Changed from 1e-3. Prevents any sample from being completely zeroed out
 sava_max_weight: 10.0           # Keeps the cap at 10.0
-warm: 160                       # Added explicitly. The model will train normally for 160 epochs, then apply SAVA weights.
+# warm: 160                       # Added explicitly. The model will train normally for 160 epochs, then apply SAVA weights.
 
 # SAVA reweighting options (These are no longer used by the new code, but harmless to keep)
 sava_reweight_method: exp          
