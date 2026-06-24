@@ -56,7 +56,7 @@ class SAVAReweightTrainer(Trainer):
         # Criterion will be created in get_criterion() during training loop.
 
     def _prepare_weights(self):
-        """Obtain scores and convert to positive weights."""
+        """Obtain scores and convert to positive weights, auto‑scaling temperature."""
         if self.scores_file is not None:
             print(f"Loading SAVA scores from {self.scores_file}")
             scores = np.load(self.scores_file)
@@ -78,6 +78,19 @@ class SAVAReweightTrainer(Trainer):
             print(f"[DEBUG] Raw SAVA scores stats: min={scores.min():.6f}, max={scores.max():.6f}, "
                   f"mean={scores.mean():.6f}, std={scores.std():.6f}")
             print(f"[DEBUG] First 10 raw scores: {scores[:10]}")
+
+        # --- Auto‑scale temperature if needed ---
+        if self.temp is None or self.temp <= 0:
+            # Use 2x standard deviation as a safe baseline, with a floor of 1.0
+            auto_temp = max(2.0 * scores.std(), 1.0)
+            print(f"Auto‑set SAVA reweight temperature = {auto_temp:.2f} (std={scores.std():.2f})")
+            self.temp = auto_temp
+        else:
+            # Warn if the provided temperature seems too small for the score range
+            score_range = scores.max() - scores.min()
+            if score_range > 0 and self.temp < score_range * 0.01:
+                print(f"Warning: temperature {self.temp} is very small relative to score range {score_range:.2f}. "
+                      "This may lead to extreme weighting. Consider increasing it or using auto‑set (omit the parameter).")
 
         # Convert scores to weights: lower score → higher weight.
         # Exponential: w = exp(-score / temp). Shift scores so min becomes 0.
