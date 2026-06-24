@@ -1,3 +1,5 @@
+# imbalanceddl/strategy/_sava_reweight.py
+
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
@@ -43,6 +45,9 @@ class SAVAReweightTrainer(Trainer):
         # Parent init sets up train/val loaders, model, optimizer, etc.
         super().__init__(cfg, dataset, model=model, strategy=strategy)
 
+        # Debug flag from parent (set in BaseTrainer)
+        self.debug = getattr(cfg, 'debug', False)
+
         # Prepare weights from scores
         self._prepare_weights()
         # Override the train loader according to mode
@@ -69,10 +74,15 @@ class SAVAReweightTrainer(Trainer):
                 f"Scores length {len(scores)} != dataset size {len(self.train_dataset)}"
             )
 
+        if self.debug:
+            print(f"[DEBUG] Raw SAVA scores stats: min={scores.min():.6f}, max={scores.max():.6f}, "
+                  f"mean={scores.mean():.6f}, std={scores.std():.6f}")
+            print(f"[DEBUG] First 10 raw scores: {scores[:10]}")
+
         # Convert scores to weights: lower score → higher weight.
-        # Exponential: w = exp(-score / temp). Shift scores so max = 0 to avoid overflow.
-        scores_shifted = scores - np.max(scores)
-        weights = np.exp(scores_shifted / self.temp)
+        # Exponential: w = exp(-score / temp). Shift scores so min becomes 0.
+        scores_shifted = scores - np.min(scores)
+        weights = np.exp(-scores_shifted / self.temp)
         weights = np.clip(weights, self.clip_min, None)
         # Normalise so mean = 1 (helps keep loss scale)
         weights = weights / np.mean(weights)
@@ -80,6 +90,13 @@ class SAVAReweightTrainer(Trainer):
 
         print(f"SAVA reweighting: mean weight={weights.mean():.4f}, "
               f"min={weights.min():.4f}, max={weights.max():.4f}")
+
+        if self.debug:
+            print(f"[DEBUG] Shifted scores stats: min={scores_shifted.min():.6f}, max={scores_shifted.max():.6f}")
+            print(f"[DEBUG] First 10 weights (corresponding to raw scores): {weights[:10]}")
+            # Show mapping: raw score -> weight
+            for i in range(min(5, len(scores))):
+                print(f"[DEBUG] Sample {i}: raw score={scores[i]:.6f} -> weight={weights[i]:.6f}")
 
     def _override_loader(self):
         """Replace self.train_loader based on reweight_mode."""
@@ -110,6 +127,16 @@ class SAVAReweightTrainer(Trainer):
             print("Using loss weighting for SAVA reweighting.")
         else:
             raise ValueError(f"Unknown reweight_mode: {self.reweight_mode}")
+
+        if self.debug:
+            print(f"[DEBUG] Train loader created with batch_size={self.cfg.batch_size}, "
+                  f"dataset size={len(self.train_dataset)}")
+            # Check if the loader yields weights when iterated (for loss mode)
+            if self.reweight_mode == 'loss':
+                sample_batch = next(iter(self.train_loader))
+                print(f"[DEBUG] Sample batch from loader has {len(sample_batch)} elements: "
+                      f"image shape {sample_batch[0].shape}, label shape {sample_batch[1].shape}, "
+                      f"weight shape {sample_batch[2].shape}")
 
     def get_criterion(self):
         """Create the loss function. For loss mode, use reduction='none'; for sampler, reduction='mean'."""
