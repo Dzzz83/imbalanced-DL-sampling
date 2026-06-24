@@ -87,5 +87,21 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
         from imbalanceddl.strategy._sava_reweight import SAVAReweightTrainer
         print("=> SAVA Reweight Trainer !")
         trainer = SAVAReweightTrainer(cfg, imbalance_dataset, model, strategy)
+
+    # Inside build_trainer():
+    elif strategy == 'ClassBalanced_ERM':
+        from imbalanceddl.strategy._class_balanced_erm import ClassBalancedERMTrainer
+        print("=> ClassBalanced ERM Trainer (sqrt class balance only) !")
+        trainer = ClassBalancedERMTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
+
+    elif strategy == 'ClassBalanced_ERM_DRW':
+        from imbalanceddl.strategy._class_balance_erm_drw import ClassBalancedERM_DRW_Trainer
+        print("=> ClassBalanced ERM DRW Trainer !")
+        trainer = ClassBalancedERM_DRW_Trainer(cfg, imbalance_dataset, model=model, strategy=strategy)
+        
+    elif strategy == 'SAVA_Reweight_DRW':
+        from imbalanceddl.strategy._sava_reweight_drw import SAVAReweightDRWTrainer
+        print("=> SAVA Reweight DRW Trainer !")
+        trainer = SAVAReweightDRWTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
         
     return trainer

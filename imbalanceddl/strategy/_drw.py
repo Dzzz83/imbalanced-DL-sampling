@@ -60,7 +60,6 @@ class DRWTrainer(Trainer):
                 _input = _input.cuda(self.cfg.gpu, non_blocking=True)
                 target = target.cuda(self.cfg.gpu, non_blocking=True)
 
-            # print("=> DRW training")
             out, _ = self.model(_input)
             loss = self.criterion(out, target).mean()
             acc1, acc5 = accuracy(out, target, topk=(1, 5))
@@ -90,8 +89,11 @@ class DRWTrainer(Trainer):
                               top5=top5,
                               lr=self.optimizer.param_groups[-1]['lr'] * 0.1))
                 print(output)
-                self.log_training.write(output + '\n')
-                self.log_training.flush()
+                
+                # FIX: Added None check to prevent AttributeError
+                if self.log_training is not None:
+                    self.log_training.write(output + '\n')
+                    self.log_training.flush()
 
         self.compute_metrics_and_record(all_preds,
                                         all_targets,

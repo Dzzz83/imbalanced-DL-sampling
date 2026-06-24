@@ -20,8 +20,10 @@ def get_args():
     parser.add_argument('--imb_factor', default=0.01, type=float, help='imbalance factor')
     # Strategy
     parser.add_argument('--strategy', default="ERM", type=str, 
-                        choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW',
-                                'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE'], 
+                    choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW',
+                            'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE', 
+                            'DeepSMOTE_LAVA', 'LAVA_Reweight', 'ClassBalanced_ERM', 
+                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW'], # Add these, 
                         help='select strategy for trainer')
     parser.add_argument('--base_strategy', default='ERM', type=str,
                     choices=['ERM', 'Mixup', 'DRW', 'LDAM_DRW', 'Reweight_CB'],
