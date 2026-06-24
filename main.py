@@ -80,29 +80,30 @@ def main():
     print(f"Creating training dataset with {config.augmentation} augmentation...")
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation=config.augmentation)
 
-    # 6. Data Selection (if ratio < 1.0 and method is sava or random)
+    # 6. Data Selection (revised: always create SavaDataset for sava method)
     if config.strategy in ["DeepSMOTE_Selection", "RandomOversampling_Selection", "Selection_RandomOversampling", 
                            "DeepSMOTE_Sava"]:
         print(f"=> {config.strategy} handles selection internally. Skipping main script selection.")
     else:
-        if config.selection_ratio < 1.0:
-            print(f"=> Applying Data Selection: {config.selection_method} (Ratio: {config.selection_ratio})")
-            if config.selection_method == 'sava':
-                imbalance_dataset = SavaDataset(
-                    config, imbalance_dataset, config.selection_ratio,
-                    method='sava', device=device
-                )
-            elif config.selection_method == 'random':
-                imbalance_dataset = SavaDataset(
-                    config, imbalance_dataset, config.selection_ratio,
-                    method='random', device=device
-                )
-            elif config.selection_method == 'none':
-                print("=> selection_method = 'none', using full dataset.")
-            else:
-                raise ValueError(f"Unknown selection method: {config.selection_method}. Use 'sava', 'random', or 'none'.")
+        if config.selection_method == 'sava':
+            # Always create SavaDataset – it handles both scoring and selection.
+            # When selection_ratio == 1.0, it keeps all samples but still loads/computes scores.
+            print(f"=> Applying SAVA scoring (ratio={config.selection_ratio})")
+            imbalance_dataset = SavaDataset(
+                config, imbalance_dataset, config.selection_ratio,
+                method='sava', device=device
+            )
+        elif config.selection_method == 'random' and config.selection_ratio < 1.0:
+            # Random selection only when ratio < 1.0
+            print(f"=> Applying random selection (ratio={config.selection_ratio})")
+            imbalance_dataset = SavaDataset(
+                config, imbalance_dataset, config.selection_ratio,
+                method='random', device=device
+            )
+        elif config.selection_method == 'none' or config.selection_ratio >= 1.0:
+            print("=> No selection or ratio = 1.0, using full dataset.")
         else:
-            print("=> selection_ratio == 1.0, using full dataset (no selection).")
+            raise ValueError(f"Unknown selection method: {config.selection_method}. Use 'sava', 'random', or 'none'.")
 
     # 7. Build Trainer
     trainer = build_trainer(config,
@@ -126,5 +127,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-#Final version before implemting new method
