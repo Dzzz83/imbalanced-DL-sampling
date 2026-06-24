@@ -38,20 +38,20 @@ class SAVAReweightTrainer(Trainer):
     """
     def __init__(self, cfg, dataset, model, strategy="SAVA_Reweight"):
         self.reweight_mode = getattr(cfg, 'reweight_mode', 'loss')
-        # DEFAULT = None → triggers auto‑scale if not provided
         self.temp = getattr(cfg, 'sava_reweight_temp', None)
         self.clip_min = getattr(cfg, 'sava_weights_clip', 1e-3)
         self.scores_file = getattr(cfg, 'sava_scores_file', None)
+        self.method = getattr(cfg, 'sava_reweight_method', 'exp')  # 'exp' or 'inv'
+        self.max_class_weight_ratio = getattr(cfg, 'sava_max_class_ratio', 100.0)
 
         super().__init__(cfg, dataset, model=model, strategy=strategy)
-
         self.debug = getattr(cfg, 'debug', False)
 
         self._prepare_weights()
         self._override_loader()
 
     def _prepare_weights(self):
-        """Obtain scores and convert to positive weights, auto‑scaling temperature."""
+        """Obtain scores and convert to positive weights, with per‑class balancing."""
         if self.scores_file is not None:
             print(f"Loading SAVA scores from {self.scores_file}")
             scores = np.load(self.scores_file)
@@ -69,38 +69,83 @@ class SAVAReweightTrainer(Trainer):
                 f"Scores length {len(scores)} != dataset size {len(self.train_dataset)}"
             )
 
-        # --- Auto‑scale temperature if not set or invalid ---
+        # ---- Auto‑scale temperature if needed ----
         if self.temp is None or self.temp <= 0:
             auto_temp = max(2.0 * scores.std(), 1.0)
             print(f"Auto‑set SAVA reweight temperature = {auto_temp:.2f} (std={scores.std():.2f})")
             self.temp = auto_temp
         else:
-            # Warn if temperature is too small relative to score range
             score_range = scores.max() - scores.min()
             if score_range > 0 and self.temp < score_range * 0.01:
-                print(f"Warning: temperature {self.temp} is very small relative to score range {score_range:.2f}. "
-                      "This may lead to extreme weighting. Consider increasing it or using auto‑set (omit the parameter).")
+                print(f"Warning: temperature {self.temp} is very small relative to score range {score_range:.2f}.")
 
-        # Convert scores to weights: lower score → higher weight.
-        scores_shifted = scores - np.min(scores)   # now non‑negative
-        weights = np.exp(-scores_shifted / self.temp)
+        # ---- Convert to weights ----
+        scores_shifted = scores - np.min(scores)   # non‑negative
+        if self.method == 'exp':
+            weights = np.exp(-scores_shifted / self.temp)
+        elif self.method == 'inv':
+            # inverse weighting: 1 / (shift + eps)
+            weights = 1.0 / (scores_shifted + 1e-6)
+        else:
+            raise ValueError(f"Unknown reweight method: {self.method}")
+
         weights = np.clip(weights, self.clip_min, None)
-        # Normalise so mean = 1 (keeps loss scale consistent)
+
+        # ---- Per‑class weight adjustment to prevent extreme imbalance ----
+        # Get targets (labels) from the training dataset
+        if hasattr(self.train_dataset, 'targets'):
+            targets = np.array(self.train_dataset.targets)
+        else:
+            # fallback: iterate once to collect labels (slow but safe)
+            targets = np.array([self.train_dataset[i][1] for i in range(len(self.train_dataset))])
+
+        class_avg_weights = []
+        for c in range(self.cfg.num_classes):
+            mask = (targets == c)
+            if np.any(mask):
+                class_avg_weights.append(np.mean(weights[mask]))
+            else:
+                class_avg_weights.append(0.0)
+        class_avg_weights = np.array(class_avg_weights)
+
+        # Print per‑class average weights
+        print("SAVA reweighting: per‑class average weights:")
+        for c, avg_w in enumerate(class_avg_weights):
+            print(f"  Class {c}: {avg_w:.6f}")
+
+        # If any class has zero weight (or very small), boost it
+        min_avg = max(class_avg_weights[class_avg_weights > 0].min(), 1e-6)
+        max_avg = class_avg_weights.max()
+        ratio = max_avg / min_avg
+        if ratio > self.max_class_weight_ratio:
+            print(f"Warning: class weight ratio {ratio:.2f} exceeds limit {self.max_class_weight_ratio}. "
+                  "Clipping per‑class weights to prevent collapse.")
+            # Scale down the weights of over‑weighted classes
+            for c in range(self.cfg.num_classes):
+                if class_avg_weights[c] > min_avg * self.max_class_weight_ratio:
+                    # Reduce weights for this class so that its average becomes min_avg * limit
+                    scale = (min_avg * self.max_class_weight_ratio) / class_avg_weights[c]
+                    mask = (targets == c)
+                    weights[mask] *= scale
+            # Re‑compute averages after clipping
+            for c in range(self.cfg.num_classes):
+                mask = (targets == c)
+                if np.any(mask):
+                    class_avg_weights[c] = np.mean(weights[mask])
+            print("After clipping, per‑class averages:")
+            for c, avg_w in enumerate(class_avg_weights):
+                print(f"  Class {c}: {avg_w:.6f}")
+
+        # Normalise so mean = 1
         weights = weights / np.mean(weights)
         self.sample_weights = weights.astype(np.float32)
 
-        print(f"SAVA reweighting: mean weight={weights.mean():.4f}, "
+        print(f"SAVA reweighting: final mean weight={weights.mean():.4f}, "
               f"min={weights.min():.4f}, max={weights.max():.4f}")
 
-        # Log debug info using the debug logger (if enabled)
-        if self.debug and hasattr(self, 'logger') and self.logger is not None:
-            self.logger.debug(f"SAVA raw scores: min={scores.min():.6f}, max={scores.max():.6f}, std={scores.std():.6f}")
-            self.logger.debug(f"SAVA shifted scores: min={scores_shifted.min():.6f}, max={scores_shifted.max():.6f}")
-            self.logger.debug(f"SAVA weights: mean={weights.mean():.6f}, min={weights.min():.6f}, max={weights.max():.6f}")
-            self.logger.debug(f"First 10 weights: {weights[:10]}")
-            # Check for extreme skew
-            if weights.max() / (weights.min() + 1e-10) > 1e4:
-                self.logger.warning("Weight ratio (max/min) > 1e4 – this may be too aggressive. Consider increasing temperature.")
+        if self.debug:
+            # Log to main logger (if set to DEBUG level) – but we already printed to console.
+            pass
 
     def _override_loader(self):
         """Replace self.train_loader based on reweight_mode."""
@@ -131,11 +176,9 @@ class SAVAReweightTrainer(Trainer):
         else:
             raise ValueError(f"Unknown reweight_mode: {self.reweight_mode}")
 
-        if self.debug and hasattr(self, 'logger') and self.logger is not None:
-            self.logger.debug(f"Train loader created with batch_size={self.cfg.batch_size}, dataset size={len(self.train_dataset)}")
-            if self.reweight_mode == 'loss':
-                sample_batch = next(iter(self.train_loader))
-                self.logger.debug(f"Sample batch: image shape {sample_batch[0].shape}, label shape {sample_batch[1].shape}, weight shape {sample_batch[2].shape}")
+        if self.debug:
+            # Optionally log loader info to main logger
+            pass
 
     def get_criterion(self):
         if self.reweight_mode == 'loss':
