@@ -21,6 +21,10 @@ reweight_mode: loss            # Apply weights via per‑sample loss multiplicat
 # sava_reweight_temp: 1.0        # Temperature for exponential weighting (higher = softer)
 sava_weights_clip: 1e-3        # Minimum weight to avoid zero values
 # Optional: sava_scores_file: /path/to/scores.npy  # Uncomment to load pre‑computed scores
+# SAVA reweighting options
+sava_reweight_method: exp          # or 'inv' for inverse weighting
+sava_max_weight: 10.0              # global cap on individual sample weights
+sava_balance_classes: true         # (we always balance now; remove if not needed)
 
 loss_type: CE
 train_rule: None
