@@ -1,0 +1,61 @@
+# Dataset Settings
+dataset: cifar10
+num_classes: 10
+imb_type: exp
+imb_factor: 0.01
+data_path: ./data
+classifier: 'dot_product_classifier'
+augmentation: weak
+
+# Selection Settings (SAVA)
+selection_method: sava         # Compute SAVA scores (uses cached version if available)
+selection_ratio: 1.0          # Keep all samples; scores are used for reweighting
+
+# SAVA specific options
+sava_batch_size: 5000          # Batch size for hierarchical OT computation
+sava_cache_label_distances: true   # Cache label‑to‑label OT distances across batches
+
+# Training Strategy
+strategy: SAVA_Reweight
+reweight_mode: loss            # Apply weights via per‑sample loss multiplication
+sava_reweight_temp: 1.0        # Temperature for exponential weighting (higher = softer)
+sava_weights_clip: 1e-3        # Minimum weight to avoid zero values
+# Optional: sava_scores_file: /path/to/scores.npy  # Uncomment to load pre‑computed scores
+
+loss_type: CE
+train_rule: None
+base_strategy: ERM
+
+# Noise
+noise_first: False
+noise_ratio: 0.0
+
+# Hyperparameters
+epochs: 200
+start_epoch: 0
+print_freq: 10
+batch_size: 128
+learning_rate: 0.1
+momentum: 0.9
+weight_decay: 2e-4
+lr_steps: [120, 160]
+gamma: 0.1
+
+rand_number: 0
+mixup_alpha: 1.0
+workers: 4
+optimizer: sgd
+
+# Logging & Checkpoints
+root_log: results/results_sava/cifar10/cifar10_exp0.01_sava_reweight_loss
+cifar_root: ./data
+
+# Hardware
+device: cuda
+gpu: 0
+
+# Seed
+seed: 42
+
+# Debug
+debug: true

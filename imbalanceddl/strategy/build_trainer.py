@@ -83,5 +83,9 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
                                             imbalance_dataset,
                                             model=model,
                                             strategy=strategy)
+    elif strategy == 'SAVA_Reweight':
+        from imbalanceddl.strategy._sava_reweight import SAVAReweightTrainer
+        print("=> SAVA Reweight Trainer !")
+        trainer = SAVAReweightTrainer(cfg, imbalance_dataset, model, strategy)
         
     return trainer

@@ -1,3 +1,5 @@
+# imbalanceddl/utils/sava_helpers.py
+
 import sys
 import os
 import torch
@@ -47,9 +49,25 @@ class IdentityExtractor(torch.nn.Module):
 def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
                             batch_size=1024, num_classes=10, resize=32,
                             cache_label_distances=True, corrupt_por=0.0,
-                            debug=False):
+                            debug=False, return_scores=False):
     """
-    Compute SAVA scores (sorted training indices by increasing value) using raw pixels.
+    Compute SAVA scores (hierarchical OT) using raw pixels.
+
+    Args:
+        train_dataset: torch Dataset for training
+        val_dataset: torch Dataset for validation
+        device: 'cuda' or 'cpu'
+        batch_size: batch size for OT
+        num_classes: number of classes
+        resize: image resize dimension
+        cache_label_distances: cache label-to-label distances
+        corrupt_por: corruption portion (for SAVA paper experiments)
+        debug: enable debug logging
+        return_scores: if True, return (sorted_indices, scores) else only sorted_indices
+
+    Returns:
+        sorted_indices: numpy array of training indices sorted by increasing SAVA score
+        scores (optional): numpy array of raw SAVA scores in original training order
     """
     logger = get_debug_logger(debug=debug)
     
@@ -98,7 +116,7 @@ def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
         batch_size=batch_size,
         shuffle_ind=shuffle_ind,
         resize=resize,
-        portion=0.0,
+        portion=corrupt_por,
         device=device,
         cache_label_distances=cache_label_distances,
         visualise_hot=False,
@@ -111,41 +129,24 @@ def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
     )
     if debug:
         logger.debug("hierarchical_ot_experiment returned")
-    
+
     # ---------- Extract sorted indices and scores ----------
+    # The result can be:
+    #   - (sorted_indices, scores) when portion=0 and shuffle_ind empty
+    #   - (sorted_indices, trained_with_flag, scores) when portion>0
     if isinstance(result, tuple):
-        sorted_indices = result[0]
-        # Determine scores position based on tuple length
-        if len(result) == 2:
-            scores = result[1]
-        elif len(result) == 3:
-            scores = result[2]  # scores are third element when trained_with_flag is present
+        if len(result) == 3:
+            sorted_indices, trained_with_flag, scores = result
+        elif len(result) == 2:
+            sorted_indices, scores = result
         else:
-            scores = None
-        if scores is not None and debug:
-            try:
-                if not isinstance(scores, np.ndarray):
-                    scores = np.array(scores)
-                if scores.ndim > 1:
-                    scores = scores.ravel()
-                # scores is aligned with original training order (index 0..training_size-1)
-                # Now reorder scores according to sorted_indices to see the ranking
-                sorted_scores = scores[sorted_indices]
-                if sorted_scores.size > 0:
-                    logger.debug(f"Sorted scores (most valuable first) - min: {np.min(sorted_scores):.6f}, max: {np.max(sorted_scores):.6f}, mean: {np.mean(sorted_scores):.6f}, std: {np.std(sorted_scores):.6f}")
-                    logger.debug(f"First 10 scores (most valuable): {sorted_scores[:10]}")
-                    logger.debug(f"Last 10 scores (least valuable): {sorted_scores[-10:]}")
-                else:
-                    logger.debug("Scores array is empty.")
-            except Exception as e:
-                logger.debug(f"Could not process scores: {e}. Raw type: {type(scores)}")
-        elif debug:
-            logger.debug("No scores in result tuple.")
+            raise RuntimeError(f"Unexpected result length: {len(result)}")
     else:
         sorted_indices = result
+        scores = None
         if debug:
             logger.debug("Result is not a tuple; assuming only indices.")
-    
+
     # Convert to flat int64 numpy array
     if isinstance(sorted_indices, list):
         if len(sorted_indices) > 0 and hasattr(sorted_indices[0], '__len__') and len(sorted_indices[0]) == 1:
@@ -154,13 +155,34 @@ def get_sava_sorted_indices(train_dataset, val_dataset, device='cuda',
             sorted_indices = np.array(sorted_indices, dtype=np.int64)
     else:
         sorted_indices = np.asarray(sorted_indices).ravel().astype(np.int64)
-    
+
     if len(sorted_indices) != training_size:
         raise RuntimeError(f"Expected {training_size} indices but got {len(sorted_indices)}")
-    
-    if debug:
-        logger.debug(f"Sorted indices shape: {sorted_indices.shape}, dtype: {sorted_indices.dtype}")
-        logger.debug(f"First 10 training indices (most valuable): {sorted_indices[:10]}")
-        logger.debug(f"Last 10 training indices (least valuable): {sorted_indices[-10:]}")
-    
-    return sorted_indices
+
+    if scores is not None:
+        # Ensure scores is a 1D numpy array in original order (not sorted)
+        if not isinstance(scores, np.ndarray):
+            scores = np.array(scores)
+        if scores.ndim > 1:
+            scores = scores.ravel()
+        if len(scores) != training_size:
+            raise RuntimeError(f"Score length {len(scores)} != training size {training_size}")
+        # scores are already in original order (they are values for each training sample)
+        if debug:
+            logger.debug(f"Scores stats: min={np.min(scores):.6f}, max={np.max(scores):.6f}, mean={np.mean(scores):.6f}")
+            logger.debug(f"First 10 scores (original order): {scores[:10]}")
+            # Show scores in sorted order (most valuable first)
+            sorted_scores = scores[sorted_indices]
+            if len(sorted_scores) > 0:
+                logger.debug(f"Sorted scores (most valuable first) - first 10: {sorted_scores[:10]}")
+                logger.debug(f"Sorted scores - last 10: {sorted_scores[-10:]}")
+    else:
+        # Fallback: create dummy scores (should not happen with current SAVA API)
+        scores = np.zeros(training_size, dtype=np.float64)
+        if debug:
+            logger.debug("No scores returned; using zeros (this may indicate an issue).")
+
+    if return_scores:
+        return sorted_indices, scores
+    else:
+        return sorted_indices

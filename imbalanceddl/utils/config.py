@@ -118,6 +118,17 @@ def get_args():
     # wandb
     parser.add_argument('--use_wandb', action='store_true', help='Enable Weights & Biases logging (default: False)')
 
+    # SAVA Reweighting
+    parser.add_argument('--reweight_mode', default='loss', type=str,
+                        choices=['loss', 'sampler'],
+                        help='How to apply SAVA weights: loss weighting or weighted sampler')
+    parser.add_argument('--sava_reweight_temp', default=1.0, type=float,
+                        help='Temperature for exponential scaling of SAVA scores (higher = softer)')
+    parser.add_argument('--sava_scores_file', default=None, type=str,
+                        help='Path to precomputed SAVA scores .npy file (optional)')
+    parser.add_argument('--sava_weights_clip', default=1e-3, type=float,
+                        help='Clip weights to this minimum value to avoid extreme values')
+
     # update config from command line
     parser.set_defaults(**config)
     args = parser.parse_args()
