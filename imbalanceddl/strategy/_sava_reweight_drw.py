@@ -50,19 +50,32 @@ class SAVAReweightDRWTrainer(Trainer):
 
         scores = np.asarray(scores, dtype=np.float64)
         
-        # 1. Global Min-Max Normalization to [0, 1]
-        min_s, max_s = np.min(scores), np.max(scores)
-        norm_scores = (scores - min_s) / (max_s - min_s + 1e-6)
-
-        # 2. Convert scores to weights (Lower score = Higher weight)
-        raw_weights = np.exp(-norm_scores / self.temp)
-        
-        # 3. Class-aware Boost using EFFECTIVE NUMBER FORMULA
+        # Get targets for per-class normalization
         if hasattr(self.train_dataset, 'targets'):
             targets = np.array(self.train_dataset.targets)
         else:
             targets = np.array([self.train_dataset[i][1] for i in range(len(self.train_dataset))])
 
+        # --- FAIR PER-CLASS NORMALIZATION ---
+        norm_scores = np.zeros_like(scores)
+        for c in range(self.cfg.num_classes):
+            class_mask = (targets == c)
+            class_scores = scores[class_mask]
+            
+            min_c = np.min(class_scores)
+            max_c = np.max(class_scores)
+            
+            # Normalize strictly within the class
+            if max_c > min_c:
+                norm_scores[class_mask] = (class_scores - min_c) / (max_c - min_c + 1e-6)
+            else:
+                norm_scores[class_mask] = 0.0
+        # -------------------------------------
+
+        # 2. Convert scores to weights (Lower score = Higher weight)
+        raw_weights = np.exp(-norm_scores / self.temp)
+        
+        # 3. Class-aware Boost using EFFECTIVE NUMBER FORMULA
         class_counts = np.bincount(targets, minlength=self.cfg.num_classes).astype(np.float64)
         class_counts = np.maximum(class_counts, 1.0)
         
@@ -80,7 +93,7 @@ class SAVAReweightDRWTrainer(Trainer):
         
         self.sample_weights = weights.astype(np.float32)
 
-        print(f"SAVA DRW Reweight Stats: Min={weights.min():.4f}, Max={weights.max():.4f}, Mean={weights.mean():.4f}")
+        print(f"SAVA DRW Reweight Stats (Per-Class Norm): Min={weights.min():.4f}, Max={weights.max():.4f}, Mean={weights.mean():.4f}")
 
     def _override_loader(self):
         if self.reweight_mode == 'sampler':
