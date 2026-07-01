@@ -3,19 +3,10 @@ import torch.nn as nn
 from torch.nn import functional as F
 import numpy as np
 
-
-"""
-The LDAMLoss class and FocalLoss class is copied from the
-official PyTorch implementation in LDAM (https://github.com/kaidic/LDAM-DRW)
-"""
-
-
 def focal_loss(input_values, gamma):
-    """Computes the focal loss"""
     p = torch.exp(-input_values)
     loss = (1 - p)**gamma * input_values
     return loss.mean()
-
 
 class FocalLoss(nn.Module):
     def __init__(self, weight=None, gamma=0.):
@@ -26,11 +17,7 @@ class FocalLoss(nn.Module):
 
     def forward(self, input, target):
         return focal_loss(
-            F.cross_entropy(input,
-                            target,
-                            reduction='none',
-                            weight=self.weight), self.gamma)
-
+            F.cross_entropy(input, target, reduction='none', weight=self.weight), self.gamma)
 
 class LDAMLoss(nn.Module):
     def __init__(self, cls_num_list, max_m=0.5, weight=None, s=30):
@@ -48,14 +35,12 @@ class LDAMLoss(nn.Module):
         index.scatter_(1, target.data.view(-1, 1), 1)
 
         index_float = index.type(torch.cuda.FloatTensor)
-        batch_m = torch.matmul(self.m_list[None, :],
-                               index_float.transpose(0, 1))
+        batch_m = torch.matmul(self.m_list[None, :], index_float.transpose(0, 1))
         batch_m = batch_m.view((-1, 1))
         x_m = x - batch_m
 
         output = torch.where(index, x_m, x)
         return F.cross_entropy(self.s * output, target, weight=self.weight)
-
 
 class LogitAdjustedLoss(nn.Module):
     def __init__(self, cls_num_list, tau=1.0, reduction='mean'):
@@ -64,12 +49,13 @@ class LogitAdjustedLoss(nn.Module):
         self.register_buffer('log_prior', cls_num_list.log())
         self.tau = tau
         self.reduction = reduction
+        # One-time log to verify adjustment is active
+        print(f"[INFO] LogitAdjustedLoss: tau={tau}, log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
         adjusted_logits = logits + self.tau * self.log_prior
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss
-
 
 class BalancedSoftmaxLoss(nn.Module):
     def __init__(self, cls_num_list, reduction='mean'):
@@ -77,6 +63,7 @@ class BalancedSoftmaxLoss(nn.Module):
         cls_num_list = torch.FloatTensor(cls_num_list)
         self.register_buffer('log_prior', cls_num_list.log())
         self.reduction = reduction
+        print(f"[INFO] BalancedSoftmaxLoss: log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
         adjusted_logits = logits + self.log_prior

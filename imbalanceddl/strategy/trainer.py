@@ -157,34 +157,6 @@ class Trainer(BaseTrainer):
                 self.train_one_epoch(net, net_seed, optimizer, SUCCESS)
 
     def do_train_val(self):
-        if hasattr(self, 'dataset') and hasattr(self.dataset, 'train_val_sets'):
-            train_ds, val_ds = self.dataset.train_val_sets
-            self.train_loader = DataLoader(
-                train_ds, batch_size=self.cfg.batch_size,
-                shuffle=True, num_workers=self.cfg.workers, pin_memory=True
-            )
-            self.val_loader = DataLoader(
-                val_ds, batch_size=self.cfg.batch_size,
-                shuffle=False, num_workers=self.cfg.workers, pin_memory=True
-            )
-            self.train_oversamples = None
-            print(f"Using selected dataset: train size = {len(train_ds)}, val size = {len(val_ds)}")
-            if hasattr(train_ds, 'targets'):
-                print(f"First 10 train targets: {train_ds.targets[:10]}")
-        else:
-            if self.cfg.dataset == 'cifar10':
-                from imbalanceddl.dataset.m2m_imbalance_cifar10 import cifar10_train_val_oversamples
-                train_in_loader, val_in_loader, train_oversamples_loader = cifar10_train_val_oversamples(
-                    self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha
-                )
-                self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
-            elif self.cfg.dataset == 'cifar100':
-                from imbalanceddl.dataset.m2m_imbalance_cifar100 import cifar100_train_val_oversamples
-                train_in_loader, val_in_loader, train_oversamples_loader = cifar100_train_val_oversamples(
-                    self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha
-                )
-                self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
-
         for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
             self.epoch = epoch
             self.adjust_learning_rate()
@@ -195,17 +167,11 @@ class Trainer(BaseTrainer):
             is_best = acc1 > self.best_acc1
             self.best_acc1 = max(acc1, self.best_acc1)
 
-            # TensorBoard and CSV logging are disabled (set to None in base.py)
-            if self.tf_writer is not None:
-                self.tf_writer.add_scalar('acc/test_top1_best', self.best_acc1, self.epoch)
+            output_best = f'Best Prec@1: {self.best_acc1:.3f}\n'
+            print(output_best)
             if self.log_testing is not None:
-                output_best = 'Best Prec@1: %.3f\n' % (self.best_acc1)
-                print(output_best)
-                self.log_testing.write(output_best + '\n')
+                self.log_testing.write(output_best)
                 self.log_testing.flush()
-            else:
-                output_best = 'Best Prec@1: %.3f\n' % (self.best_acc1)
-                print(output_best)
 
             save_checkpoint(
                 self.cfg, {

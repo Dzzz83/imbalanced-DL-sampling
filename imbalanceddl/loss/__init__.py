@@ -1,1 +1,1 @@
-from .loss import LDAMLoss, FocalLoss
+from .loss import LDAMLoss, FocalLoss, LogitAdjustedLoss, BalancedSoftmaxLoss

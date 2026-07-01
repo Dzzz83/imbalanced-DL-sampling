@@ -121,6 +121,9 @@ def get_args():
     # Save checkpoint
     parser.add_argument('--save_checkpoint', action='store_true', help='Save model checkpoints (default: False)')
     
+    parser.add_argument('--save_interval', default=50, type=int,
+                    help='Save checkpoint every N epochs (in addition to best)')
+    
     # wandb
     parser.add_argument('--use_wandb', action='store_true', help='Enable Weights & Biases logging (default: False)')
 
