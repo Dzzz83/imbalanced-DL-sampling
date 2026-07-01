@@ -23,7 +23,6 @@ class NormedLinear(nn.Module):
 class Network(nn.Module):
     def __init__(self, cfg):
         super(Network, self).__init__()
-        # config
         self.cfg = cfg
         self.num_classes = self._get_num_classes()
         self.feature_len = self._get_feature_len()
@@ -32,7 +31,13 @@ class Network(nn.Module):
 
     def forward(self, x, **kwargs):
         hidden = self.backbone(x)
-        out = self.classifier(hidden)
+        
+        # Route through 3 independent heads if strategy is 'Experts'
+        if self.cfg.strategy == 'Experts':
+            out = [clf(hidden) for clf in self.classifier]
+        else:
+            out = self.classifier(hidden)
+            
         return out, hidden
 
     def _get_feature_len(self):
@@ -67,6 +72,23 @@ class Network(nn.Module):
                 print("=> Due to LDAM, change classifier to \
                     cosine similarity classifier !")
                 self.cfg.classifier = 'cosine_similarity_classifier'
+                
+            # Initialize 3 distinct expert heads
+            if self.cfg.strategy == 'Experts':
+                print("=> Initializing 3 independent expert classifiers")
+                if self.cfg.classifier == 'dot_product_classifier':
+                    return nn.ModuleList([
+                        nn.Linear(self.feature_len, self.num_classes, bias=False) 
+                        for _ in range(3)
+                    ])
+                elif self.cfg.classifier == 'cosine_similarity_classifier':
+                    return nn.ModuleList([
+                        NormedLinear(self.feature_len, self.num_classes) 
+                        for _ in range(3)
+                    ])
+                else:
+                    raise NotImplementedError
+                    
             print("=> Initializing classifier: {}".format(self.cfg.classifier))
             if self.cfg.classifier == 'dot_product_classifier':
                 return nn.Linear(self.feature_len,

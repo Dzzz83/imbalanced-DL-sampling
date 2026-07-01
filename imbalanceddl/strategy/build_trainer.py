@@ -7,6 +7,7 @@ from imbalanceddl.strategy import LDAMDRWTrainer
 from imbalanceddl.strategy import ReweightCBTrainer
 from imbalanceddl.strategy import M2mTrainer
 from imbalanceddl.strategy import DeepSMOTETrainer
+from imbalanceddl.strategy._experts import ExpertsTrainer
 
 def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
     """
@@ -14,64 +15,33 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
     """
     if strategy == 'Mixup_DRW':
         print("=> Mixup Trainer !")
-        trainer = MixupTrainer(cfg,
-                               imbalance_dataset,
-                               model=model,
-                               strategy=strategy)
+        trainer = MixupTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == 'Mixup':
-        trainer = MixupTrainer(cfg,
-                               imbalance_dataset,
-                               model=model,
-                               strategy=strategy)
+        trainer = MixupTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == 'M2m':
         print("=> M2m Trainer !")
-        trainer = M2mTrainer(cfg,
-                               imbalance_dataset,
-                               model=model,
-                               strategy=strategy)
-
+        trainer = M2mTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == 'DeepSMOTE':
         print("=> DeepSMOTE Trainer !")
-        trainer = DeepSMOTETrainer(cfg,
-                               imbalance_dataset,
-                               model=model,
-                               strategy=strategy)                                    
+        trainer = DeepSMOTETrainer(cfg, imbalance_dataset, model=model, strategy=strategy)                                    
     elif strategy == 'Remix_DRW':
         print("=> Remix Trainer !")
-        trainer = RemixTrainer(cfg,
-                               imbalance_dataset,
-                               model=model,
-                               strategy=strategy)
+        trainer = RemixTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == 'MAMix_DRW':
         print("=> MAMix Trainer !")
-        trainer = MAMixTrainer(cfg,
-                               imbalance_dataset,
-                               model=model,
-                               strategy=strategy)
+        trainer = MAMixTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == 'ERM':
         print("=> ERM Trainer !")
-        trainer = ERMTrainer(cfg,
-                             imbalance_dataset,
-                             model=model,
-                             strategy=strategy)
+        trainer = ERMTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == 'DRW':
         print("=> DRW Trainer !")
-        trainer = DRWTrainer(cfg,
-                             imbalance_dataset,
-                             model=model,
-                             strategy=strategy)
+        trainer = DRWTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == 'LDAM_DRW':
         print("=> LDAM_DRW Trainer !")
-        trainer = LDAMDRWTrainer(cfg,
-                                 imbalance_dataset,
-                                 model=model,
-                                 strategy=strategy)
+        trainer = LDAMDRWTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == 'Reweight_CB':
         print("=> Reweight_CB Trainer !")
-        trainer = ReweightCBTrainer(cfg,
-                                    imbalance_dataset,
-                                    model=model,
-                                    strategy=strategy)
+        trainer = ReweightCBTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == "DeepSMOTE_Sava":
         from imbalanceddl.strategy._deepsmote_sava import DeepSMOTESavaTrainer
         print("=> DeepSMOTE + SAVA Trainer !")
@@ -79,16 +49,12 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
     elif strategy == 'RandomOversampling_Selection':
         from imbalanceddl.strategy._randOversampling import RandomOversamplingTrainer
         print("=> RandomOversampling + SAVA Trainer !")
-        trainer = RandomOversamplingTrainer(cfg,
-                                            imbalance_dataset,
-                                            model=model,
-                                            strategy=strategy)
+        trainer = RandomOversamplingTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
     elif strategy == 'SAVA_Reweight':
         from imbalanceddl.strategy._sava_reweight import SAVAReweightTrainer
         print("=> SAVA Reweight Trainer !")
         trainer = SAVAReweightTrainer(cfg, imbalance_dataset, model, strategy)
 
-    # Inside build_trainer():
     elif strategy == 'ClassBalanced_ERM':
         from imbalanceddl.strategy._class_balanced_erm import ClassBalancedERMTrainer
         print("=> ClassBalanced ERM Trainer (sqrt class balance only) !")
@@ -104,13 +70,15 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
         print("=> SAVA Reweight DRW Trainer !")
         trainer = SAVAReweightDRWTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
 
-    # >>> NEW STRATEGY INTEGRATION >>>
     elif strategy == 'SAVA_Mixup_DRW':
         from imbalanceddl.strategy._sava_mixup_drw import SAVAMixupDRWTrainer
         print("=> SAVA Mixup DRW Trainer !")
         trainer = SAVAMixupDRWTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
-    # <<< NEW STRATEGY INTEGRATION <<<
-
+        
+    elif strategy == 'Experts':
+        print("=> 3-Expert Trainer !")
+        trainer = ExpertsTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
+        
     else:
         raise NotImplementedError
 

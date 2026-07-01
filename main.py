@@ -5,7 +5,6 @@ from pathlib import Path
 sava_root = Path(__file__).parent / 'sava'
 if str(sava_root) not in sys.path:
     sys.path.insert(0, str(sava_root))
-# Remove any cached otdd module (from previous imports)
 if 'otdd' in sys.modules:
     del sys.modules['otdd']
 
@@ -36,29 +35,37 @@ from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.strategy.build_trainer import build_trainer
 from imbalanceddl.utils.config import get_args
 from imbalanceddl.utils.debug_logger import get_debug_logger
-
-# Only keep SavaDataset (random selection is handled inside SavaDataset)
 from imbalanceddl.dataset.sava_dataset import SavaDataset
 
 def main():
-    # 1. Load Configuration
     config = get_args()
     
-    # 2. Setup Logging and Folders (only creates root_log, no subfolders)
+    # Explicitly define num_classes for downstream components
+    if config.dataset in ['cifar10', 'cinic10', 'svhn10', 'cifar10_noisy']:
+        config.num_classes = 10
+    elif config.dataset == 'cifar100':
+        config.num_classes = 100
+    elif config.dataset == 'tiny200':
+        config.num_classes = 200
+    else:
+        raise NotImplementedError(f"Dataset {config.dataset} not mapped to num_classes.")
+
+    # Override batch size if training the 3 experts
+    if config.strategy == 'Experts':
+        config.batch_size = config.expert_batch_size
+        print(f"=> Overriding batch size to {config.batch_size} for Expert training.")
+
     prepare_store_name(config)
     print(f"=> Store Name = {config.store_name}")
-    prepare_folders(config)   # now only creates root_log
+    prepare_folders(config)
 
-    # 2b. Initialise debug logger if requested – use global './debug' folder
     if getattr(config, 'debug', False):
-        # No custom log_dir – uses default './debug'
         get_debug_logger(debug=True)
         logger = get_debug_logger(debug=True)
         logger.debug("Debug logging enabled for this run.")
     else:
         get_debug_logger(debug=False)
 
-    # 3. Seed for Reproducibility
     if config.seed is None:
         config.seed = np.random.randint(10000)
     fix_all_seed(config.seed)
@@ -73,28 +80,22 @@ def main():
             torch.cuda.set_device(config.gpu)
             print(f"=> Using GPU {config.gpu}")
 
-    # 4. Build Model
     model = build_model(config)
     
-    # 5. Build Initial Dataset
     print(f"Creating training dataset with {config.augmentation} augmentation...")
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation=config.augmentation)
 
-    # 6. Data Selection (revised: always create SavaDataset for sava method)
     if config.strategy in ["DeepSMOTE_Selection", "RandomOversampling_Selection", "Selection_RandomOversampling", 
                            "DeepSMOTE_Sava"]:
         print(f"=> {config.strategy} handles selection internally. Skipping main script selection.")
     else:
         if config.selection_method == 'sava':
-            # Always create SavaDataset – it handles both scoring and selection.
-            # When selection_ratio == 1.0, it keeps all samples but still loads/computes scores.
             print(f"=> Applying SAVA scoring (ratio={config.selection_ratio})")
             imbalance_dataset = SavaDataset(
                 config, imbalance_dataset, config.selection_ratio,
                 method='sava', device=device
             )
         elif config.selection_method == 'random' and config.selection_ratio < 1.0:
-            # Random selection only when ratio < 1.0
             print(f"=> Applying random selection (ratio={config.selection_ratio})")
             imbalance_dataset = SavaDataset(
                 config, imbalance_dataset, config.selection_ratio,
@@ -105,13 +106,11 @@ def main():
         else:
             raise ValueError(f"Unknown selection method: {config.selection_method}. Use 'sava', 'random', or 'none'.")
 
-    # 7. Build Trainer
     trainer = build_trainer(config,
                             imbalance_dataset,
                             model=model,
                             strategy=config.strategy)
 
-    # 8. Execution
     if config.best_model is not None:
         print("=> Eval with Best Model !")
         trainer.eval_best_model()

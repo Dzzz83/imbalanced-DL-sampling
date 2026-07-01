@@ -1,34 +1,65 @@
 import torch
 import torch.optim as optim
 import math
+from .base import BaseTrainer
 from ..loss import LogitAdjustedLoss, BalancedSoftmaxLoss
 
-class ExpertsTrainer:
-    def __init__(self, cfg, model, train_loader, val_loader, cls_num_list):
-        self.cfg = cfg
-        self.model = model
-        self.train_loader = train_loader
-        self.val_loader = val_loader
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+class ExpertsTrainer(BaseTrainer):
+    def __init__(self, cfg, dataset, **kwargs):
+        super(ExpertsTrainer, self).__init__(cfg, dataset, **kwargs)
+        self.model = kwargs.get('model')
         self.device = torch.device(cfg.device if torch.cuda.is_available() else 'cpu')
         self.model.to(self.device)
 
-        self.criterion_ce = torch.nn.CrossEntropyLoss()
-        self.criterion_la = LogitAdjustedLoss(cls_num_list, tau=1.0).to(self.device)
-        self.criterion_bs = BalancedSoftmaxLoss(cls_num_list).to(self.device)
+        # cls_num_list is populated in cfg by ImbalancedDataset
+        self.cls_num_list = cfg.cls_num_list
+        
+        # Define the 3 long-tail-aware losses
+        self.criterion_ce = torch.nn.CrossEntropyLoss().to(self.device)
+        self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
+        self.criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
         self.losses = [self.criterion_ce, self.criterion_la, self.criterion_bs]
 
         self.optimizer = optim.SGD(
-            model.parameters(), 
+            self.model.parameters(), 
             lr=cfg.lr, 
             momentum=cfg.momentum, 
             weight_decay=cfg.weight_decay
         )
+        
+        self.best_acc = 0.0
 
-    def train_one_epoch(self, epoch):
+    def get_criterion(self):
+        # Satisfies abstract method; actual losses handled in train_one_epoch
+        return self.criterion_ce
+
+    def adjust_learning_rate(self, epoch):
+        # Cosine Annealing LR schedule
+        lr = self.cfg.lr * 0.5 * (1.0 + math.cos(math.pi * epoch / self.cfg.epochs))
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = lr
+
+    def train_one_epoch(self):
         self.model.train()
-        total_loss = 0.0
-        total_correct = 0
-        total_samples = 0
+        losses = AverageMeter()
+        top1 = AverageMeter()
         
         for batch_idx, (images, targets, _) in enumerate(self.train_loader):
             images = images.to(self.device, non_blocking=True)
@@ -36,7 +67,9 @@ class ExpertsTrainer:
             
             self.optimizer.zero_grad()
             
-            experts_logits = self.model(images)
+            # Network returns out (list of 3 logits), hidden
+            out, _ = self.model(images)
+            experts_logits = out
             
             loss = 0.0
             for i, logits in enumerate(experts_logits):
@@ -46,54 +79,52 @@ class ExpertsTrainer:
             loss.backward()
             self.optimizer.step()
             
-            total_loss += loss.item() * images.size(0)
+            losses.update(loss.item(), images.size(0))
             
             # Compute accuracy using averaged probabilities across experts
             probs = [torch.softmax(logits, dim=1) for logits in experts_logits]
             avg_probs = torch.stack(probs, dim=0).mean(dim=0)
             _, predicted = avg_probs.max(1)
-            total_samples += targets.size(0)
-            total_correct += predicted.eq(targets).sum().item()
+            acc = predicted.eq(targets).sum().item() / targets.size(0)
+            top1.update(acc, targets.size(0))
             
-        return total_loss / total_samples, 100.0 * total_correct / total_samples
+        return losses, top1
 
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-        total_correct = 0
-        total_samples = 0
+        top1 = AverageMeter()
         
         for images, targets, _ in self.val_loader:
             images = images.to(self.device, non_blocking=True)
             targets = targets.to(self.device, non_blocking=True)
             
-            experts_logits = self.model(images)
+            out, _ = self.model(images)
+            experts_logits = out
+            
             probs = [torch.softmax(logits, dim=1) for logits in experts_logits]
             avg_probs = torch.stack(probs, dim=0).mean(dim=0)
             
             _, predicted = avg_probs.max(1)
-            total_samples += targets.size(0)
-            total_correct += predicted.eq(targets).sum().item()
+            acc = predicted.eq(targets).sum().item() / targets.size(0)
+            top1.update(acc, targets.size(0))
             
-        accuracy = 100.0 * total_correct / total_samples
-        return accuracy
+        return top1
 
-    def do_train(self):
-        best_acc = 0.0
+    def do_train_val(self):
         for epoch in range(self.cfg.epochs):
+            self.epoch = epoch
             self.adjust_learning_rate(epoch)
-            train_loss, train_acc = self.train_one_epoch(epoch)
-            val_acc = self.validate()
+            train_losses, train_top1 = self.train_one_epoch()
+            val_top1 = self.validate()
             
-            if val_acc > best_acc:
-                best_acc = val_acc
-                self.save_checkpoint(epoch, val_acc)
-
-    def adjust_learning_rate(self, epoch):
-        # Cosine Annealing LR schedule
-        lr = self.cfg.lr * 0.5 * (1.0 + math.cos(math.pi * epoch / self.cfg.epochs))
-        for param_group in self.optimizer.param_groups:
-            param_group['lr'] = lr
+            log_msg = f"Epoch {epoch}: Train Loss {train_losses.avg:.4f} | Train Acc {train_top1.avg:.2f}% | Val Acc {val_top1.avg:.2f}%"
+            self.logger.info(log_msg)
+            print(log_msg)
+            
+            if val_top1.avg > self.best_acc:
+                self.best_acc = val_top1.avg
+                self.save_checkpoint(epoch, val_top1.avg)
 
     def save_checkpoint(self, epoch, acc):
         state = {
@@ -103,3 +134,12 @@ class ExpertsTrainer:
             'optimizer': self.optimizer.state_dict(),
         }
         torch.save(state, f"{self.cfg.root_model}/checkpoint_experts_epoch{epoch}.pth")
+        
+    def eval_best_model(self):
+        self.logger.info(f"=> Loading best model for evaluation: {self.cfg.best_model}")
+        checkpoint = torch.load(self.cfg.best_model)
+        self.model.load_state_dict(checkpoint['state_dict'])
+        val_top1 = self.validate()
+        eval_msg = f"=> Best Model Validation Accuracy: {val_top1.avg:.2f}%"
+        self.logger.info(eval_msg)
+        print(eval_msg)
