@@ -103,5 +103,15 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
         from imbalanceddl.strategy._sava_reweight_drw import SAVAReweightDRWTrainer
         print("=> SAVA Reweight DRW Trainer !")
         trainer = SAVAReweightDRWTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
-        
+
+    # >>> NEW STRATEGY INTEGRATION >>>
+    elif strategy == 'SAVA_Mixup_DRW':
+        from imbalanceddl.strategy._sava_mixup_drw import SAVAMixupDRWTrainer
+        print("=> SAVA Mixup DRW Trainer !")
+        trainer = SAVAMixupDRWTrainer(cfg, imbalance_dataset, model=model, strategy=strategy)
+    # <<< NEW STRATEGY INTEGRATION <<<
+
+    else:
+        raise NotImplementedError
+
     return trainer

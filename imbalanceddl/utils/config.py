@@ -23,7 +23,7 @@ def get_args():
                     choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW',
                             'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE', 
                             'DeepSMOTE_LAVA', 'LAVA_Reweight', 'ClassBalanced_ERM', 
-                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW'], # Add these, 
+                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW', 'SAVA_Mixup_DRW', 'Experts'], # <-- Added SAVA_Mixup_DRW
                         help='select strategy for trainer')
     parser.add_argument('--base_strategy', default='ERM', type=str,
                     choices=['ERM', 'Mixup', 'DRW', 'LDAM_DRW', 'Reweight_CB'],
@@ -80,6 +80,10 @@ def get_args():
     # mamix ratio
     parser.add_argument('--mamix_ratio', default=1.0, type=float, help='MAMix interpolation ratio')
     
+    # >>> NEW: Mixup Alpha >>>
+    parser.add_argument('--mixup_alpha', default=1.0, type=float, help='Mixup interpolation alpha')
+    # <<< NEW: Mixup Alpha <<<
+    
     # Augmentation
     parser.add_argument('--augmentation', default='none', type=str, 
                         help='Select the augmentation')
@@ -130,6 +134,11 @@ def get_args():
                         help='Path to precomputed SAVA scores .npy file (optional)')
     parser.add_argument('--sava_weights_clip', default=1e-3, type=float,
                         help='Clip weights to this minimum value to avoid extreme values')
+
+    # Experts Strategy Parameters
+    parser.add_argument('--expert_batch_size', default=256, type=int, help='Batch size for expert training')
+    parser.add_argument('--gating_batch_size', default=128, type=int, help='Batch size for gating training')
+    parser.add_argument('--routing_sparsity', default=0.4, type=float, help='Routing sparsity k')
 
     # update config from command line
     parser.set_defaults(**config)

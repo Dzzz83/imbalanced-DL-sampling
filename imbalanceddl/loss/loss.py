@@ -7,7 +7,6 @@ import numpy as np
 """
 The LDAMLoss class and FocalLoss class is copied from the
 official PyTorch implementation in LDAM (https://github.com/kaidic/LDAM-DRW)
-
 """
 
 
@@ -56,3 +55,30 @@ class LDAMLoss(nn.Module):
 
         output = torch.where(index, x_m, x)
         return F.cross_entropy(self.s * output, target, weight=self.weight)
+
+
+class LogitAdjustedLoss(nn.Module):
+    def __init__(self, cls_num_list, tau=1.0, reduction='mean'):
+        super(LogitAdjustedLoss, self).__init__()
+        cls_num_list = torch.FloatTensor(cls_num_list)
+        self.register_buffer('log_prior', cls_num_list.log())
+        self.tau = tau
+        self.reduction = reduction
+
+    def forward(self, logits, targets):
+        adjusted_logits = logits + self.tau * self.log_prior
+        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
+        return loss
+
+
+class BalancedSoftmaxLoss(nn.Module):
+    def __init__(self, cls_num_list, reduction='mean'):
+        super(BalancedSoftmaxLoss, self).__init__()
+        cls_num_list = torch.FloatTensor(cls_num_list)
+        self.register_buffer('log_prior', cls_num_list.log())
+        self.reduction = reduction
+
+    def forward(self, logits, targets):
+        adjusted_logits = logits + self.log_prior
+        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
+        return loss
