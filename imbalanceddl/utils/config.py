@@ -143,6 +143,17 @@ def get_args():
     parser.add_argument('--gating_batch_size', default=128, type=int, help='Batch size for gating training')
     parser.add_argument('--routing_sparsity', default=0.4, type=float, help='Routing sparsity k')
 
+    # Gate parameters
+    parser.add_argument('--lambda_ent', default=0.01, type=float, help='Entropy regularization coefficient for gate')
+    parser.add_argument('--lambda_bal', default=0.05, type=float, help='Balance regularization coefficient for gate')
+    parser.add_argument('--gate_lr', default=1e-3, type=float, help='Learning rate for gate optimizer')
+    parser.add_argument('--gate_weight_decay', default=1e-4, type=float, help='Weight decay for gate optimizer')
+    parser.add_argument('--gate_epochs', default=100, type=int, help='Number of epochs for gate training')
+    parser.add_argument('--gate_hidden_size', default=256, type=int, help='Hidden size of gate MLP (first layer)')
+    parser.add_argument('--gate_hidden_size2', default=128, type=int, help='Second hidden size of gate MLP')
+    parser.add_argument('--gate_split_ratio', default=0.9, type=float, help='Fraction of training data for expert training; remaining for gate')
+    parser.add_argument('--routing_sparsity', default=2, type=int, help='Number of top experts to keep (k)')
+
     # update config from command line
     parser.set_defaults(**config)
     args = parser.parse_args()

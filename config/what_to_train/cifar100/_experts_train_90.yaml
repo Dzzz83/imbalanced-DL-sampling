@@ -1,0 +1,55 @@
+# Dataset Settings
+dataset: cifar100
+num_classes: 100
+imb_type: exp
+imb_factor: 0.01
+data_path: ./data
+classifier: 'dot_product_classifier'
+augmentation: weak
+
+# Selection Settings (no selection)
+selection_method: none
+selection_ratio: 1.0
+
+# Training Strategy
+strategy: Experts
+loss_type: CE
+base_strategy: ERM
+
+# Expert‑specific hyperparameters
+expert_batch_size: 256
+gating_batch_size: 128
+routing_sparsity: 0.4
+
+# Data split: 90% for experts, 10% held out for gate
+gate_split_ratio: 0.9
+
+# Hyperparameters
+epochs: 200
+start_epoch: 0
+print_freq: 10
+batch_size: 128
+learning_rate: 0.1
+momentum: 0.9
+weight_decay: 2e-4
+lr_steps: [120, 160]
+gamma: 0.1
+rand_number: 0
+workers: 4
+optimizer: sgd
+
+# Logging & Checkpoints
+root_log: results/experts_cifar100
+root_model: checkpoint/experts_cifar100
+store_name: cifar100_exp0.01_Experts_seed42
+cifar_root: ./data
+
+# Hardware
+device: cuda
+gpu: 0
+
+# Seed
+seed: 42
+
+# Debug
+debug: true
