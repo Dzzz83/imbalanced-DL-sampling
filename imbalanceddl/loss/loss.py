@@ -49,11 +49,11 @@ class LogitAdjustedLoss(nn.Module):
         self.register_buffer('log_prior', cls_num_list.log())
         self.tau = tau
         self.reduction = reduction
-        # One-time log to verify adjustment is active
         print(f"[INFO] LogitAdjustedLoss: tau={tau}, log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
-        adjusted_logits = logits + self.tau * self.log_prior
+        # Paper: z_y - tau * log(pi_y)
+        adjusted_logits = logits - self.tau * self.log_prior
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss
 
@@ -66,6 +66,7 @@ class BalancedSoftmaxLoss(nn.Module):
         print(f"[INFO] BalancedSoftmaxLoss: log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
+        # Paper: sum(exp(z_j) * pi_j) = sum(exp(z_j + log(pi_j)))
         adjusted_logits = logits + self.log_prior
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss

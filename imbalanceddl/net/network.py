@@ -8,7 +8,6 @@ model_names = sorted(name for name in backbone.__dict__
                      if name.islower() and not name.startswith("__")
                      and callable(backbone.__dict__[name]))
 
-
 class NormedLinear(nn.Module):
     def __init__(self, in_features, out_features):
         super(NormedLinear, self).__init__()
@@ -19,23 +18,41 @@ class NormedLinear(nn.Module):
         out = F.normalize(x, dim=1).mm(F.normalize(self.weight, dim=0))
         return out
 
-
 class Network(nn.Module):
     def __init__(self, cfg):
         super(Network, self).__init__()
         self.cfg = cfg
         self.num_classes = self._get_num_classes()
         self.feature_len = self._get_feature_len()
-        self.backbone = self._get_backbone()
-        self.classifier = self._get_classifier()
+        
+        # Store architecture choice as instance variable to prevent forward pass errors
+        # if cfg.strategy is mutated externally after initialization
+        self.is_experts = (self.cfg.strategy == 'Experts')
+        
+        if self.is_experts:
+            self.backbones = nn.ModuleList([self._get_backbone() for _ in range(3)])
+            self.classifiers = self._get_classifier()
+        else:
+            self.backbone = self._get_backbone()
+            self.classifier = self._get_classifier()
 
     def forward(self, x, **kwargs):
-        hidden = self.backbone(x)
-        if isinstance(self.classifier, nn.ModuleList):
-            out = [clf(hidden) for clf in self.classifier]
+        if self.is_experts:
+            out = []
+            hidden = []
+            for bb, clf in zip(self.backbones, self.classifiers):
+                h = bb(x)
+                o = clf(h)
+                out.append(o)
+                hidden.append(h)
+            return out, hidden
         else:
-            out = self.classifier(hidden)
-        return out, hidden
+            hidden = self.backbone(x)
+            if isinstance(self.classifier, nn.ModuleList):
+                out = [clf(hidden) for clf in self.classifier]
+            else:
+                out = self.classifier(hidden)
+            return out, hidden
 
     def _get_feature_len(self):
         if self.cfg.backbone == 'resnet32':
@@ -66,12 +83,10 @@ class Network(nn.Module):
     def _get_classifier(self):
         if self.cfg.classifier is not None:
             if self.cfg.strategy == 'LDAM_DRW':
-                print("=> Due to LDAM, change classifier to \
-                    cosine similarity classifier !")
+                print("=> Due to LDAM, change classifier to cosine similarity classifier !")
                 self.cfg.classifier = 'cosine_similarity_classifier'
                 
-            # Initialize 3 distinct expert heads
-            if self.cfg.strategy == 'Experts':
+            if self.is_experts:
                 print("=> Initializing 3 independent expert classifiers")
                 if self.cfg.classifier == 'dot_product_classifier':
                     return nn.ModuleList([
@@ -88,16 +103,13 @@ class Network(nn.Module):
                     
             print("=> Initializing classifier: {}".format(self.cfg.classifier))
             if self.cfg.classifier == 'dot_product_classifier':
-                return nn.Linear(self.feature_len,
-                                 self.num_classes,
-                                 bias=False)
+                return nn.Linear(self.feature_len, self.num_classes, bias=False)
             elif self.cfg.classifier == 'cosine_similarity_classifier':
                 return NormedLinear(self.feature_len, self.num_classes)
             else:
                 raise NotImplementedError
         else:
             raise ValueError("=> No classifier is specified !")
-
 
 def build_model(cfg):
     model = Network(cfg)

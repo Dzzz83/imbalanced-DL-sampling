@@ -68,7 +68,6 @@ class ExpertsTrainer(BaseTrainer):
         return self.criterion_ce
 
     def adjust_learning_rate(self, epoch):
-        # Paper: 15-step linear warmup, followed by MultiStepLR [96, 192, 224] gamma=0.1
         if epoch < 15:
             lr = self.cfg.learning_rate * (epoch + 1) / 15.0
         else:
@@ -96,10 +95,11 @@ class ExpertsTrainer(BaseTrainer):
             out, _ = self.model(images)
             experts_logits = out
 
+            # Sum losses. DO NOT divide by 3. Independent backbones require full gradients.
             loss = 0.0
             for i, logits in enumerate(experts_logits):
                 loss += self.losses[i](logits, targets)
-            loss /= len(experts_logits)
+            
             loss.backward()
             self.optimizer.step()
 
@@ -177,10 +177,8 @@ class ExpertsTrainer(BaseTrainer):
             self.logger.info(log_msg)
             print(log_msg)
 
-            if val_top1.avg > self.best_acc:
-                self.best_acc = val_top1.avg
-                self.save_checkpoint(epoch, val_top1.avg)
-
+        # Save the final epoch model. No early stopping on test set.
+        self.save_checkpoint(epoch, val_top1.avg)
         print("[INFO] Expert training complete.")
 
     def save_checkpoint(self, epoch, acc):

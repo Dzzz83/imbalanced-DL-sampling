@@ -1,0 +1,425 @@
+2026-07-14 13:05:00,488 - debug - DEBUG - Debug logging enabled for this run.
+2026-07-14 13:05:01,078 - debug - DEBUG - GateTrainer initialization started.
+2026-07-14 13:05:03,098 - debug - DEBUG - train_dataset type: <class 'imbalanceddl.dataset.imbalance_cifar.IMBALANCECIFAR100'>
+2026-07-14 13:05:03,098 - debug - DEBUG - val_dataset type: <class 'torchvision.datasets.cifar.CIFAR100'>
+2026-07-14 13:05:03,098 - debug - DEBUG - train_dataset.targets length: 10847
+2026-07-14 13:05:03,099 - debug - DEBUG - Number of train loader batches: 85
+2026-07-14 13:05:03,289 - debug - DEBUG - First batch class counts: {0: 4, 1: 5, 2: 5, 3: 5, 4: 8, 5: 6, 6: 4, 7: 2, 8: 6, 9: 3, 10: 5, 11: 5, 12: 3, 13: 3, 14: 2, 15: 3, 16: 2, 17: 3, 18: 2, 19: 4, 21: 2, 22: 1, 23: 4, 24: 1, 25: 1, 26: 3, 27: 3, 28: 4, 29: 3, 30: 4, 31: 1, 35: 1, 37: 1, 38: 1, 39: 1, 43: 1, 44: 1, 46: 1, 47: 1, 51: 1, 52: 1, 53: 1, 54: 1, 55: 1, 56: 1, 64: 1, 65: 1, 70: 1, 71: 1, 72: 1, 73: 1, 79: 1}
+2026-07-14 13:05:03,375 - debug - DEBUG - Validation loader created. Length: 100
+2026-07-14 13:05:03,395 - debug - DEBUG - Device: cuda, expert checkpoint: checkpoint/experts_cifar100/checkpoint_experts_epoch255.pth
+2026-07-14 13:05:03,728 - debug - DEBUG - Built expert model with shared backbone and 3 heads.
+2026-07-14 13:05:03,728 - debug - DEBUG - Loading expert checkpoint...
+2026-07-14 13:05:03,858 - debug - DEBUG - Expert model loaded and frozen.
+2026-07-14 13:05:03,858 - debug - DEBUG - Gate split ratio: 0.9
+2026-07-14 13:05:03,859 - debug - DEBUG - Splitting dataset of size 10847 with ratio 0.9
+2026-07-14 13:05:03,868 - debug - DEBUG - Gating split size: 1085
+2026-07-14 13:05:03,869 - debug - DEBUG - First 5 gate indices: [  48 6328 3348 2679 2969]
+2026-07-14 13:05:03,883 - debug - DEBUG - Gate MLP: GateMLP(
+  (fc1): Linear(in_features=24, out_features=256, bias=True)
+  (fc2): Linear(in_features=256, out_features=128, bias=True)
+  (fc3): Linear(in_features=128, out_features=3, bias=True)
+  (relu): ReLU()
+)
+2026-07-14 13:05:03,884 - debug - DEBUG - Gate hyperparams: lambda_ent=0.01, lambda_bal=0.05, epochs=100
+2026-07-14 13:05:03,884 - debug - DEBUG - GateTrainer initialization complete.
+2026-07-14 13:05:03,885 - debug - DEBUG - Starting gate training loop.
+2026-07-14 13:05:03,885 - debug - DEBUG - Training gate epoch 0
+2026-07-14 13:05:05,052 - debug - DEBUG - Loss components: mix_nll=1.7510, ent_reg=-0.4797, bal_reg=0.4218
+2026-07-14 13:05:05,666 - debug - DEBUG - Gate Epoch 0 completed: avg_loss=1.8059, avg_acc=65.16%
+2026-07-14 13:05:08,170 - debug - DEBUG - Epoch 0: validation acc=42.28%
+2026-07-14 13:05:08,171 - debug - DEBUG - Training gate epoch 1
+2026-07-14 13:05:08,423 - debug - DEBUG - Loss components: mix_nll=2.0039, ent_reg=-0.9138, bal_reg=0.1063
+2026-07-14 13:05:08,738 - debug - DEBUG - Gate Epoch 1 completed: avg_loss=1.8844, avg_acc=63.23%
+2026-07-14 13:05:10,796 - debug - DEBUG - Epoch 1: validation acc=42.64%
+2026-07-14 13:05:10,797 - debug - DEBUG - Training gate epoch 2
+2026-07-14 13:05:11,057 - debug - DEBUG - Loss components: mix_nll=1.6741, ent_reg=-0.9062, bal_reg=0.1120
+2026-07-14 13:05:11,378 - debug - DEBUG - Gate Epoch 2 completed: avg_loss=1.7873, avg_acc=61.38%
+2026-07-14 13:05:13,301 - debug - DEBUG - Epoch 2: validation acc=38.69%
+2026-07-14 13:05:13,301 - debug - DEBUG - Training gate epoch 3
+2026-07-14 13:05:13,584 - debug - DEBUG - Loss components: mix_nll=2.0134, ent_reg=-1.0793, bal_reg=0.0033
+2026-07-14 13:05:13,956 - debug - DEBUG - Gate Epoch 3 completed: avg_loss=1.8085, avg_acc=62.21%
+2026-07-14 13:05:15,915 - debug - DEBUG - Epoch 3: validation acc=40.40%
+2026-07-14 13:05:15,916 - debug - DEBUG - Training gate epoch 4
+2026-07-14 13:05:16,179 - debug - DEBUG - Loss components: mix_nll=1.5855, ent_reg=-0.9099, bal_reg=0.0857
+2026-07-14 13:05:16,428 - debug - DEBUG - Gate Epoch 4 completed: avg_loss=1.8049, avg_acc=64.06%
+2026-07-14 13:05:18,489 - debug - DEBUG - Epoch 4: validation acc=42.80%
+2026-07-14 13:05:18,490 - debug - DEBUG - Training gate epoch 5
+2026-07-14 13:05:18,742 - debug - DEBUG - Loss components: mix_nll=1.7873, ent_reg=-0.7820, bal_reg=0.1536
+2026-07-14 13:05:19,046 - debug - DEBUG - Gate Epoch 5 completed: avg_loss=1.8174, avg_acc=63.13%
+2026-07-14 13:05:21,248 - debug - DEBUG - Epoch 5: validation acc=36.70%
+2026-07-14 13:05:21,249 - debug - DEBUG - Training gate epoch 6
+2026-07-14 13:05:21,500 - debug - DEBUG - Loss components: mix_nll=2.1294, ent_reg=-0.9016, bal_reg=0.1011
+2026-07-14 13:05:21,701 - debug - DEBUG - Gate Epoch 6 completed: avg_loss=1.8272, avg_acc=64.24%
+2026-07-14 13:05:23,642 - debug - DEBUG - Epoch 6: validation acc=35.40%
+2026-07-14 13:05:23,642 - debug - DEBUG - Training gate epoch 7
+2026-07-14 13:05:23,882 - debug - DEBUG - Loss components: mix_nll=1.8641, ent_reg=-0.5562, bal_reg=0.3092
+2026-07-14 13:05:24,250 - debug - DEBUG - Gate Epoch 7 completed: avg_loss=1.8171, avg_acc=64.33%
+2026-07-14 13:05:26,320 - debug - DEBUG - Epoch 7: validation acc=35.80%
+2026-07-14 13:05:26,321 - debug - DEBUG - Training gate epoch 8
+2026-07-14 13:05:26,606 - debug - DEBUG - Loss components: mix_nll=1.3130, ent_reg=-0.6161, bal_reg=0.2477
+2026-07-14 13:05:26,800 - debug - DEBUG - Gate Epoch 8 completed: avg_loss=1.8459, avg_acc=62.76%
+2026-07-14 13:05:28,846 - debug - DEBUG - Epoch 8: validation acc=37.12%
+2026-07-14 13:05:28,846 - debug - DEBUG - Training gate epoch 9
+2026-07-14 13:05:29,136 - debug - DEBUG - Loss components: mix_nll=1.8138, ent_reg=-0.6807, bal_reg=0.1747
+2026-07-14 13:05:29,430 - debug - DEBUG - Gate Epoch 9 completed: avg_loss=1.8937, avg_acc=62.30%
+2026-07-14 13:05:31,549 - debug - DEBUG - Epoch 9: validation acc=36.94%
+2026-07-14 13:05:31,550 - debug - DEBUG - Training gate epoch 10
+2026-07-14 13:05:31,844 - debug - DEBUG - Loss components: mix_nll=1.9851, ent_reg=-0.6911, bal_reg=0.1723
+2026-07-14 13:05:32,029 - debug - DEBUG - Gate Epoch 10 completed: avg_loss=1.8420, avg_acc=61.11%
+2026-07-14 13:05:33,903 - debug - DEBUG - Epoch 10: validation acc=39.22%
+2026-07-14 13:05:33,903 - debug - DEBUG - Training gate epoch 11
+2026-07-14 13:05:34,165 - debug - DEBUG - Loss components: mix_nll=1.8346, ent_reg=-0.7168, bal_reg=0.1621
+2026-07-14 13:05:34,501 - debug - DEBUG - Gate Epoch 11 completed: avg_loss=1.8518, avg_acc=64.33%
+2026-07-14 13:05:36,499 - debug - DEBUG - Epoch 11: validation acc=41.80%
+2026-07-14 13:05:36,499 - debug - DEBUG - Training gate epoch 12
+2026-07-14 13:05:36,736 - debug - DEBUG - Loss components: mix_nll=1.9675, ent_reg=-0.7575, bal_reg=0.1669
+2026-07-14 13:05:36,988 - debug - DEBUG - Gate Epoch 12 completed: avg_loss=1.8318, avg_acc=63.41%
+2026-07-14 13:05:39,078 - debug - DEBUG - Epoch 12: validation acc=42.28%
+2026-07-14 13:05:39,079 - debug - DEBUG - Training gate epoch 13
+2026-07-14 13:05:39,336 - debug - DEBUG - Loss components: mix_nll=2.1456, ent_reg=-0.9901, bal_reg=0.0374
+2026-07-14 13:05:39,647 - debug - DEBUG - Gate Epoch 13 completed: avg_loss=1.8429, avg_acc=61.20%
+2026-07-14 13:05:41,685 - debug - DEBUG - Epoch 13: validation acc=37.93%
+2026-07-14 13:05:41,686 - debug - DEBUG - Training gate epoch 14
+2026-07-14 13:05:41,982 - debug - DEBUG - Loss components: mix_nll=1.8189, ent_reg=-0.9732, bal_reg=0.0471
+2026-07-14 13:05:42,281 - debug - DEBUG - Gate Epoch 14 completed: avg_loss=1.8224, avg_acc=63.59%
+2026-07-14 13:05:44,198 - debug - DEBUG - Epoch 14: validation acc=36.21%
+2026-07-14 13:05:44,198 - debug - DEBUG - Training gate epoch 15
+2026-07-14 13:05:44,499 - debug - DEBUG - Loss components: mix_nll=2.2274, ent_reg=-0.9081, bal_reg=0.0844
+2026-07-14 13:05:44,845 - debug - DEBUG - Gate Epoch 15 completed: avg_loss=1.8328, avg_acc=63.04%
+2026-07-14 13:05:46,925 - debug - DEBUG - Epoch 15: validation acc=36.20%
+2026-07-14 13:05:46,926 - debug - DEBUG - Training gate epoch 16
+2026-07-14 13:05:47,159 - debug - DEBUG - Loss components: mix_nll=1.6378, ent_reg=-1.0390, bal_reg=0.0128
+2026-07-14 13:05:47,497 - debug - DEBUG - Gate Epoch 16 completed: avg_loss=1.8044, avg_acc=63.04%
+2026-07-14 13:05:49,386 - debug - DEBUG - Epoch 16: validation acc=38.84%
+2026-07-14 13:05:49,386 - debug - DEBUG - Training gate epoch 17
+2026-07-14 13:05:49,663 - debug - DEBUG - Loss components: mix_nll=2.0737, ent_reg=-1.0152, bal_reg=0.0183
+2026-07-14 13:05:49,854 - debug - DEBUG - Gate Epoch 17 completed: avg_loss=1.9055, avg_acc=62.03%
+2026-07-14 13:05:51,882 - debug - DEBUG - Epoch 17: validation acc=42.46%
+2026-07-14 13:05:51,883 - debug - DEBUG - Training gate epoch 18
+2026-07-14 13:05:52,160 - debug - DEBUG - Loss components: mix_nll=1.7573, ent_reg=-0.9148, bal_reg=0.0719
+2026-07-14 13:05:52,421 - debug - DEBUG - Gate Epoch 18 completed: avg_loss=1.8538, avg_acc=63.50%
+2026-07-14 13:05:54,311 - debug - DEBUG - Epoch 18: validation acc=35.86%
+2026-07-14 13:05:54,311 - debug - DEBUG - Training gate epoch 19
+2026-07-14 13:05:54,598 - debug - DEBUG - Loss components: mix_nll=1.8277, ent_reg=-1.0379, bal_reg=0.0157
+2026-07-14 13:05:54,927 - debug - DEBUG - Gate Epoch 19 completed: avg_loss=1.8109, avg_acc=63.59%
+2026-07-14 13:05:56,899 - debug - DEBUG - Epoch 19: validation acc=37.48%
+2026-07-14 13:05:56,899 - debug - DEBUG - Training gate epoch 20
+2026-07-14 13:05:57,192 - debug - DEBUG - Loss components: mix_nll=1.5907, ent_reg=-1.0411, bal_reg=0.0132
+2026-07-14 13:05:57,584 - debug - DEBUG - Gate Epoch 20 completed: avg_loss=1.8176, avg_acc=62.58%
+2026-07-14 13:05:59,564 - debug - DEBUG - Epoch 20: validation acc=38.02%
+2026-07-14 13:05:59,564 - debug - DEBUG - Training gate epoch 21
+2026-07-14 13:05:59,839 - debug - DEBUG - Loss components: mix_nll=1.7156, ent_reg=-1.0090, bal_reg=0.0210
+2026-07-14 13:06:00,049 - debug - DEBUG - Gate Epoch 21 completed: avg_loss=1.8182, avg_acc=63.23%
+2026-07-14 13:06:02,212 - debug - DEBUG - Epoch 21: validation acc=35.52%
+2026-07-14 13:06:02,212 - debug - DEBUG - Training gate epoch 22
+2026-07-14 13:06:02,454 - debug - DEBUG - Loss components: mix_nll=1.8576, ent_reg=-0.9695, bal_reg=0.0597
+2026-07-14 13:06:02,698 - debug - DEBUG - Gate Epoch 22 completed: avg_loss=1.8584, avg_acc=62.58%
+2026-07-14 13:06:04,576 - debug - DEBUG - Epoch 22: validation acc=37.46%
+2026-07-14 13:06:04,576 - debug - DEBUG - Training gate epoch 23
+2026-07-14 13:06:04,869 - debug - DEBUG - Loss components: mix_nll=2.0675, ent_reg=-1.0075, bal_reg=0.0166
+2026-07-14 13:06:05,187 - debug - DEBUG - Gate Epoch 23 completed: avg_loss=1.8574, avg_acc=63.32%
+2026-07-14 13:06:07,125 - debug - DEBUG - Epoch 23: validation acc=36.22%
+2026-07-14 13:06:07,125 - debug - DEBUG - Training gate epoch 24
+2026-07-14 13:06:07,454 - debug - DEBUG - Loss components: mix_nll=1.5064, ent_reg=-1.0029, bal_reg=0.0222
+2026-07-14 13:06:07,855 - debug - DEBUG - Gate Epoch 24 completed: avg_loss=1.7836, avg_acc=62.95%
+2026-07-14 13:06:09,832 - debug - DEBUG - Epoch 24: validation acc=41.25%
+2026-07-14 13:06:09,832 - debug - DEBUG - Training gate epoch 25
+2026-07-14 13:06:10,125 - debug - DEBUG - Loss components: mix_nll=1.9170, ent_reg=-0.9238, bal_reg=0.0555
+2026-07-14 13:06:10,375 - debug - DEBUG - Gate Epoch 25 completed: avg_loss=1.8524, avg_acc=62.86%
+2026-07-14 13:06:12,427 - debug - DEBUG - Epoch 25: validation acc=39.24%
+2026-07-14 13:06:12,428 - debug - DEBUG - Training gate epoch 26
+2026-07-14 13:06:12,715 - debug - DEBUG - Loss components: mix_nll=2.0963, ent_reg=-0.7157, bal_reg=0.2563
+2026-07-14 13:06:12,941 - debug - DEBUG - Gate Epoch 26 completed: avg_loss=1.8733, avg_acc=63.87%
+2026-07-14 13:06:14,953 - debug - DEBUG - Epoch 26: validation acc=36.68%
+2026-07-14 13:06:14,953 - debug - DEBUG - Training gate epoch 27
+2026-07-14 13:06:15,238 - debug - DEBUG - Loss components: mix_nll=1.8524, ent_reg=-1.0024, bal_reg=0.0304
+2026-07-14 13:06:15,515 - debug - DEBUG - Gate Epoch 27 completed: avg_loss=1.8366, avg_acc=62.67%
+2026-07-14 13:06:17,449 - debug - DEBUG - Epoch 27: validation acc=36.21%
+2026-07-14 13:06:17,449 - debug - DEBUG - Training gate epoch 28
+2026-07-14 13:06:17,752 - debug - DEBUG - Loss components: mix_nll=2.1671, ent_reg=-0.9169, bal_reg=0.0673
+2026-07-14 13:06:18,113 - debug - DEBUG - Gate Epoch 28 completed: avg_loss=1.8442, avg_acc=63.69%
+2026-07-14 13:06:20,137 - debug - DEBUG - Epoch 28: validation acc=37.89%
+2026-07-14 13:06:20,137 - debug - DEBUG - Training gate epoch 29
+2026-07-14 13:06:20,427 - debug - DEBUG - Loss components: mix_nll=1.7726, ent_reg=-0.9358, bal_reg=0.0605
+2026-07-14 13:06:20,788 - debug - DEBUG - Gate Epoch 29 completed: avg_loss=1.7826, avg_acc=64.06%
+2026-07-14 13:06:23,012 - debug - DEBUG - Epoch 29: validation acc=37.30%
+2026-07-14 13:06:23,012 - debug - DEBUG - Training gate epoch 30
+2026-07-14 13:06:23,300 - debug - DEBUG - Loss components: mix_nll=1.8084, ent_reg=-0.9960, bal_reg=0.0244
+2026-07-14 13:06:23,598 - debug - DEBUG - Gate Epoch 30 completed: avg_loss=1.8408, avg_acc=62.03%
+2026-07-14 13:06:25,445 - debug - DEBUG - Epoch 30: validation acc=36.16%
+2026-07-14 13:06:25,445 - debug - DEBUG - Training gate epoch 31
+2026-07-14 13:06:25,741 - debug - DEBUG - Loss components: mix_nll=1.8384, ent_reg=-1.0520, bal_reg=0.0045
+2026-07-14 13:06:25,947 - debug - DEBUG - Gate Epoch 31 completed: avg_loss=1.7747, avg_acc=63.41%
+2026-07-14 13:06:27,952 - debug - DEBUG - Epoch 31: validation acc=37.85%
+2026-07-14 13:06:27,952 - debug - DEBUG - Training gate epoch 32
+2026-07-14 13:06:28,214 - debug - DEBUG - Loss components: mix_nll=1.6163, ent_reg=-1.0202, bal_reg=0.0248
+2026-07-14 13:06:28,494 - debug - DEBUG - Gate Epoch 32 completed: avg_loss=1.8484, avg_acc=62.67%
+2026-07-14 13:06:30,405 - debug - DEBUG - Epoch 32: validation acc=37.52%
+2026-07-14 13:06:30,405 - debug - DEBUG - Training gate epoch 33
+2026-07-14 13:06:30,645 - debug - DEBUG - Loss components: mix_nll=2.0193, ent_reg=-1.0093, bal_reg=0.0159
+2026-07-14 13:06:30,897 - debug - DEBUG - Gate Epoch 33 completed: avg_loss=1.8240, avg_acc=61.84%
+2026-07-14 13:06:32,937 - debug - DEBUG - Epoch 33: validation acc=35.81%
+2026-07-14 13:06:32,937 - debug - DEBUG - Training gate epoch 34
+2026-07-14 13:06:33,225 - debug - DEBUG - Loss components: mix_nll=2.0160, ent_reg=-1.0360, bal_reg=0.0119
+2026-07-14 13:06:33,511 - debug - DEBUG - Gate Epoch 34 completed: avg_loss=1.8554, avg_acc=62.67%
+2026-07-14 13:06:35,426 - debug - DEBUG - Epoch 34: validation acc=38.13%
+2026-07-14 13:06:35,426 - debug - DEBUG - Training gate epoch 35
+2026-07-14 13:06:35,720 - debug - DEBUG - Loss components: mix_nll=1.8128, ent_reg=-0.9919, bal_reg=0.0204
+2026-07-14 13:06:36,071 - debug - DEBUG - Gate Epoch 35 completed: avg_loss=1.7663, avg_acc=64.98%
+2026-07-14 13:06:37,999 - debug - DEBUG - Epoch 35: validation acc=36.06%
+2026-07-14 13:06:37,999 - debug - DEBUG - Training gate epoch 36
+2026-07-14 13:06:38,239 - debug - DEBUG - Loss components: mix_nll=1.4973, ent_reg=-1.0253, bal_reg=0.0058
+2026-07-14 13:06:38,590 - debug - DEBUG - Gate Epoch 36 completed: avg_loss=1.8241, avg_acc=63.23%
+2026-07-14 13:06:40,639 - debug - DEBUG - Epoch 36: validation acc=36.86%
+2026-07-14 13:06:40,640 - debug - DEBUG - Training gate epoch 37
+2026-07-14 13:06:40,887 - debug - DEBUG - Loss components: mix_nll=1.6561, ent_reg=-1.0180, bal_reg=0.0111
+2026-07-14 13:06:41,195 - debug - DEBUG - Gate Epoch 37 completed: avg_loss=1.8482, avg_acc=63.41%
+2026-07-14 13:06:43,254 - debug - DEBUG - Epoch 37: validation acc=37.72%
+2026-07-14 13:06:43,255 - debug - DEBUG - Training gate epoch 38
+2026-07-14 13:06:43,553 - debug - DEBUG - Loss components: mix_nll=1.6747, ent_reg=-0.9974, bal_reg=0.0189
+2026-07-14 13:06:43,826 - debug - DEBUG - Gate Epoch 38 completed: avg_loss=1.7946, avg_acc=63.32%
+2026-07-14 13:06:45,786 - debug - DEBUG - Epoch 38: validation acc=36.69%
+2026-07-14 13:06:45,786 - debug - DEBUG - Training gate epoch 39
+2026-07-14 13:06:46,035 - debug - DEBUG - Loss components: mix_nll=1.7667, ent_reg=-1.0172, bal_reg=0.0179
+2026-07-14 13:06:46,337 - debug - DEBUG - Gate Epoch 39 completed: avg_loss=1.8039, avg_acc=63.78%
+2026-07-14 13:06:48,360 - debug - DEBUG - Epoch 39: validation acc=35.87%
+2026-07-14 13:06:48,360 - debug - DEBUG - Training gate epoch 40
+2026-07-14 13:06:48,621 - debug - DEBUG - Loss components: mix_nll=1.9478, ent_reg=-1.0238, bal_reg=0.0102
+2026-07-14 13:06:49,014 - debug - DEBUG - Gate Epoch 40 completed: avg_loss=1.7964, avg_acc=63.32%
+2026-07-14 13:06:51,034 - debug - DEBUG - Epoch 40: validation acc=36.18%
+2026-07-14 13:06:51,034 - debug - DEBUG - Training gate epoch 41
+2026-07-14 13:06:51,318 - debug - DEBUG - Loss components: mix_nll=1.9036, ent_reg=-1.0157, bal_reg=0.0118
+2026-07-14 13:06:51,519 - debug - DEBUG - Gate Epoch 41 completed: avg_loss=1.8612, avg_acc=63.23%
+2026-07-14 13:06:53,515 - debug - DEBUG - Epoch 41: validation acc=37.77%
+2026-07-14 13:06:53,515 - debug - DEBUG - Training gate epoch 42
+2026-07-14 13:06:53,805 - debug - DEBUG - Loss components: mix_nll=1.5376, ent_reg=-0.9892, bal_reg=0.0321
+2026-07-14 13:06:54,072 - debug - DEBUG - Gate Epoch 42 completed: avg_loss=1.8257, avg_acc=63.13%
+2026-07-14 13:06:56,100 - debug - DEBUG - Epoch 42: validation acc=37.19%
+2026-07-14 13:06:56,100 - debug - DEBUG - Training gate epoch 43
+2026-07-14 13:06:56,384 - debug - DEBUG - Loss components: mix_nll=1.9805, ent_reg=-1.0033, bal_reg=0.0132
+2026-07-14 13:06:56,678 - debug - DEBUG - Gate Epoch 43 completed: avg_loss=1.7733, avg_acc=63.96%
+2026-07-14 13:06:58,700 - debug - DEBUG - Epoch 43: validation acc=36.54%
+2026-07-14 13:06:58,700 - debug - DEBUG - Training gate epoch 44
+2026-07-14 13:06:59,004 - debug - DEBUG - Loss components: mix_nll=1.8591, ent_reg=-1.0312, bal_reg=0.0011
+2026-07-14 13:06:59,338 - debug - DEBUG - Gate Epoch 44 completed: avg_loss=1.8296, avg_acc=63.69%
+2026-07-14 13:07:01,292 - debug - DEBUG - Epoch 44: validation acc=37.51%
+2026-07-14 13:07:01,293 - debug - DEBUG - Training gate epoch 45
+2026-07-14 13:07:01,573 - debug - DEBUG - Loss components: mix_nll=1.8847, ent_reg=-0.9928, bal_reg=0.0188
+2026-07-14 13:07:01,814 - debug - DEBUG - Gate Epoch 45 completed: avg_loss=1.7810, avg_acc=63.41%
+2026-07-14 13:07:03,779 - debug - DEBUG - Epoch 45: validation acc=36.25%
+2026-07-14 13:07:03,780 - debug - DEBUG - Training gate epoch 46
+2026-07-14 13:07:04,052 - debug - DEBUG - Loss components: mix_nll=1.5599, ent_reg=-1.0140, bal_reg=0.0090
+2026-07-14 13:07:04,335 - debug - DEBUG - Gate Epoch 46 completed: avg_loss=1.7755, avg_acc=64.24%
+2026-07-14 13:07:06,254 - debug - DEBUG - Epoch 46: validation acc=39.66%
+2026-07-14 13:07:06,255 - debug - DEBUG - Training gate epoch 47
+2026-07-14 13:07:06,558 - debug - DEBUG - Loss components: mix_nll=1.9446, ent_reg=-0.8904, bal_reg=0.0915
+2026-07-14 13:07:06,874 - debug - DEBUG - Gate Epoch 47 completed: avg_loss=1.8525, avg_acc=63.96%
+2026-07-14 13:07:08,831 - debug - DEBUG - Epoch 47: validation acc=35.78%
+2026-07-14 13:07:08,832 - debug - DEBUG - Training gate epoch 48
+2026-07-14 13:07:09,127 - debug - DEBUG - Loss components: mix_nll=2.1659, ent_reg=-1.0128, bal_reg=0.0199
+2026-07-14 13:07:09,495 - debug - DEBUG - Gate Epoch 48 completed: avg_loss=1.8732, avg_acc=63.04%
+2026-07-14 13:07:11,534 - debug - DEBUG - Epoch 48: validation acc=38.70%
+2026-07-14 13:07:11,534 - debug - DEBUG - Training gate epoch 49
+2026-07-14 13:07:11,811 - debug - DEBUG - Loss components: mix_nll=1.8812, ent_reg=-0.9403, bal_reg=0.0503
+2026-07-14 13:07:12,076 - debug - DEBUG - Gate Epoch 49 completed: avg_loss=1.8062, avg_acc=63.78%
+2026-07-14 13:07:14,083 - debug - DEBUG - Epoch 49: validation acc=36.28%
+2026-07-14 13:07:14,084 - debug - DEBUG - Training gate epoch 50
+2026-07-14 13:07:14,366 - debug - DEBUG - Loss components: mix_nll=1.4886, ent_reg=-1.0152, bal_reg=0.0088
+2026-07-14 13:07:14,664 - debug - DEBUG - Gate Epoch 50 completed: avg_loss=1.8025, avg_acc=63.04%
+2026-07-14 13:07:16,657 - debug - DEBUG - Epoch 50: validation acc=36.15%
+2026-07-14 13:07:16,657 - debug - DEBUG - Training gate epoch 51
+2026-07-14 13:07:16,953 - debug - DEBUG - Loss components: mix_nll=1.8803, ent_reg=-1.0128, bal_reg=0.0087
+2026-07-14 13:07:17,229 - debug - DEBUG - Gate Epoch 51 completed: avg_loss=1.7995, avg_acc=64.24%
+2026-07-14 13:07:19,136 - debug - DEBUG - Epoch 51: validation acc=37.48%
+2026-07-14 13:07:19,136 - debug - DEBUG - Training gate epoch 52
+2026-07-14 13:07:19,437 - debug - DEBUG - Loss components: mix_nll=1.6944, ent_reg=-0.9862, bal_reg=0.0186
+2026-07-14 13:07:19,738 - debug - DEBUG - Gate Epoch 52 completed: avg_loss=1.8896, avg_acc=62.03%
+2026-07-14 13:07:21,674 - debug - DEBUG - Epoch 52: validation acc=35.77%
+2026-07-14 13:07:21,675 - debug - DEBUG - Training gate epoch 53
+2026-07-14 13:07:21,972 - debug - DEBUG - Loss components: mix_nll=1.5425, ent_reg=-1.0271, bal_reg=0.0091
+2026-07-14 13:07:22,367 - debug - DEBUG - Gate Epoch 53 completed: avg_loss=1.8079, avg_acc=63.04%
+2026-07-14 13:07:24,434 - debug - DEBUG - Epoch 53: validation acc=39.54%
+2026-07-14 13:07:24,434 - debug - DEBUG - Training gate epoch 54
+2026-07-14 13:07:24,733 - debug - DEBUG - Loss components: mix_nll=1.7064, ent_reg=-0.9327, bal_reg=0.0613
+2026-07-14 13:07:24,967 - debug - DEBUG - Gate Epoch 54 completed: avg_loss=1.8516, avg_acc=63.23%
+2026-07-14 13:07:26,931 - debug - DEBUG - Epoch 54: validation acc=36.13%
+2026-07-14 13:07:26,931 - debug - DEBUG - Training gate epoch 55
+2026-07-14 13:07:27,215 - debug - DEBUG - Loss components: mix_nll=1.5005, ent_reg=-1.0283, bal_reg=0.0033
+2026-07-14 13:07:27,516 - debug - DEBUG - Gate Epoch 55 completed: avg_loss=1.7775, avg_acc=63.78%
+2026-07-14 13:07:29,456 - debug - DEBUG - Epoch 55: validation acc=37.45%
+2026-07-14 13:07:29,456 - debug - DEBUG - Training gate epoch 56
+2026-07-14 13:07:29,750 - debug - DEBUG - Loss components: mix_nll=1.9667, ent_reg=-0.9796, bal_reg=0.0269
+2026-07-14 13:07:30,042 - debug - DEBUG - Gate Epoch 56 completed: avg_loss=1.8228, avg_acc=62.95%
+2026-07-14 13:07:31,920 - debug - DEBUG - Epoch 56: validation acc=36.30%
+2026-07-14 13:07:31,920 - debug - DEBUG - Training gate epoch 57
+2026-07-14 13:07:32,235 - debug - DEBUG - Loss components: mix_nll=1.7712, ent_reg=-1.0077, bal_reg=0.0078
+2026-07-14 13:07:32,584 - debug - DEBUG - Gate Epoch 57 completed: avg_loss=1.8632, avg_acc=62.03%
+2026-07-14 13:07:34,593 - debug - DEBUG - Epoch 57: validation acc=36.28%
+2026-07-14 13:07:34,594 - debug - DEBUG - Training gate epoch 58
+2026-07-14 13:07:34,888 - debug - DEBUG - Loss components: mix_nll=1.9750, ent_reg=-1.0165, bal_reg=0.0088
+2026-07-14 13:07:35,097 - debug - DEBUG - Gate Epoch 58 completed: avg_loss=1.8471, avg_acc=63.87%
+2026-07-14 13:07:37,187 - debug - DEBUG - Epoch 58: validation acc=37.20%
+2026-07-14 13:07:37,188 - debug - DEBUG - Training gate epoch 59
+2026-07-14 13:07:37,480 - debug - DEBUG - Loss components: mix_nll=1.8547, ent_reg=-0.9693, bal_reg=0.0382
+2026-07-14 13:07:37,797 - debug - DEBUG - Gate Epoch 59 completed: avg_loss=1.8351, avg_acc=63.69%
+2026-07-14 13:07:39,812 - debug - DEBUG - Epoch 59: validation acc=36.31%
+2026-07-14 13:07:39,813 - debug - DEBUG - Training gate epoch 60
+2026-07-14 13:07:40,100 - debug - DEBUG - Loss components: mix_nll=1.9087, ent_reg=-0.9961, bal_reg=0.0123
+2026-07-14 13:07:40,382 - debug - DEBUG - Gate Epoch 60 completed: avg_loss=1.8271, avg_acc=62.76%
+2026-07-14 13:07:42,306 - debug - DEBUG - Epoch 60: validation acc=36.52%
+2026-07-14 13:07:42,306 - debug - DEBUG - Training gate epoch 61
+2026-07-14 13:07:42,594 - debug - DEBUG - Loss components: mix_nll=1.8597, ent_reg=-0.9955, bal_reg=0.0145
+2026-07-14 13:07:42,908 - debug - DEBUG - Gate Epoch 61 completed: avg_loss=1.7818, avg_acc=63.59%
+2026-07-14 13:07:44,885 - debug - DEBUG - Epoch 61: validation acc=36.84%
+2026-07-14 13:07:44,885 - debug - DEBUG - Training gate epoch 62
+2026-07-14 13:07:45,186 - debug - DEBUG - Loss components: mix_nll=1.6064, ent_reg=-0.9989, bal_reg=0.0194
+2026-07-14 13:07:45,539 - debug - DEBUG - Gate Epoch 62 completed: avg_loss=1.8122, avg_acc=64.42%
+2026-07-14 13:07:47,510 - debug - DEBUG - Epoch 62: validation acc=36.56%
+2026-07-14 13:07:47,510 - debug - DEBUG - Training gate epoch 63
+2026-07-14 13:07:47,758 - debug - DEBUG - Loss components: mix_nll=2.0053, ent_reg=-0.9983, bal_reg=0.0079
+2026-07-14 13:07:48,169 - debug - DEBUG - Gate Epoch 63 completed: avg_loss=1.7739, avg_acc=63.87%
+2026-07-14 13:07:50,151 - debug - DEBUG - Epoch 63: validation acc=36.43%
+2026-07-14 13:07:50,152 - debug - DEBUG - Training gate epoch 64
+2026-07-14 13:07:50,402 - debug - DEBUG - Loss components: mix_nll=2.3426, ent_reg=-1.0029, bal_reg=0.0084
+2026-07-14 13:07:50,720 - debug - DEBUG - Gate Epoch 64 completed: avg_loss=1.7927, avg_acc=63.78%
+2026-07-14 13:07:52,767 - debug - DEBUG - Epoch 64: validation acc=36.65%
+2026-07-14 13:07:52,768 - debug - DEBUG - Training gate epoch 65
+2026-07-14 13:07:53,010 - debug - DEBUG - Loss components: mix_nll=1.5218, ent_reg=-0.9934, bal_reg=0.0113
+2026-07-14 13:07:53,327 - debug - DEBUG - Gate Epoch 65 completed: avg_loss=1.7962, avg_acc=63.23%
+2026-07-14 13:07:55,378 - debug - DEBUG - Epoch 65: validation acc=36.54%
+2026-07-14 13:07:55,378 - debug - DEBUG - Training gate epoch 66
+2026-07-14 13:07:55,691 - debug - DEBUG - Loss components: mix_nll=2.2751, ent_reg=-0.9953, bal_reg=0.0065
+2026-07-14 13:07:55,982 - debug - DEBUG - Gate Epoch 66 completed: avg_loss=1.8638, avg_acc=62.03%
+2026-07-14 13:07:57,915 - debug - DEBUG - Epoch 66: validation acc=37.03%
+2026-07-14 13:07:57,916 - debug - DEBUG - Training gate epoch 67
+2026-07-14 13:07:58,151 - debug - DEBUG - Loss components: mix_nll=1.9240, ent_reg=-0.9691, bal_reg=0.0164
+2026-07-14 13:07:58,551 - debug - DEBUG - Gate Epoch 67 completed: avg_loss=1.8419, avg_acc=63.04%
+2026-07-14 13:08:00,678 - debug - DEBUG - Epoch 67: validation acc=36.42%
+2026-07-14 13:08:00,679 - debug - DEBUG - Training gate epoch 68
+2026-07-14 13:08:00,962 - debug - DEBUG - Loss components: mix_nll=1.6506, ent_reg=-0.9766, bal_reg=0.0100
+2026-07-14 13:08:01,165 - debug - DEBUG - Gate Epoch 68 completed: avg_loss=1.8804, avg_acc=64.06%
+2026-07-14 13:08:03,212 - debug - DEBUG - Epoch 68: validation acc=36.95%
+2026-07-14 13:08:03,212 - debug - DEBUG - Training gate epoch 69
+2026-07-14 13:08:03,458 - debug - DEBUG - Loss components: mix_nll=1.3936, ent_reg=-0.9592, bal_reg=0.0219
+2026-07-14 13:08:03,754 - debug - DEBUG - Gate Epoch 69 completed: avg_loss=1.7722, avg_acc=64.33%
+2026-07-14 13:08:05,763 - debug - DEBUG - Epoch 69: validation acc=36.50%
+2026-07-14 13:08:05,764 - debug - DEBUG - Training gate epoch 70
+2026-07-14 13:08:06,069 - debug - DEBUG - Loss components: mix_nll=1.5455, ent_reg=-0.9870, bal_reg=0.0140
+2026-07-14 13:08:06,367 - debug - DEBUG - Gate Epoch 70 completed: avg_loss=1.8163, avg_acc=63.96%
+2026-07-14 13:08:08,266 - debug - DEBUG - Epoch 70: validation acc=36.62%
+2026-07-14 13:08:08,266 - debug - DEBUG - Training gate epoch 71
+2026-07-14 13:08:08,565 - debug - DEBUG - Loss components: mix_nll=1.8038, ent_reg=-0.9593, bal_reg=0.0162
+2026-07-14 13:08:08,920 - debug - DEBUG - Gate Epoch 71 completed: avg_loss=1.8151, avg_acc=63.23%
+2026-07-14 13:08:10,947 - debug - DEBUG - Epoch 71: validation acc=36.57%
+2026-07-14 13:08:10,948 - debug - DEBUG - Training gate epoch 72
+2026-07-14 13:08:11,230 - debug - DEBUG - Loss components: mix_nll=2.1157, ent_reg=-0.9801, bal_reg=0.0124
+2026-07-14 13:08:11,455 - debug - DEBUG - Gate Epoch 72 completed: avg_loss=1.7881, avg_acc=63.32%
+2026-07-14 13:08:13,417 - debug - DEBUG - Epoch 72: validation acc=36.16%
+2026-07-14 13:08:13,417 - debug - DEBUG - Training gate epoch 73
+2026-07-14 13:08:13,694 - debug - DEBUG - Loss components: mix_nll=1.8544, ent_reg=-0.9949, bal_reg=0.0081
+2026-07-14 13:08:13,981 - debug - DEBUG - Gate Epoch 73 completed: avg_loss=1.7751, avg_acc=64.52%
+2026-07-14 13:08:15,944 - debug - DEBUG - Epoch 73: validation acc=36.44%
+2026-07-14 13:08:15,945 - debug - DEBUG - Training gate epoch 74
+2026-07-14 13:08:16,211 - debug - DEBUG - Loss components: mix_nll=1.7122, ent_reg=-0.9829, bal_reg=0.0078
+2026-07-14 13:08:16,512 - debug - DEBUG - Gate Epoch 74 completed: avg_loss=1.7668, avg_acc=64.24%
+2026-07-14 13:08:18,460 - debug - DEBUG - Epoch 74: validation acc=37.22%
+2026-07-14 13:08:18,460 - debug - DEBUG - Training gate epoch 75
+2026-07-14 13:08:18,735 - debug - DEBUG - Loss components: mix_nll=2.1412, ent_reg=-0.9812, bal_reg=0.0133
+2026-07-14 13:08:19,134 - debug - DEBUG - Gate Epoch 75 completed: avg_loss=1.8009, avg_acc=64.42%
+2026-07-14 13:08:21,168 - debug - DEBUG - Epoch 75: validation acc=36.44%
+2026-07-14 13:08:21,168 - debug - DEBUG - Training gate epoch 76
+2026-07-14 13:08:21,437 - debug - DEBUG - Loss components: mix_nll=2.2600, ent_reg=-0.9802, bal_reg=0.0107
+2026-07-14 13:08:21,639 - debug - DEBUG - Gate Epoch 76 completed: avg_loss=1.8679, avg_acc=63.87%
+2026-07-14 13:08:23,737 - debug - DEBUG - Epoch 76: validation acc=36.20%
+2026-07-14 13:08:23,738 - debug - DEBUG - Training gate epoch 77
+2026-07-14 13:08:23,989 - debug - DEBUG - Loss components: mix_nll=1.9518, ent_reg=-0.9868, bal_reg=0.0129
+2026-07-14 13:08:24,255 - debug - DEBUG - Gate Epoch 77 completed: avg_loss=1.8236, avg_acc=62.95%
+2026-07-14 13:08:26,189 - debug - DEBUG - Epoch 77: validation acc=36.48%
+2026-07-14 13:08:26,189 - debug - DEBUG - Training gate epoch 78
+2026-07-14 13:08:26,484 - debug - DEBUG - Loss components: mix_nll=1.5430, ent_reg=-0.9811, bal_reg=0.0132
+2026-07-14 13:08:26,785 - debug - DEBUG - Gate Epoch 78 completed: avg_loss=1.8753, avg_acc=62.30%
+2026-07-14 13:08:28,699 - debug - DEBUG - Epoch 78: validation acc=36.63%
+2026-07-14 13:08:28,699 - debug - DEBUG - Training gate epoch 79
+2026-07-14 13:08:28,962 - debug - DEBUG - Loss components: mix_nll=1.8763, ent_reg=-0.9747, bal_reg=0.0114
+2026-07-14 13:08:29,380 - debug - DEBUG - Gate Epoch 79 completed: avg_loss=1.7657, avg_acc=64.06%
+2026-07-14 13:08:31,510 - debug - DEBUG - Epoch 79: validation acc=36.72%
+2026-07-14 13:08:31,511 - debug - DEBUG - Training gate epoch 80
+2026-07-14 13:08:31,746 - debug - DEBUG - Loss components: mix_nll=1.5313, ent_reg=-0.9718, bal_reg=0.0198
+2026-07-14 13:08:31,993 - debug - DEBUG - Gate Epoch 80 completed: avg_loss=1.8500, avg_acc=62.67%
+2026-07-14 13:08:33,970 - debug - DEBUG - Epoch 80: validation acc=36.48%
+2026-07-14 13:08:33,970 - debug - DEBUG - Training gate epoch 81
+2026-07-14 13:08:34,213 - debug - DEBUG - Loss components: mix_nll=1.5299, ent_reg=-0.9774, bal_reg=0.0092
+2026-07-14 13:08:34,413 - debug - DEBUG - Gate Epoch 81 completed: avg_loss=1.8214, avg_acc=63.78%
+2026-07-14 13:08:36,258 - debug - DEBUG - Epoch 81: validation acc=36.60%
+2026-07-14 13:08:36,258 - debug - DEBUG - Training gate epoch 82
+2026-07-14 13:08:36,516 - debug - DEBUG - Loss components: mix_nll=1.8675, ent_reg=-0.9604, bal_reg=0.0084
+2026-07-14 13:08:36,869 - debug - DEBUG - Gate Epoch 82 completed: avg_loss=1.8211, avg_acc=62.95%
+2026-07-14 13:08:38,822 - debug - DEBUG - Epoch 82: validation acc=36.58%
+2026-07-14 13:08:38,822 - debug - DEBUG - Training gate epoch 83
+2026-07-14 13:08:39,113 - debug - DEBUG - Loss components: mix_nll=1.7322, ent_reg=-0.9599, bal_reg=0.0219
+2026-07-14 13:08:39,487 - debug - DEBUG - Gate Epoch 83 completed: avg_loss=1.8841, avg_acc=62.58%
+2026-07-14 13:08:41,448 - debug - DEBUG - Epoch 83: validation acc=36.24%
+2026-07-14 13:08:41,448 - debug - DEBUG - Training gate epoch 84
+2026-07-14 13:08:41,697 - debug - DEBUG - Loss components: mix_nll=2.0471, ent_reg=-0.9772, bal_reg=0.0129
+2026-07-14 13:08:41,979 - debug - DEBUG - Gate Epoch 84 completed: avg_loss=1.7858, avg_acc=63.13%
+2026-07-14 13:08:44,065 - debug - DEBUG - Epoch 84: validation acc=36.27%
+2026-07-14 13:08:44,066 - debug - DEBUG - Training gate epoch 85
+2026-07-14 13:08:44,323 - debug - DEBUG - Loss components: mix_nll=1.8954, ent_reg=-0.9755, bal_reg=0.0158
+2026-07-14 13:08:44,629 - debug - DEBUG - Gate Epoch 85 completed: avg_loss=1.8561, avg_acc=63.04%
+2026-07-14 13:08:46,595 - debug - DEBUG - Epoch 85: validation acc=36.39%
+2026-07-14 13:08:46,596 - debug - DEBUG - Training gate epoch 86
+2026-07-14 13:08:46,850 - debug - DEBUG - Loss components: mix_nll=1.9805, ent_reg=-0.9593, bal_reg=0.0243
+2026-07-14 13:08:47,145 - debug - DEBUG - Gate Epoch 86 completed: avg_loss=1.9292, avg_acc=63.13%
+2026-07-14 13:08:49,144 - debug - DEBUG - Epoch 86: validation acc=36.39%
+2026-07-14 13:08:49,145 - debug - DEBUG - Training gate epoch 87
+2026-07-14 13:08:49,411 - debug - DEBUG - Loss components: mix_nll=2.0064, ent_reg=-0.9733, bal_reg=0.0133
+2026-07-14 13:08:49,789 - debug - DEBUG - Gate Epoch 87 completed: avg_loss=1.7570, avg_acc=62.86%
+2026-07-14 13:08:51,780 - debug - DEBUG - Epoch 87: validation acc=36.43%
+2026-07-14 13:08:51,780 - debug - DEBUG - Training gate epoch 88
+2026-07-14 13:08:52,040 - debug - DEBUG - Loss components: mix_nll=1.3671, ent_reg=-0.9744, bal_reg=0.0166
+2026-07-14 13:08:52,270 - debug - DEBUG - Gate Epoch 88 completed: avg_loss=1.8033, avg_acc=63.41%
+2026-07-14 13:08:54,296 - debug - DEBUG - Epoch 88: validation acc=36.38%
+2026-07-14 13:08:54,296 - debug - DEBUG - Training gate epoch 89
+2026-07-14 13:08:54,534 - debug - DEBUG - Loss components: mix_nll=2.0761, ent_reg=-0.9819, bal_reg=0.0103
+2026-07-14 13:08:54,838 - debug - DEBUG - Gate Epoch 89 completed: avg_loss=1.8423, avg_acc=63.50%
+2026-07-14 13:08:56,941 - debug - DEBUG - Epoch 89: validation acc=36.41%
+2026-07-14 13:08:56,941 - debug - DEBUG - Training gate epoch 90
+2026-07-14 13:08:57,250 - debug - DEBUG - Loss components: mix_nll=2.2023, ent_reg=-0.9668, bal_reg=0.0162
+2026-07-14 13:08:57,545 - debug - DEBUG - Gate Epoch 90 completed: avg_loss=1.7872, avg_acc=61.84%
+2026-07-14 13:08:59,427 - debug - DEBUG - Epoch 90: validation acc=36.37%
+2026-07-14 13:08:59,428 - debug - DEBUG - Training gate epoch 91
+2026-07-14 13:08:59,681 - debug - DEBUG - Loss components: mix_nll=1.9595, ent_reg=-0.9787, bal_reg=0.0154
+2026-07-14 13:09:00,056 - debug - DEBUG - Gate Epoch 91 completed: avg_loss=1.8685, avg_acc=62.58%
+2026-07-14 13:09:02,086 - debug - DEBUG - Epoch 91: validation acc=36.40%
+2026-07-14 13:09:02,087 - debug - DEBUG - Training gate epoch 92
+2026-07-14 13:09:02,326 - debug - DEBUG - Loss components: mix_nll=1.7147, ent_reg=-0.9789, bal_reg=0.0145
+2026-07-14 13:09:02,522 - debug - DEBUG - Gate Epoch 92 completed: avg_loss=1.8137, avg_acc=64.42%
+2026-07-14 13:09:04,480 - debug - DEBUG - Epoch 92: validation acc=36.43%
+2026-07-14 13:09:04,481 - debug - DEBUG - Training gate epoch 93
+2026-07-14 13:09:04,776 - debug - DEBUG - Loss components: mix_nll=1.9838, ent_reg=-0.9892, bal_reg=0.0103
+2026-07-14 13:09:05,076 - debug - DEBUG - Gate Epoch 93 completed: avg_loss=1.8152, avg_acc=63.23%
+2026-07-14 13:09:07,014 - debug - DEBUG - Epoch 93: validation acc=36.45%
+2026-07-14 13:09:07,014 - debug - DEBUG - Training gate epoch 94
+2026-07-14 13:09:07,297 - debug - DEBUG - Loss components: mix_nll=2.0935, ent_reg=-0.9727, bal_reg=0.0107
+2026-07-14 13:09:07,669 - debug - DEBUG - Gate Epoch 94 completed: avg_loss=1.8322, avg_acc=62.86%
+2026-07-14 13:09:09,636 - debug - DEBUG - Epoch 94: validation acc=36.43%
+2026-07-14 13:09:09,636 - debug - DEBUG - Training gate epoch 95
+2026-07-14 13:09:09,923 - debug - DEBUG - Loss components: mix_nll=2.2278, ent_reg=-0.9837, bal_reg=0.0124
+2026-07-14 13:09:10,191 - debug - DEBUG - Gate Epoch 95 completed: avg_loss=1.8232, avg_acc=64.06%
+2026-07-14 13:09:12,244 - debug - DEBUG - Epoch 95: validation acc=36.43%
+2026-07-14 13:09:12,244 - debug - DEBUG - Training gate epoch 96
+2026-07-14 13:09:12,533 - debug - DEBUG - Loss components: mix_nll=1.9375, ent_reg=-0.9751, bal_reg=0.0067
+2026-07-14 13:09:12,826 - debug - DEBUG - Gate Epoch 96 completed: avg_loss=1.7786, avg_acc=63.50%
+2026-07-14 13:09:14,879 - debug - DEBUG - Epoch 96: validation acc=36.43%
+2026-07-14 13:09:14,879 - debug - DEBUG - Training gate epoch 97
+2026-07-14 13:09:15,169 - debug - DEBUG - Loss components: mix_nll=1.5924, ent_reg=-0.9750, bal_reg=0.0125
+2026-07-14 13:09:15,439 - debug - DEBUG - Gate Epoch 97 completed: avg_loss=1.8130, avg_acc=63.69%
+2026-07-14 13:09:17,305 - debug - DEBUG - Epoch 97: validation acc=36.42%
+2026-07-14 13:09:17,305 - debug - DEBUG - Training gate epoch 98
+2026-07-14 13:09:17,601 - debug - DEBUG - Loss components: mix_nll=1.5049, ent_reg=-0.9841, bal_reg=0.0121
+2026-07-14 13:09:17,931 - debug - DEBUG - Gate Epoch 98 completed: avg_loss=1.8695, avg_acc=61.47%
+2026-07-14 13:09:19,903 - debug - DEBUG - Epoch 98: validation acc=36.42%
+2026-07-14 13:09:19,904 - debug - DEBUG - Training gate epoch 99
+2026-07-14 13:09:20,199 - debug - DEBUG - Loss components: mix_nll=1.6786, ent_reg=-0.9785, bal_reg=0.0122
+2026-07-14 13:09:20,563 - debug - DEBUG - Gate Epoch 99 completed: avg_loss=1.7961, avg_acc=64.24%
+2026-07-14 13:09:22,567 - debug - DEBUG - Epoch 99: validation acc=36.42%

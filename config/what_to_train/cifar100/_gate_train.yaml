@@ -27,6 +27,7 @@ routing_sparsity: 2
 # Path to the best expert checkpoint from first run
 expert_checkpoint: checkpoint/experts_cifar100/checkpoint_experts_epoch255.pth
 best_model: checkpoint/gate_cifar100/gate_checkpoint_epoch99.pth
+
 # Data split ratio (must match the split used in expert training)
 gate_split_ratio: 0.9
 
@@ -51,7 +52,7 @@ cifar_root: ./data
 
 # Hardware
 device: cuda
-gpu: 1
+gpu: 0
 
 # Seed
 seed: 42

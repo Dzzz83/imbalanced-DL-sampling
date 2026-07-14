@@ -14,7 +14,6 @@ from ..utils.debug_logger import get_debug_logger
 from ..utils.utils import AverageMeter
 from ..net.network import build_model
 
-
 class GateMLP(nn.Module):
     def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3):
         super().__init__()
@@ -50,7 +49,7 @@ class GateTrainer(BaseTrainer):
         self.model = build_model(self.cfg)
         self.cfg.strategy = orig_strategy
         if self.debug:
-            self.debug_logger.debug("Built expert model with shared backbone and 3 heads.")
+            self.debug_logger.debug("Built expert model with 3 independent backbones and heads.")
 
         if self.debug:
             self.debug_logger.debug("Loading expert checkpoint...")
@@ -83,7 +82,6 @@ class GateTrainer(BaseTrainer):
             weight_decay=cfg.gate_weight_decay
         )
         
-        # Cosine schedule with 5 epoch warmup
         self.scheduler = optim.lr_scheduler.LambdaLR(
             self.optimizer,
             lr_lambda=lambda epoch: (epoch + 1) / 5.0 if epoch < 5 
@@ -97,8 +95,6 @@ class GateTrainer(BaseTrainer):
         if self.debug:
             self.debug_logger.debug(f"Gate hyperparams: lambda_ent={self.lambda_ent}, lambda_bal={self.lambda_bal}, epochs={self.gate_epochs}")
         print("[INFO] GateTrainer initialization complete.")
-        if self.debug:
-            self.debug_logger.debug("GateTrainer initialization complete.")
 
     def _split_dataset(self):
         targets = np.array(self.train_dataset.targets)
@@ -115,9 +111,6 @@ class GateTrainer(BaseTrainer):
             shuffle=True, num_workers=self.cfg.workers, pin_memory=True
         )
         print(f"[INFO] Gating split size: {len(self.gate_dataset)}")
-        if self.debug:
-            self.debug_logger.debug(f"Gating split size: {len(self.gate_dataset)}")
-            self.debug_logger.debug(f"First 5 gate indices: {gate_idx[:5]}")
 
     def get_criterion(self):
         return None
@@ -127,8 +120,6 @@ class GateTrainer(BaseTrainer):
         total_loss = 0.0
         total_correct = 0
         total_samples = 0
-        if self.debug:
-            self.debug_logger.debug(f"Training gate epoch {epoch}")
 
         for batch_idx, (images, labels) in enumerate(self.gate_loader):
             images = images.to(self.device, non_blocking=True)
@@ -141,57 +132,52 @@ class GateTrainer(BaseTrainer):
             gate_logits = self.gate(phi)
             weights = F.softmax(gate_logits, dim=1) # B, 3
 
-            # L_cls: Cross Entropy on weighted sum of logits
-            stacked_logits = torch.stack(logits_list, dim=1) # B, 3, C
-            weighted_logits = (stacked_logits * weights.unsqueeze(2)).sum(dim=1) # B, C
-            mix_nll = F.cross_entropy(weighted_logits, labels)
+            probs = [F.softmax(logits, dim=1) for logits in logits_list]
+            B = labels.size(0)
 
-            # L_ent: Entropy loss
-            ent_reg = -(weights * torch.log(weights + 1e-8)).sum(dim=1).mean()
+            # L_gate: Mixture NLL
+            prob_true = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1) # B, 3
+            mix_prob = (weights * prob_true).sum(dim=1) # B
+            mix_nll = -torch.log(mix_prob + 1e-8).mean()
 
-            # L_bal: MoE Load Balancing loss
-            # G_i = mean routing probability for expert i
-            G = weights.mean(dim=0) 
-            # P_i = softmax(bar_w_i) -> softmax over unnormalized batch averaged router logits
-            P = F.softmax(gate_logits.mean(dim=0), dim=0)
-            bal_reg = 3.0 * (G * P).sum()
+            # R_ent: sum(w * log(w)) 
+            ent_reg = (weights * torch.log(weights + 1e-8)).sum(dim=1).mean()
+
+            # R_bal: MSE between batch averaged weights and uniform target
+            avg_weights = weights.mean(dim=0)
+            bal_reg = ((avg_weights - 1.0 / 3.0) ** 2).sum()
 
             loss = mix_nll + self.lambda_ent * ent_reg + self.lambda_bal * bal_reg
-            if self.debug and batch_idx == 0:
-                self.debug_logger.debug(f"Loss components: mix_nll={mix_nll.item():.4f}, ent_reg={ent_reg.item():.4f}, bal_reg={bal_reg.item():.4f}")
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
             total_loss += loss.item() * images.size(0)
-            _, pred = weighted_logits.max(dim=1)
+            
+            mix_prob_full = torch.zeros_like(probs[0])
+            for i in range(3):
+                mix_prob_full += weights[:, i:i+1] * probs[i]
+            _, pred = mix_prob_full.max(dim=1)
+            
             total_correct += pred.eq(labels).sum().item()
             total_samples += images.size(0)
 
         avg_loss = total_loss / total_samples
         avg_acc = total_correct / total_samples * 100
         print(f"[INFO] Gate Epoch {epoch}: Loss={avg_loss:.4f}, Acc={avg_acc:.2f}%")
-        if self.debug:
-            self.debug_logger.debug(f"Gate Epoch {epoch} completed: avg_loss={avg_loss:.4f}, avg_acc={avg_acc:.2f}%")
         return avg_loss, avg_acc
 
     def do_train_val(self):
         print("[INFO] Starting gate training...")
-        if self.debug:
-            self.debug_logger.debug("Starting gate training loop.")
         for epoch in range(self.gate_epochs):
             loss, acc = self.train_one_epoch(epoch)
             val_acc = self.validate()
             self.scheduler.step()
-            if self.debug:
-                self.debug_logger.debug(f"Epoch {epoch}: validation acc={val_acc:.2f}%")
-            if val_acc > self.best_gate_acc:
-                self.best_gate_acc = val_acc
-                self.save_gate_checkpoint(epoch, val_acc)
+            
+        # Save the final epoch gate. No test-set early stopping.
+        self.save_gate_checkpoint(epoch, val_acc)
         print("[INFO] Gate training complete.")
-        if self.debug:
-            self.debug_logger.debug("Gate training complete.")
 
     def validate(self):
         self.gate.eval()
@@ -208,21 +194,22 @@ class GateTrainer(BaseTrainer):
                 gate_logits = self.gate(phi)
                 weights = F.softmax(gate_logits, dim=1)
                 
-                # Top-k routing on logits
+                probs = [F.softmax(logits, dim=1) for logits in logits_list]
+                
                 k = getattr(self.cfg, 'routing_sparsity', 2)
                 topk_weights, topk_indices = torch.topk(weights, k, dim=1)
                 topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
                 
-                stacked_logits = torch.stack(logits_list, dim=1) # B, 3, C
-                final_logits = torch.zeros_like(stacked_logits[:, 0, :]) # B, C
+                stacked_probs = torch.stack(probs, dim=1) # B, 3, C
+                mix_prob = torch.zeros_like(stacked_probs[:, 0, :]) # B, C
                 
                 for i in range(k):
                     idx = topk_indices[:, i]
                     w = topk_weights[:, i].unsqueeze(1)
-                    expert_logits = stacked_logits[torch.arange(B), idx, :]
-                    final_logits += w * expert_logits
+                    expert_probs = stacked_probs[torch.arange(B), idx, :]
+                    mix_prob += w * expert_probs
 
-                _, pred = final_logits.max(dim=1)
+                _, pred = mix_prob.max(dim=1)
                 total_correct += pred.eq(labels).sum().item()
                 total_samples += B
 
@@ -268,7 +255,6 @@ class GateTrainer(BaseTrainer):
                 logits_list, _ = self.model(images)
                 probs = [F.softmax(logits, dim=1) for logits in logits_list]
 
-                # Average ensemble (Probability based)
                 avg_prob = torch.stack(probs, dim=0).mean(dim=0)
                 _, pred_avg = avg_prob.max(dim=1)
                 top1_avg.update(pred_avg.eq(labels).sum().item() / B, B)
@@ -281,20 +267,19 @@ class GateTrainer(BaseTrainer):
                 gate_logits = self.gate(phi)
                 weights = F.softmax(gate_logits, dim=1)
 
-                # Gated ensemble (Logit based)
                 k = getattr(self.cfg, 'routing_sparsity', 2)
                 topk_weights, topk_indices = torch.topk(weights, k, dim=1)
                 topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
 
-                stacked_logits = torch.stack(logits_list, dim=1)
-                final_logits = torch.zeros_like(stacked_logits[:, 0, :])
+                stacked_probs = torch.stack(probs, dim=1)
+                mix_prob = torch.zeros_like(stacked_probs[:, 0, :])
                 for i in range(k):
                     idx = topk_indices[:, i]
                     w = topk_weights[:, i].unsqueeze(1)
-                    expert_logits = stacked_logits[torch.arange(B), idx, :]
-                    final_logits += w * expert_logits
+                    expert_probs = stacked_probs[torch.arange(B), idx, :]
+                    mix_prob += w * expert_probs
 
-                _, pred_gated = final_logits.max(dim=1)
+                _, pred_gated = mix_prob.max(dim=1)
                 top1_gated.update(pred_gated.eq(labels).sum().item() / B, B)
 
                 weight_sum += weights.sum(dim=0)
