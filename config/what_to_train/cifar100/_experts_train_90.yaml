@@ -17,22 +17,21 @@ loss_type: CE
 base_strategy: ERM
 
 # Expert‑specific hyperparameters
-expert_batch_size: 256
+expert_batch_size: 128
 gating_batch_size: 128
-routing_sparsity: 0.4
+routing_sparsity: 2
 
 # Data split: 90% for experts, 10% held out for gate
 gate_split_ratio: 0.9
 
-# Hyperparameters
-epochs: 200
+# Hyperparameters (Mapped to Paper)
+epochs: 256
 start_epoch: 0
 print_freq: 10
 batch_size: 128
-learning_rate: 0.1
+learning_rate: 0.4
 momentum: 0.9
-weight_decay: 2e-4
-lr_steps: [120, 160]
+weight_decay: 1e-4
 gamma: 0.1
 rand_number: 42
 workers: 4

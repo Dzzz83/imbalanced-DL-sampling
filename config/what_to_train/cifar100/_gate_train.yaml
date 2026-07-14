@@ -12,7 +12,7 @@ selection_method: none
 selection_ratio: 1.0
 
 # Training Strategy
-strategy: Gate                        # Activates the gate trainer
+strategy: Gate
 
 # Gate hyperparameters (from paper)
 lambda_ent: 0.01
@@ -22,29 +22,28 @@ gate_weight_decay: 0.0001
 gate_epochs: 100
 gate_hidden_size: 256
 gate_hidden_size2: 128
-routing_sparsity: 2                  # top‑k experts to keep after renormalization
+routing_sparsity: 2
 
 # Path to the best expert checkpoint from first run
-expert_checkpoint: checkpoint/experts_cifar100/checkpoint_experts_epoch157.pth
-best_model: checkpoint/gate_cifar100/gate_checkpoint_epoch7.pth
+expert_checkpoint: checkpoint/experts_cifar100/checkpoint_experts_epoch255.pth
+best_model: checkpoint/gate_cifar100/gate_checkpoint_epoch99.pth
 # Data split ratio (must match the split used in expert training)
 gate_split_ratio: 0.9
 
 # Hyperparameters (used for dataloaders)
-epochs: 200                           # Not used for gate training; gate_epochs controls gate training
+epochs: 256
 start_epoch: 0
 print_freq: 10
 batch_size: 128
-learning_rate: 0.1                    # Not used for gate (gate has its own)
-momentum: 0.9                         # Not used
-weight_decay: 2e-4                    # Not used
-lr_steps: [120, 160]
+learning_rate: 0.4
+momentum: 0.9
+weight_decay: 1e-4
 gamma: 0.1
 rand_number: 42
 workers: 4
 optimizer: sgd
 
-# Logging & Checkpoints (gate checkpoints will be saved here)
+# Logging & Checkpoints
 root_log: results/gate_cifar100
 root_model: checkpoint/gate_cifar100
 store_name: cifar100_exp0.01_Gate_seed42

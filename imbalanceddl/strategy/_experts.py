@@ -1,7 +1,9 @@
 import os
 import torch
 import torch.optim as optim
-import math
+import numpy as np
+from sklearn.model_selection import train_test_split
+from torch.utils.data import Subset, DataLoader
 from .base import BaseTrainer
 from ..loss import LogitAdjustedLoss, BalancedSoftmaxLoss
 
@@ -37,21 +39,49 @@ class ExpertsTrainer(BaseTrainer):
 
         self.optimizer = optim.SGD(
             self.model.parameters(),
-            lr=cfg.lr,
+            lr=cfg.learning_rate,
             momentum=cfg.momentum,
             weight_decay=cfg.weight_decay
         )
         self.best_acc = 0.0
+        
+        self.gate_split_ratio = getattr(cfg, 'gate_split_ratio', 0.9)
+        self._split_dataset()
+        
         print(f"[INFO] ExpertsTrainer initialized with CE, LA (tau=1.0), BS losses.")
+
+    def _split_dataset(self):
+        targets = np.array(self.train_dataset.targets)
+        indices = np.arange(len(targets))
+        train_idx, gate_idx = train_test_split(
+            indices, test_size=1 - self.gate_split_ratio,
+            stratify=targets, random_state=self.cfg.seed
+        )
+        expert_dataset = Subset(self.train_dataset, train_idx)
+        self.train_loader = DataLoader(
+            expert_dataset, batch_size=self.cfg.batch_size,
+            shuffle=True, num_workers=self.cfg.workers, pin_memory=True
+        )
+        print(f"[INFO] Expert training split size: {len(expert_dataset)}")
 
     def get_criterion(self):
         return self.criterion_ce
 
     def adjust_learning_rate(self, epoch):
-        lr = self.cfg.lr * 0.5 * (1.0 + math.cos(math.pi * epoch / self.cfg.epochs))
+        # Paper: 15-step linear warmup, followed by MultiStepLR [96, 192, 224] gamma=0.1
+        if epoch < 15:
+            lr = self.cfg.learning_rate * (epoch + 1) / 15.0
+        else:
+            if epoch < 96:
+                lr = self.cfg.learning_rate
+            elif epoch < 192:
+                lr = self.cfg.learning_rate * 0.1
+            elif epoch < 224:
+                lr = self.cfg.learning_rate * 0.01
+            else:
+                lr = self.cfg.learning_rate * 0.001
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
-        print(f"[INFO] Epoch {epoch}: LR = {lr:.6f}")
 
     def train_one_epoch(self):
         self.model.train()
@@ -147,7 +177,6 @@ class ExpertsTrainer(BaseTrainer):
             self.logger.info(log_msg)
             print(log_msg)
 
-            # Save only when validation accuracy improves
             if val_top1.avg > self.best_acc:
                 self.best_acc = val_top1.avg
                 self.save_checkpoint(epoch, val_top1.avg)
