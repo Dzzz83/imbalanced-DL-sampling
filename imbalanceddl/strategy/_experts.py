@@ -31,7 +31,7 @@ class ExpertsTrainer(BaseTrainer):
 
         self.cls_num_list = cfg.cls_num_list
         self.criterion_ce = torch.nn.CrossEntropyLoss().to(self.device)
-        self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=2.0).to(self.device)
+        self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
         self.criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
         self.losses = [self.criterion_ce, self.criterion_la, self.criterion_bs]
 
@@ -42,7 +42,7 @@ class ExpertsTrainer(BaseTrainer):
             weight_decay=cfg.weight_decay
         )
         self.best_acc = 0.0
-        print(f"[INFO] ExpertsTrainer initialized with CE, LA (tau=2.0), BS losses.")
+        print(f"[INFO] ExpertsTrainer initialized with CE, LA (tau=1.0), BS losses.")
 
     def get_criterion(self):
         return self.criterion_ce

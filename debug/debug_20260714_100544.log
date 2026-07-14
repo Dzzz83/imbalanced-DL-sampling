@@ -1,0 +1,24 @@
+2026-07-14 10:05:44,765 - debug - DEBUG - Debug logging enabled for this run.
+2026-07-14 10:05:45,321 - debug - DEBUG - GateTrainer initialization started.
+2026-07-14 10:05:47,646 - debug - DEBUG - train_dataset type: <class 'imbalanceddl.dataset.imbalance_cifar.IMBALANCECIFAR100'>
+2026-07-14 10:05:47,647 - debug - DEBUG - val_dataset type: <class 'torchvision.datasets.cifar.CIFAR100'>
+2026-07-14 10:05:47,647 - debug - DEBUG - train_dataset.targets length: 10847
+2026-07-14 10:05:47,647 - debug - DEBUG - Number of train loader batches: 85
+2026-07-14 10:05:47,841 - debug - DEBUG - First batch class counts: {0: 4, 1: 5, 2: 5, 3: 5, 4: 8, 5: 6, 6: 4, 7: 2, 8: 6, 9: 3, 10: 5, 11: 5, 12: 3, 13: 3, 14: 2, 15: 3, 16: 2, 17: 3, 18: 2, 19: 4, 21: 2, 22: 1, 23: 4, 24: 1, 25: 1, 26: 3, 27: 3, 28: 4, 29: 3, 30: 4, 31: 1, 35: 1, 37: 1, 38: 1, 39: 1, 43: 1, 44: 1, 46: 1, 47: 1, 51: 1, 52: 1, 53: 1, 54: 1, 55: 1, 56: 1, 64: 1, 65: 1, 70: 1, 71: 1, 72: 1, 73: 1, 79: 1}
+2026-07-14 10:05:47,917 - debug - DEBUG - Validation loader created. Length: 100
+2026-07-14 10:05:47,933 - debug - DEBUG - Device: cuda, expert checkpoint: checkpoint/experts_cifar100/checkpoint_experts_epoch157.pth
+2026-07-14 10:05:48,191 - debug - DEBUG - Built expert model with 3 heads.
+2026-07-14 10:05:48,191 - debug - DEBUG - Loading expert checkpoint...
+2026-07-14 10:05:48,301 - debug - DEBUG - Expert model loaded and frozen.
+2026-07-14 10:05:48,301 - debug - DEBUG - Gate split ratio: 0.9
+2026-07-14 10:05:48,302 - debug - DEBUG - Splitting dataset of size 10847 with ratio 0.9
+2026-07-14 10:05:48,311 - debug - DEBUG - Gating split size: 1085
+2026-07-14 10:05:48,312 - debug - DEBUG - First 5 gate indices: [  48 6328 3348 2679 2969]
+2026-07-14 10:05:48,314 - debug - DEBUG - Gate MLP: GateMLP(
+  (fc1): Linear(in_features=24, out_features=256, bias=True)
+  (fc2): Linear(in_features=256, out_features=128, bias=True)
+  (fc3): Linear(in_features=128, out_features=3, bias=True)
+  (relu): ReLU()
+)
+2026-07-14 10:05:48,315 - debug - DEBUG - Gate hyperparams: lambda_ent=0.01, lambda_bal=0.05, epochs=100
+2026-07-14 10:05:48,315 - debug - DEBUG - GateTrainer initialization complete.

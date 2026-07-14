@@ -1,0 +1,1132 @@
+2026-07-14 09:52:50,711 - debug - DEBUG - Debug logging enabled for this run.
+2026-07-14 09:52:51,489 - debug - DEBUG - GateTrainer initialization started.
+2026-07-14 09:52:53,489 - debug - DEBUG - train_dataset type: <class 'imbalanceddl.dataset.imbalance_cifar.IMBALANCECIFAR100'>
+2026-07-14 09:52:53,490 - debug - DEBUG - val_dataset type: <class 'torchvision.datasets.cifar.CIFAR100'>
+2026-07-14 09:52:53,490 - debug - DEBUG - train_dataset.targets length: 10847
+2026-07-14 09:52:53,491 - debug - DEBUG - Number of train loader batches: 85
+2026-07-14 09:52:53,695 - debug - DEBUG - First batch class counts: {0: 4, 1: 5, 2: 5, 3: 5, 4: 8, 5: 6, 6: 4, 7: 2, 8: 6, 9: 3, 10: 5, 11: 5, 12: 3, 13: 3, 14: 2, 15: 3, 16: 2, 17: 3, 18: 2, 19: 4, 21: 2, 22: 1, 23: 4, 24: 1, 25: 1, 26: 3, 27: 3, 28: 4, 29: 3, 30: 4, 31: 1, 35: 1, 37: 1, 38: 1, 39: 1, 43: 1, 44: 1, 46: 1, 47: 1, 51: 1, 52: 1, 53: 1, 54: 1, 55: 1, 56: 1, 64: 1, 65: 1, 70: 1, 71: 1, 72: 1, 73: 1, 79: 1}
+2026-07-14 09:52:53,777 - debug - DEBUG - Validation loader created. Length: 100
+2026-07-14 09:52:53,801 - debug - DEBUG - Device: cuda, expert checkpoint: checkpoint/experts_cifar100/checkpoint_experts_epoch157.pth
+2026-07-14 09:52:54,240 - debug - DEBUG - Built expert model with 3 heads.
+2026-07-14 09:52:54,240 - debug - DEBUG - Loading expert checkpoint...
+2026-07-14 09:52:54,970 - debug - DEBUG - Expert model loaded and frozen.
+2026-07-14 09:52:54,970 - debug - DEBUG - Gate split ratio: 0.9
+2026-07-14 09:52:54,971 - debug - DEBUG - Splitting dataset of size 10847 with ratio 0.9
+2026-07-14 09:52:54,979 - debug - DEBUG - Gating split size: 1085
+2026-07-14 09:52:54,980 - debug - DEBUG - First 5 gate indices: [  48 6328 3348 2679 2969]
+2026-07-14 09:52:54,994 - debug - DEBUG - Gate MLP: GateMLP(
+  (fc1): Linear(in_features=24, out_features=256, bias=True)
+  (fc2): Linear(in_features=256, out_features=128, bias=True)
+  (fc3): Linear(in_features=128, out_features=3, bias=True)
+  (relu): ReLU()
+)
+2026-07-14 09:52:54,995 - debug - DEBUG - Gate hyperparams: lambda_ent=0.01, lambda_bal=0.05, epochs=100
+2026-07-14 09:52:54,995 - debug - DEBUG - GateTrainer initialization complete.
+2026-07-14 09:52:54,996 - debug - DEBUG - Starting gate training loop.
+2026-07-14 09:52:54,996 - debug - DEBUG - Warmup epoch 0: lr=0.0002
+2026-07-14 09:52:54,996 - debug - DEBUG - Training gate epoch 0
+2026-07-14 09:52:55,164 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:52:56,027 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:52:56,200 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:52:56,212 - debug - DEBUG - Gate weights sample: [0.7550092  0.10836027 0.13663056]
+2026-07-14 09:52:56,273 - debug - DEBUG - Loss components: mix_nll=0.0162, ent_reg=0.4817, bal_reg=0.4207
+2026-07-14 09:52:57,047 - debug - DEBUG - Gate Epoch 0 completed: avg_loss=0.0385, avg_acc=100.00%
+2026-07-14 09:52:57,047 - debug - DEBUG - Starting validation.
+2026-07-14 09:52:57,602 - debug - DEBUG - Validation batch 0: weights sample [0.6082332  0.24450186 0.14726496]
+2026-07-14 09:52:59,842 - debug - DEBUG - Validation accuracy: 37.52%
+2026-07-14 09:52:59,842 - debug - DEBUG - Epoch 0: validation acc=37.52%
+2026-07-14 09:52:59,847 - debug - DEBUG - Gate checkpoint saved at checkpoint/gate_cifar100/gate_checkpoint_epoch0.pth
+2026-07-14 09:52:59,847 - debug - DEBUG - Training gate epoch 1
+2026-07-14 09:53:00,043 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:00,060 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:00,065 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:00,069 - debug - DEBUG - Gate weights sample: [0.61290693 0.2242216  0.16287145]
+2026-07-14 09:53:00,080 - debug - DEBUG - Loss components: mix_nll=0.0210, ent_reg=0.9269, bal_reg=0.1205
+2026-07-14 09:53:00,372 - debug - DEBUG - Gate Epoch 1 completed: avg_loss=0.0382, avg_acc=100.00%
+2026-07-14 09:53:00,373 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:00,556 - debug - DEBUG - Validation batch 0: weights sample [0.34799582 0.17207204 0.47993213]
+2026-07-14 09:53:02,770 - debug - DEBUG - Validation accuracy: 38.73%
+2026-07-14 09:53:02,771 - debug - DEBUG - Epoch 1: validation acc=38.73%
+2026-07-14 09:53:02,775 - debug - DEBUG - Gate checkpoint saved at checkpoint/gate_cifar100/gate_checkpoint_epoch1.pth
+2026-07-14 09:53:02,775 - debug - DEBUG - Training gate epoch 2
+2026-07-14 09:53:02,957 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:02,967 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:02,969 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:02,974 - debug - DEBUG - Gate weights sample: [0.47149017 0.15155672 0.3769531 ]
+2026-07-14 09:53:02,985 - debug - DEBUG - Loss components: mix_nll=0.0272, ent_reg=0.9916, bal_reg=0.0464
+2026-07-14 09:53:03,273 - debug - DEBUG - Gate Epoch 2 completed: avg_loss=0.0351, avg_acc=100.00%
+2026-07-14 09:53:03,273 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:03,467 - debug - DEBUG - Validation batch 0: weights sample [0.34556475 0.6049315  0.04950378]
+2026-07-14 09:53:05,632 - debug - DEBUG - Validation accuracy: 38.72%
+2026-07-14 09:53:05,632 - debug - DEBUG - Epoch 2: validation acc=38.72%
+2026-07-14 09:53:05,632 - debug - DEBUG - Training gate epoch 3
+2026-07-14 09:53:05,830 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:05,846 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:05,851 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:05,854 - debug - DEBUG - Gate weights sample: [0.35281393 0.59689635 0.05028972]
+2026-07-14 09:53:05,872 - debug - DEBUG - Loss components: mix_nll=0.0229, ent_reg=0.7432, bal_reg=0.1321
+2026-07-14 09:53:06,220 - debug - DEBUG - Gate Epoch 3 completed: avg_loss=0.0353, avg_acc=100.00%
+2026-07-14 09:53:06,220 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:06,409 - debug - DEBUG - Validation batch 0: weights sample [0.24046856 0.26193386 0.4975976 ]
+2026-07-14 09:53:08,676 - debug - DEBUG - Validation accuracy: 38.75%
+2026-07-14 09:53:08,677 - debug - DEBUG - Epoch 3: validation acc=38.75%
+2026-07-14 09:53:08,683 - debug - DEBUG - Gate checkpoint saved at checkpoint/gate_cifar100/gate_checkpoint_epoch3.pth
+2026-07-14 09:53:08,683 - debug - DEBUG - Training gate epoch 4
+2026-07-14 09:53:08,902 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:08,918 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:08,921 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:08,924 - debug - DEBUG - Gate weights sample: [0.7874645  0.04303465 0.16950089]
+2026-07-14 09:53:08,935 - debug - DEBUG - Loss components: mix_nll=0.0273, ent_reg=0.8648, bal_reg=0.0357
+2026-07-14 09:53:09,238 - debug - DEBUG - Gate Epoch 4 completed: avg_loss=0.0328, avg_acc=100.00%
+2026-07-14 09:53:09,238 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:09,456 - debug - DEBUG - Validation batch 0: weights sample [0.14684226 0.33559826 0.5175595 ]
+2026-07-14 09:53:11,690 - debug - DEBUG - Validation accuracy: 38.73%
+2026-07-14 09:53:11,690 - debug - DEBUG - Epoch 4: validation acc=38.73%
+2026-07-14 09:53:11,690 - debug - DEBUG - End of warmup, scheduler step applied.
+2026-07-14 09:53:11,690 - debug - DEBUG - Training gate epoch 5
+2026-07-14 09:53:11,881 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:11,893 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:11,896 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:11,900 - debug - DEBUG - Gate weights sample: [0.15834908 0.3185608  0.5230901 ]
+2026-07-14 09:53:11,911 - debug - DEBUG - Loss components: mix_nll=0.0189, ent_reg=0.7182, bal_reg=0.0344
+2026-07-14 09:53:12,221 - debug - DEBUG - Gate Epoch 5 completed: avg_loss=0.0298, avg_acc=100.00%
+2026-07-14 09:53:12,221 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:12,412 - debug - DEBUG - Validation batch 0: weights sample [0.05139402 0.8754018  0.07320411]
+2026-07-14 09:53:14,557 - debug - DEBUG - Validation accuracy: 38.57%
+2026-07-14 09:53:14,557 - debug - DEBUG - Epoch 5: validation acc=38.57%
+2026-07-14 09:53:14,558 - debug - DEBUG - Training gate epoch 6
+2026-07-14 09:53:14,786 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:14,797 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:14,800 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:14,808 - debug - DEBUG - Gate weights sample: [1.5279411e-04 9.9415839e-01 5.6888782e-03]
+2026-07-14 09:53:14,826 - debug - DEBUG - Loss components: mix_nll=0.0182, ent_reg=0.4638, bal_reg=0.1094
+2026-07-14 09:53:15,125 - debug - DEBUG - Gate Epoch 6 completed: avg_loss=0.0291, avg_acc=100.00%
+2026-07-14 09:53:15,126 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:15,324 - debug - DEBUG - Validation batch 0: weights sample [0.05787466 0.7365247  0.2056007 ]
+2026-07-14 09:53:17,538 - debug - DEBUG - Validation accuracy: 38.44%
+2026-07-14 09:53:17,539 - debug - DEBUG - Epoch 6: validation acc=38.44%
+2026-07-14 09:53:17,539 - debug - DEBUG - Training gate epoch 7
+2026-07-14 09:53:17,741 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:17,754 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:17,758 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:17,763 - debug - DEBUG - Gate weights sample: [0.9195716  0.01404632 0.06638201]
+2026-07-14 09:53:17,773 - debug - DEBUG - Loss components: mix_nll=0.0192, ent_reg=0.4701, bal_reg=0.0903
+2026-07-14 09:53:18,072 - debug - DEBUG - Gate Epoch 7 completed: avg_loss=0.0305, avg_acc=99.72%
+2026-07-14 09:53:18,072 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:18,248 - debug - DEBUG - Validation batch 0: weights sample [0.01689386 0.3116695  0.6714366 ]
+2026-07-14 09:53:20,467 - debug - DEBUG - Validation accuracy: 38.87%
+2026-07-14 09:53:20,467 - debug - DEBUG - Epoch 7: validation acc=38.87%
+2026-07-14 09:53:20,472 - debug - DEBUG - Gate checkpoint saved at checkpoint/gate_cifar100/gate_checkpoint_epoch7.pth
+2026-07-14 09:53:20,472 - debug - DEBUG - Training gate epoch 8
+2026-07-14 09:53:20,691 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:20,701 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:20,704 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:20,709 - debug - DEBUG - Gate weights sample: [0.0489843  0.19427806 0.75673765]
+2026-07-14 09:53:20,720 - debug - DEBUG - Loss components: mix_nll=0.0150, ent_reg=0.5240, bal_reg=0.0308
+2026-07-14 09:53:21,005 - debug - DEBUG - Gate Epoch 8 completed: avg_loss=0.0303, avg_acc=100.00%
+2026-07-14 09:53:21,005 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:21,212 - debug - DEBUG - Validation batch 0: weights sample [0.03165186 0.7987062  0.16964194]
+2026-07-14 09:53:23,361 - debug - DEBUG - Validation accuracy: 38.20%
+2026-07-14 09:53:23,361 - debug - DEBUG - Epoch 8: validation acc=38.20%
+2026-07-14 09:53:23,362 - debug - DEBUG - Training gate epoch 9
+2026-07-14 09:53:23,562 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:23,575 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:23,579 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:23,583 - debug - DEBUG - Gate weights sample: [9.9672937e-01 7.1620889e-05 3.1989254e-03]
+2026-07-14 09:53:23,598 - debug - DEBUG - Loss components: mix_nll=0.0194, ent_reg=0.4387, bal_reg=0.1131
+2026-07-14 09:53:23,906 - debug - DEBUG - Gate Epoch 9 completed: avg_loss=0.0279, avg_acc=100.00%
+2026-07-14 09:53:23,907 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:24,097 - debug - DEBUG - Validation batch 0: weights sample [0.09619892 0.664111   0.23969011]
+2026-07-14 09:53:26,326 - debug - DEBUG - Validation accuracy: 37.92%
+2026-07-14 09:53:26,327 - debug - DEBUG - Epoch 9: validation acc=37.92%
+2026-07-14 09:53:26,327 - debug - DEBUG - Training gate epoch 10
+2026-07-14 09:53:26,548 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:26,560 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:26,563 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:26,565 - debug - DEBUG - Gate weights sample: [9.9219221e-01 3.4439354e-04 7.4634273e-03]
+2026-07-14 09:53:26,576 - debug - DEBUG - Loss components: mix_nll=0.0122, ent_reg=0.3399, bal_reg=0.1533
+2026-07-14 09:53:26,865 - debug - DEBUG - Gate Epoch 10 completed: avg_loss=0.0267, avg_acc=100.00%
+2026-07-14 09:53:26,866 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:27,077 - debug - DEBUG - Validation batch 0: weights sample [0.00546655 0.24054413 0.75398934]
+2026-07-14 09:53:29,287 - debug - DEBUG - Validation accuracy: 38.69%
+2026-07-14 09:53:29,288 - debug - DEBUG - Epoch 10: validation acc=38.69%
+2026-07-14 09:53:29,288 - debug - DEBUG - Training gate epoch 11
+2026-07-14 09:53:29,515 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:29,526 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:29,530 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:29,533 - debug - DEBUG - Gate weights sample: [0.00131537 0.4035064  0.59517825]
+2026-07-14 09:53:29,545 - debug - DEBUG - Loss components: mix_nll=0.0151, ent_reg=0.4593, bal_reg=0.0214
+2026-07-14 09:53:29,852 - debug - DEBUG - Gate Epoch 11 completed: avg_loss=0.0269, avg_acc=99.91%
+2026-07-14 09:53:29,853 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:30,066 - debug - DEBUG - Validation batch 0: weights sample [0.00113368 0.81867707 0.18018931]
+2026-07-14 09:53:32,208 - debug - DEBUG - Validation accuracy: 38.54%
+2026-07-14 09:53:32,209 - debug - DEBUG - Epoch 11: validation acc=38.54%
+2026-07-14 09:53:32,209 - debug - DEBUG - Training gate epoch 12
+2026-07-14 09:53:32,422 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:32,437 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:32,441 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:32,447 - debug - DEBUG - Gate weights sample: [0.5390842  0.04179619 0.4191197 ]
+2026-07-14 09:53:32,462 - debug - DEBUG - Loss components: mix_nll=0.0285, ent_reg=0.3879, bal_reg=0.0280
+2026-07-14 09:53:32,763 - debug - DEBUG - Gate Epoch 12 completed: avg_loss=0.0286, avg_acc=100.00%
+2026-07-14 09:53:32,764 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:32,985 - debug - DEBUG - Validation batch 0: weights sample [0.00535209 0.73727906 0.25736886]
+2026-07-14 09:53:35,205 - debug - DEBUG - Validation accuracy: 38.18%
+2026-07-14 09:53:35,206 - debug - DEBUG - Epoch 12: validation acc=38.18%
+2026-07-14 09:53:35,206 - debug - DEBUG - Training gate epoch 13
+2026-07-14 09:53:35,419 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:35,432 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:35,435 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:35,440 - debug - DEBUG - Gate weights sample: [0.95040745 0.000985   0.04860749]
+2026-07-14 09:53:35,445 - debug - DEBUG - Loss components: mix_nll=0.0207, ent_reg=0.3006, bal_reg=0.1579
+2026-07-14 09:53:35,731 - debug - DEBUG - Gate Epoch 13 completed: avg_loss=0.0254, avg_acc=100.00%
+2026-07-14 09:53:35,731 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:35,945 - debug - DEBUG - Validation batch 0: weights sample [0.00676961 0.15634905 0.8368814 ]
+2026-07-14 09:53:38,169 - debug - DEBUG - Validation accuracy: 38.33%
+2026-07-14 09:53:38,169 - debug - DEBUG - Epoch 13: validation acc=38.33%
+2026-07-14 09:53:38,170 - debug - DEBUG - Training gate epoch 14
+2026-07-14 09:53:38,390 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:38,402 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:38,405 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:38,408 - debug - DEBUG - Gate weights sample: [9.6390045e-01 4.4589240e-05 3.6054935e-02]
+2026-07-14 09:53:38,419 - debug - DEBUG - Loss components: mix_nll=0.0125, ent_reg=0.2959, bal_reg=0.0429
+2026-07-14 09:53:38,757 - debug - DEBUG - Gate Epoch 14 completed: avg_loss=0.0244, avg_acc=100.00%
+2026-07-14 09:53:38,758 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:38,969 - debug - DEBUG - Validation batch 0: weights sample [5.5873778e-04 7.4988216e-01 2.4955907e-01]
+2026-07-14 09:53:41,117 - debug - DEBUG - Validation accuracy: 38.40%
+2026-07-14 09:53:41,117 - debug - DEBUG - Epoch 14: validation acc=38.40%
+2026-07-14 09:53:41,117 - debug - DEBUG - Training gate epoch 15
+2026-07-14 09:53:41,326 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:41,338 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:41,341 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:41,345 - debug - DEBUG - Gate weights sample: [0.5560533  0.00941014 0.43453664]
+2026-07-14 09:53:41,356 - debug - DEBUG - Loss components: mix_nll=0.0251, ent_reg=0.3231, bal_reg=0.0240
+2026-07-14 09:53:41,639 - debug - DEBUG - Gate Epoch 15 completed: avg_loss=0.0229, avg_acc=100.00%
+2026-07-14 09:53:41,639 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:41,852 - debug - DEBUG - Validation batch 0: weights sample [0.00063878 0.48042265 0.51893854]
+2026-07-14 09:53:44,055 - debug - DEBUG - Validation accuracy: 38.40%
+2026-07-14 09:53:44,055 - debug - DEBUG - Epoch 15: validation acc=38.40%
+2026-07-14 09:53:44,055 - debug - DEBUG - Training gate epoch 16
+2026-07-14 09:53:44,276 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:44,287 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:44,290 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:44,292 - debug - DEBUG - Gate weights sample: [9.9944955e-01 1.4999141e-07 5.5035658e-04]
+2026-07-14 09:53:44,304 - debug - DEBUG - Loss components: mix_nll=0.0127, ent_reg=0.2941, bal_reg=0.0212
+2026-07-14 09:53:44,598 - debug - DEBUG - Gate Epoch 16 completed: avg_loss=0.0210, avg_acc=99.91%
+2026-07-14 09:53:44,598 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:44,827 - debug - DEBUG - Validation batch 0: weights sample [4.2065879e-04 6.9991559e-01 2.9966378e-01]
+2026-07-14 09:53:47,032 - debug - DEBUG - Validation accuracy: 38.29%
+2026-07-14 09:53:47,032 - debug - DEBUG - Epoch 16: validation acc=38.29%
+2026-07-14 09:53:47,033 - debug - DEBUG - Training gate epoch 17
+2026-07-14 09:53:47,220 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:47,239 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:47,244 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:47,249 - debug - DEBUG - Gate weights sample: [6.5128989e-13 9.9997389e-01 2.6110714e-05]
+2026-07-14 09:53:47,260 - debug - DEBUG - Loss components: mix_nll=0.0209, ent_reg=0.3126, bal_reg=0.0544
+2026-07-14 09:53:47,594 - debug - DEBUG - Gate Epoch 17 completed: avg_loss=0.0254, avg_acc=99.91%
+2026-07-14 09:53:47,594 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:47,777 - debug - DEBUG - Validation batch 0: weights sample [2.1812813e-05 8.0577034e-01 1.9420788e-01]
+2026-07-14 09:53:49,918 - debug - DEBUG - Validation accuracy: 38.63%
+2026-07-14 09:53:49,918 - debug - DEBUG - Epoch 17: validation acc=38.63%
+2026-07-14 09:53:49,918 - debug - DEBUG - Training gate epoch 18
+2026-07-14 09:53:50,137 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:50,148 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:50,151 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:50,154 - debug - DEBUG - Gate weights sample: [1.1385492e-04 5.7799113e-01 4.2189503e-01]
+2026-07-14 09:53:50,165 - debug - DEBUG - Loss components: mix_nll=0.0217, ent_reg=0.3277, bal_reg=0.0031
+2026-07-14 09:53:50,456 - debug - DEBUG - Gate Epoch 18 completed: avg_loss=0.0252, avg_acc=99.91%
+2026-07-14 09:53:50,456 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:50,657 - debug - DEBUG - Validation batch 0: weights sample [3.598439e-05 7.349347e-01 2.650293e-01]
+2026-07-14 09:53:52,882 - debug - DEBUG - Validation accuracy: 38.54%
+2026-07-14 09:53:52,882 - debug - DEBUG - Epoch 18: validation acc=38.54%
+2026-07-14 09:53:52,883 - debug - DEBUG - Training gate epoch 19
+2026-07-14 09:53:53,090 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:53,106 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:53,111 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:53,116 - debug - DEBUG - Gate weights sample: [0.3361059  0.00186431 0.66202974]
+2026-07-14 09:53:53,127 - debug - DEBUG - Loss components: mix_nll=0.0189, ent_reg=0.2704, bal_reg=0.0144
+2026-07-14 09:53:53,439 - debug - DEBUG - Gate Epoch 19 completed: avg_loss=0.0244, avg_acc=100.00%
+2026-07-14 09:53:53,440 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:53,650 - debug - DEBUG - Validation batch 0: weights sample [2.1575806e-05 8.2526129e-01 1.7471714e-01]
+2026-07-14 09:53:55,852 - debug - DEBUG - Validation accuracy: 38.40%
+2026-07-14 09:53:55,852 - debug - DEBUG - Epoch 19: validation acc=38.40%
+2026-07-14 09:53:55,853 - debug - DEBUG - Training gate epoch 20
+2026-07-14 09:53:56,061 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:56,074 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:56,078 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:56,082 - debug - DEBUG - Gate weights sample: [0.00589198 0.10291202 0.891196  ]
+2026-07-14 09:53:56,093 - debug - DEBUG - Loss components: mix_nll=0.0126, ent_reg=0.3000, bal_reg=0.0013
+2026-07-14 09:53:56,423 - debug - DEBUG - Gate Epoch 20 completed: avg_loss=0.0249, avg_acc=100.00%
+2026-07-14 09:53:56,424 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:56,632 - debug - DEBUG - Validation batch 0: weights sample [1.3787317e-04 6.1610150e-01 3.8376057e-01]
+2026-07-14 09:53:57,856 - debug - DEBUG - Validation accuracy: 38.19%
+2026-07-14 09:53:57,856 - debug - DEBUG - Epoch 20: validation acc=38.19%
+2026-07-14 09:53:57,856 - debug - DEBUG - Training gate epoch 21
+2026-07-14 09:53:58,041 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:53:58,061 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:53:58,067 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:53:58,070 - debug - DEBUG - Gate weights sample: [9.3022221e-01 4.2600408e-05 6.9735184e-02]
+2026-07-14 09:53:58,073 - debug - DEBUG - Loss components: mix_nll=0.0243, ent_reg=0.2013, bal_reg=0.0447
+2026-07-14 09:53:58,246 - debug - DEBUG - Gate Epoch 21 completed: avg_loss=0.0230, avg_acc=100.00%
+2026-07-14 09:53:58,247 - debug - DEBUG - Starting validation.
+2026-07-14 09:53:58,455 - debug - DEBUG - Validation batch 0: weights sample [2.4918385e-04 3.6156884e-01 6.3818204e-01]
+2026-07-14 09:53:59,862 - debug - DEBUG - Validation accuracy: 38.12%
+2026-07-14 09:53:59,863 - debug - DEBUG - Epoch 21: validation acc=38.12%
+2026-07-14 09:53:59,863 - debug - DEBUG - Training gate epoch 22
+2026-07-14 09:54:00,093 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:00,108 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:00,111 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:00,113 - debug - DEBUG - Gate weights sample: [9.7308660e-01 2.6485916e-06 2.6910741e-02]
+2026-07-14 09:54:00,124 - debug - DEBUG - Loss components: mix_nll=0.0172, ent_reg=0.2274, bal_reg=0.0510
+2026-07-14 09:54:00,436 - debug - DEBUG - Gate Epoch 22 completed: avg_loss=0.0250, avg_acc=99.91%
+2026-07-14 09:54:00,436 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:00,649 - debug - DEBUG - Validation batch 0: weights sample [2.6738556e-04 6.3398486e-01 3.6574775e-01]
+2026-07-14 09:54:02,892 - debug - DEBUG - Validation accuracy: 37.98%
+2026-07-14 09:54:02,892 - debug - DEBUG - Epoch 22: validation acc=37.98%
+2026-07-14 09:54:02,892 - debug - DEBUG - Training gate epoch 23
+2026-07-14 09:54:03,082 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:03,099 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:03,104 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:03,109 - debug - DEBUG - Gate weights sample: [5.0873158e-04 5.1470286e-01 4.8478842e-01]
+2026-07-14 09:54:03,120 - debug - DEBUG - Loss components: mix_nll=0.0137, ent_reg=0.2006, bal_reg=0.0641
+2026-07-14 09:54:03,442 - debug - DEBUG - Gate Epoch 23 completed: avg_loss=0.0228, avg_acc=100.00%
+2026-07-14 09:54:03,442 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:03,628 - debug - DEBUG - Validation batch 0: weights sample [2.517801e-04 2.777891e-01 7.219592e-01]
+2026-07-14 09:54:05,786 - debug - DEBUG - Validation accuracy: 38.01%
+2026-07-14 09:54:05,786 - debug - DEBUG - Epoch 23: validation acc=38.01%
+2026-07-14 09:54:05,787 - debug - DEBUG - Training gate epoch 24
+2026-07-14 09:54:05,999 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:06,010 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:06,013 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:06,020 - debug - DEBUG - Gate weights sample: [0.00433554 0.03688179 0.9587827 ]
+2026-07-14 09:54:06,037 - debug - DEBUG - Loss components: mix_nll=0.0148, ent_reg=0.2406, bal_reg=0.0278
+2026-07-14 09:54:06,328 - debug - DEBUG - Gate Epoch 24 completed: avg_loss=0.0207, avg_acc=100.00%
+2026-07-14 09:54:06,329 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:06,550 - debug - DEBUG - Validation batch 0: weights sample [1.9754752e-06 9.5625651e-01 4.3741565e-02]
+2026-07-14 09:54:08,786 - debug - DEBUG - Validation accuracy: 38.11%
+2026-07-14 09:54:08,786 - debug - DEBUG - Epoch 24: validation acc=38.11%
+2026-07-14 09:54:08,786 - debug - DEBUG - Training gate epoch 25
+2026-07-14 09:54:08,986 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:09,004 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:09,008 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:09,012 - debug - DEBUG - Gate weights sample: [0.41547278 0.00129767 0.5832296 ]
+2026-07-14 09:54:09,023 - debug - DEBUG - Loss components: mix_nll=0.0153, ent_reg=0.2522, bal_reg=0.0357
+2026-07-14 09:54:09,328 - debug - DEBUG - Gate Epoch 25 completed: avg_loss=0.0208, avg_acc=100.00%
+2026-07-14 09:54:09,329 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:09,495 - debug - DEBUG - Validation batch 0: weights sample [7.1604559e-06 7.1695137e-01 2.8304145e-01]
+2026-07-14 09:54:11,713 - debug - DEBUG - Validation accuracy: 38.13%
+2026-07-14 09:54:11,714 - debug - DEBUG - Epoch 25: validation acc=38.13%
+2026-07-14 09:54:11,714 - debug - DEBUG - Training gate epoch 26
+2026-07-14 09:54:11,904 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:11,918 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:11,923 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:11,927 - debug - DEBUG - Gate weights sample: [4.4915944e-04 8.6812966e-02 9.1273791e-01]
+2026-07-14 09:54:11,938 - debug - DEBUG - Loss components: mix_nll=0.0244, ent_reg=0.1860, bal_reg=0.0057
+2026-07-14 09:54:12,252 - debug - DEBUG - Gate Epoch 26 completed: avg_loss=0.0236, avg_acc=100.00%
+2026-07-14 09:54:12,253 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:12,449 - debug - DEBUG - Validation batch 0: weights sample [9.5000301e-09 9.9246651e-01 7.5334418e-03]
+2026-07-14 09:54:14,647 - debug - DEBUG - Validation accuracy: 38.42%
+2026-07-14 09:54:14,647 - debug - DEBUG - Epoch 26: validation acc=38.42%
+2026-07-14 09:54:14,648 - debug - DEBUG - Training gate epoch 27
+2026-07-14 09:54:14,837 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:14,850 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:14,854 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:14,860 - debug - DEBUG - Gate weights sample: [9.9999022e-01 6.8928205e-12 9.7326802e-06]
+2026-07-14 09:54:14,878 - debug - DEBUG - Loss components: mix_nll=0.0264, ent_reg=0.2620, bal_reg=0.0028
+2026-07-14 09:54:15,187 - debug - DEBUG - Gate Epoch 27 completed: avg_loss=0.0252, avg_acc=99.91%
+2026-07-14 09:54:15,187 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:15,374 - debug - DEBUG - Validation batch 0: weights sample [5.2544690e-04 1.7034186e-01 8.2913268e-01]
+2026-07-14 09:54:17,594 - debug - DEBUG - Validation accuracy: 37.75%
+2026-07-14 09:54:17,594 - debug - DEBUG - Epoch 27: validation acc=37.75%
+2026-07-14 09:54:17,594 - debug - DEBUG - Training gate epoch 28
+2026-07-14 09:54:17,786 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:17,803 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:17,808 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:17,811 - debug - DEBUG - Gate weights sample: [3.9887471e-08 9.8427975e-01 1.5720153e-02]
+2026-07-14 09:54:17,822 - debug - DEBUG - Loss components: mix_nll=0.0209, ent_reg=0.1627, bal_reg=0.0781
+2026-07-14 09:54:18,113 - debug - DEBUG - Gate Epoch 28 completed: avg_loss=0.0213, avg_acc=100.00%
+2026-07-14 09:54:18,114 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:18,307 - debug - DEBUG - Validation batch 0: weights sample [2.3310800e-05 7.7004892e-01 2.2992781e-01]
+2026-07-14 09:54:20,554 - debug - DEBUG - Validation accuracy: 37.89%
+2026-07-14 09:54:20,554 - debug - DEBUG - Epoch 28: validation acc=37.89%
+2026-07-14 09:54:20,555 - debug - DEBUG - Training gate epoch 29
+2026-07-14 09:54:20,738 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:20,752 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:20,757 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:20,761 - debug - DEBUG - Gate weights sample: [8.660948e-24 1.000000e+00 5.409294e-10]
+2026-07-14 09:54:20,772 - debug - DEBUG - Loss components: mix_nll=0.0364, ent_reg=0.2127, bal_reg=0.0518
+2026-07-14 09:54:21,081 - debug - DEBUG - Gate Epoch 29 completed: avg_loss=0.0241, avg_acc=99.63%
+2026-07-14 09:54:21,082 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:21,272 - debug - DEBUG - Validation batch 0: weights sample [6.2010315e-07 9.2630595e-01 7.3693417e-02]
+2026-07-14 09:54:23,419 - debug - DEBUG - Validation accuracy: 38.05%
+2026-07-14 09:54:23,419 - debug - DEBUG - Epoch 29: validation acc=38.05%
+2026-07-14 09:54:23,420 - debug - DEBUG - Training gate epoch 30
+2026-07-14 09:54:23,600 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:23,615 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:23,619 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:23,623 - debug - DEBUG - Gate weights sample: [1.8685508e-11 9.9964619e-01 3.5381870e-04]
+2026-07-14 09:54:23,641 - debug - DEBUG - Loss components: mix_nll=0.0150, ent_reg=0.2000, bal_reg=0.0010
+2026-07-14 09:54:23,957 - debug - DEBUG - Gate Epoch 30 completed: avg_loss=0.0209, avg_acc=100.00%
+2026-07-14 09:54:23,957 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:24,138 - debug - DEBUG - Validation batch 0: weights sample [8.9009009e-06 7.3656958e-01 2.6342157e-01]
+2026-07-14 09:54:26,363 - debug - DEBUG - Validation accuracy: 37.93%
+2026-07-14 09:54:26,363 - debug - DEBUG - Epoch 30: validation acc=37.93%
+2026-07-14 09:54:26,363 - debug - DEBUG - Training gate epoch 31
+2026-07-14 09:54:26,584 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:26,599 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:26,603 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:26,608 - debug - DEBUG - Gate weights sample: [1.8593522e-05 6.3622755e-01 3.6375391e-01]
+2026-07-14 09:54:26,619 - debug - DEBUG - Loss components: mix_nll=0.0310, ent_reg=0.2005, bal_reg=0.0281
+2026-07-14 09:54:26,921 - debug - DEBUG - Gate Epoch 31 completed: avg_loss=0.0236, avg_acc=99.91%
+2026-07-14 09:54:26,922 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:27,149 - debug - DEBUG - Validation batch 0: weights sample [3.4591583e-06 8.9666235e-01 1.0333421e-01]
+2026-07-14 09:54:29,380 - debug - DEBUG - Validation accuracy: 37.89%
+2026-07-14 09:54:29,380 - debug - DEBUG - Epoch 31: validation acc=37.89%
+2026-07-14 09:54:29,380 - debug - DEBUG - Training gate epoch 32
+2026-07-14 09:54:29,603 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:29,618 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:29,623 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:29,625 - debug - DEBUG - Gate weights sample: [9.4631612e-01 3.8416993e-06 5.3680077e-02]
+2026-07-14 09:54:29,635 - debug - DEBUG - Loss components: mix_nll=0.0191, ent_reg=0.2082, bal_reg=0.0072
+2026-07-14 09:54:29,961 - debug - DEBUG - Gate Epoch 32 completed: avg_loss=0.0203, avg_acc=100.00%
+2026-07-14 09:54:29,962 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:30,192 - debug - DEBUG - Validation batch 0: weights sample [3.8402327e-06 6.2110353e-01 3.7889260e-01]
+2026-07-14 09:54:32,315 - debug - DEBUG - Validation accuracy: 37.98%
+2026-07-14 09:54:32,316 - debug - DEBUG - Epoch 32: validation acc=37.98%
+2026-07-14 09:54:32,316 - debug - DEBUG - Training gate epoch 33
+2026-07-14 09:54:32,528 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:32,539 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:32,542 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:32,550 - debug - DEBUG - Gate weights sample: [9.9906498e-01 1.0686061e-09 9.3498791e-04]
+2026-07-14 09:54:32,568 - debug - DEBUG - Loss components: mix_nll=0.0275, ent_reg=0.1704, bal_reg=0.0130
+2026-07-14 09:54:32,857 - debug - DEBUG - Gate Epoch 33 completed: avg_loss=0.0245, avg_acc=100.00%
+2026-07-14 09:54:32,858 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:33,077 - debug - DEBUG - Validation batch 0: weights sample [4.9061700e-08 9.8576826e-01 1.4231695e-02]
+2026-07-14 09:54:35,382 - debug - DEBUG - Validation accuracy: 37.99%
+2026-07-14 09:54:35,383 - debug - DEBUG - Epoch 33: validation acc=37.99%
+2026-07-14 09:54:35,383 - debug - DEBUG - Training gate epoch 34
+2026-07-14 09:54:35,597 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:35,612 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:35,617 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:35,620 - debug - DEBUG - Gate weights sample: [0.27632755 0.00079012 0.72288233]
+2026-07-14 09:54:35,630 - debug - DEBUG - Loss components: mix_nll=0.0208, ent_reg=0.1673, bal_reg=0.0261
+2026-07-14 09:54:35,934 - debug - DEBUG - Gate Epoch 34 completed: avg_loss=0.0213, avg_acc=100.00%
+2026-07-14 09:54:35,935 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:36,166 - debug - DEBUG - Validation batch 0: weights sample [1.3317501e-05 4.7539577e-01 5.2459091e-01]
+2026-07-14 09:54:38,353 - debug - DEBUG - Validation accuracy: 37.81%
+2026-07-14 09:54:38,354 - debug - DEBUG - Epoch 34: validation acc=37.81%
+2026-07-14 09:54:38,354 - debug - DEBUG - Training gate epoch 35
+2026-07-14 09:54:38,562 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:38,578 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:38,582 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:38,586 - debug - DEBUG - Gate weights sample: [9.9984956e-01 5.8432426e-11 1.5038144e-04]
+2026-07-14 09:54:38,597 - debug - DEBUG - Loss components: mix_nll=0.0165, ent_reg=0.1271, bal_reg=0.0245
+2026-07-14 09:54:38,944 - debug - DEBUG - Gate Epoch 35 completed: avg_loss=0.0207, avg_acc=100.00%
+2026-07-14 09:54:38,944 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:39,150 - debug - DEBUG - Validation batch 0: weights sample [2.0497472e-08 9.7691751e-01 2.3082484e-02]
+2026-07-14 09:54:41,335 - debug - DEBUG - Validation accuracy: 38.01%
+2026-07-14 09:54:41,335 - debug - DEBUG - Epoch 35: validation acc=38.01%
+2026-07-14 09:54:41,335 - debug - DEBUG - Training gate epoch 36
+2026-07-14 09:54:41,549 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:41,564 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:41,569 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:41,573 - debug - DEBUG - Gate weights sample: [9.9440044e-01 1.9028889e-08 5.5996114e-03]
+2026-07-14 09:54:41,585 - debug - DEBUG - Loss components: mix_nll=0.0204, ent_reg=0.1653, bal_reg=0.0100
+2026-07-14 09:54:41,881 - debug - DEBUG - Gate Epoch 36 completed: avg_loss=0.0230, avg_acc=99.91%
+2026-07-14 09:54:41,881 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:42,101 - debug - DEBUG - Validation batch 0: weights sample [1.5705209e-05 3.6954084e-01 6.3044351e-01]
+2026-07-14 09:54:44,319 - debug - DEBUG - Validation accuracy: 37.76%
+2026-07-14 09:54:44,320 - debug - DEBUG - Epoch 36: validation acc=37.76%
+2026-07-14 09:54:44,320 - debug - DEBUG - Training gate epoch 37
+2026-07-14 09:54:44,536 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:44,551 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:44,555 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:44,558 - debug - DEBUG - Gate weights sample: [1.9404106e-01 1.1084206e-04 8.0584812e-01]
+2026-07-14 09:54:44,568 - debug - DEBUG - Loss components: mix_nll=0.0191, ent_reg=0.1499, bal_reg=0.0292
+2026-07-14 09:54:44,863 - debug - DEBUG - Gate Epoch 37 completed: avg_loss=0.0218, avg_acc=100.00%
+2026-07-14 09:54:44,863 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:45,081 - debug - DEBUG - Validation batch 0: weights sample [1.9696107e-09 9.8857701e-01 1.1422981e-02]
+2026-07-14 09:54:47,229 - debug - DEBUG - Validation accuracy: 38.07%
+2026-07-14 09:54:47,230 - debug - DEBUG - Epoch 37: validation acc=38.07%
+2026-07-14 09:54:47,230 - debug - DEBUG - Training gate epoch 38
+2026-07-14 09:54:47,446 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:47,458 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:47,461 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:47,465 - debug - DEBUG - Gate weights sample: [8.8025196e-08 9.1930264e-01 8.0697246e-02]
+2026-07-14 09:54:47,477 - debug - DEBUG - Loss components: mix_nll=0.0177, ent_reg=0.1589, bal_reg=0.0135
+2026-07-14 09:54:47,816 - debug - DEBUG - Gate Epoch 38 completed: avg_loss=0.0216, avg_acc=99.91%
+2026-07-14 09:54:47,816 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:48,033 - debug - DEBUG - Validation batch 0: weights sample [4.0862364e-08 9.7179270e-01 2.8207198e-02]
+2026-07-14 09:54:50,217 - debug - DEBUG - Validation accuracy: 37.93%
+2026-07-14 09:54:50,217 - debug - DEBUG - Epoch 38: validation acc=37.93%
+2026-07-14 09:54:50,218 - debug - DEBUG - Training gate epoch 39
+2026-07-14 09:54:50,440 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:50,457 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:50,461 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:50,465 - debug - DEBUG - Gate weights sample: [9.9981993e-01 9.1694291e-11 1.8006764e-04]
+2026-07-14 09:54:50,476 - debug - DEBUG - Loss components: mix_nll=0.0195, ent_reg=0.1393, bal_reg=0.0102
+2026-07-14 09:54:50,783 - debug - DEBUG - Gate Epoch 39 completed: avg_loss=0.0206, avg_acc=100.00%
+2026-07-14 09:54:50,784 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:51,002 - debug - DEBUG - Validation batch 0: weights sample [3.9982865e-06 5.4130292e-01 4.5869309e-01]
+2026-07-14 09:54:53,206 - debug - DEBUG - Validation accuracy: 37.78%
+2026-07-14 09:54:53,206 - debug - DEBUG - Epoch 39: validation acc=37.78%
+2026-07-14 09:54:53,207 - debug - DEBUG - Training gate epoch 40
+2026-07-14 09:54:53,427 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:53,443 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:53,447 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:53,450 - debug - DEBUG - Gate weights sample: [2.908373e-20 9.999999e-01 8.729996e-08]
+2026-07-14 09:54:53,461 - debug - DEBUG - Loss components: mix_nll=0.0339, ent_reg=0.1446, bal_reg=0.0394
+2026-07-14 09:54:53,746 - debug - DEBUG - Gate Epoch 40 completed: avg_loss=0.0216, avg_acc=99.91%
+2026-07-14 09:54:53,746 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:53,967 - debug - DEBUG - Validation batch 0: weights sample [3.0353237e-06 7.5750870e-01 2.4248831e-01]
+2026-07-14 09:54:56,103 - debug - DEBUG - Validation accuracy: 37.73%
+2026-07-14 09:54:56,103 - debug - DEBUG - Epoch 40: validation acc=37.73%
+2026-07-14 09:54:56,103 - debug - DEBUG - Training gate epoch 41
+2026-07-14 09:54:56,320 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:56,335 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:56,339 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:56,343 - debug - DEBUG - Gate weights sample: [9.8795485e-01 5.0305765e-08 1.2045146e-02]
+2026-07-14 09:54:56,361 - debug - DEBUG - Loss components: mix_nll=0.0187, ent_reg=0.1623, bal_reg=0.0438
+2026-07-14 09:54:56,691 - debug - DEBUG - Gate Epoch 41 completed: avg_loss=0.0218, avg_acc=99.82%
+2026-07-14 09:54:56,692 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:56,898 - debug - DEBUG - Validation batch 0: weights sample [3.5184168e-08 9.4836843e-01 5.1631488e-02]
+2026-07-14 09:54:59,096 - debug - DEBUG - Validation accuracy: 37.89%
+2026-07-14 09:54:59,097 - debug - DEBUG - Epoch 41: validation acc=37.89%
+2026-07-14 09:54:59,097 - debug - DEBUG - Training gate epoch 42
+2026-07-14 09:54:59,310 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:54:59,321 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:54:59,325 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:54:59,327 - debug - DEBUG - Gate weights sample: [7.9242269e-19 9.9999952e-01 4.5563297e-07]
+2026-07-14 09:54:59,331 - debug - DEBUG - Loss components: mix_nll=0.0318, ent_reg=0.1615, bal_reg=0.0153
+2026-07-14 09:54:59,630 - debug - DEBUG - Gate Epoch 42 completed: avg_loss=0.0222, avg_acc=99.91%
+2026-07-14 09:54:59,630 - debug - DEBUG - Starting validation.
+2026-07-14 09:54:59,843 - debug - DEBUG - Validation batch 0: weights sample [1.6969180e-07 8.6862540e-01 1.3137443e-01]
+2026-07-14 09:55:02,057 - debug - DEBUG - Validation accuracy: 37.83%
+2026-07-14 09:55:02,057 - debug - DEBUG - Epoch 42: validation acc=37.83%
+2026-07-14 09:55:02,058 - debug - DEBUG - Training gate epoch 43
+2026-07-14 09:55:02,270 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:02,291 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:02,295 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:02,297 - debug - DEBUG - Gate weights sample: [1.0000000e+00 2.4937671e-17 3.5607716e-08]
+2026-07-14 09:55:02,302 - debug - DEBUG - Loss components: mix_nll=0.0193, ent_reg=0.1234, bal_reg=0.0287
+2026-07-14 09:55:02,617 - debug - DEBUG - Gate Epoch 43 completed: avg_loss=0.0196, avg_acc=100.00%
+2026-07-14 09:55:02,618 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:02,847 - debug - DEBUG - Validation batch 0: weights sample [8.5614955e-09 9.6273273e-01 3.7267316e-02]
+2026-07-14 09:55:04,964 - debug - DEBUG - Validation accuracy: 37.88%
+2026-07-14 09:55:04,965 - debug - DEBUG - Epoch 43: validation acc=37.88%
+2026-07-14 09:55:04,965 - debug - DEBUG - Training gate epoch 44
+2026-07-14 09:55:05,193 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:05,205 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:05,208 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:05,211 - debug - DEBUG - Gate weights sample: [6.3748011e-14 9.9990106e-01 9.8988923e-05]
+2026-07-14 09:55:05,224 - debug - DEBUG - Loss components: mix_nll=0.0135, ent_reg=0.1531, bal_reg=0.0076
+2026-07-14 09:55:05,545 - debug - DEBUG - Gate Epoch 44 completed: avg_loss=0.0224, avg_acc=99.91%
+2026-07-14 09:55:05,546 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:05,759 - debug - DEBUG - Validation batch 0: weights sample [3.8682349e-05 1.5423800e-01 8.4572333e-01]
+2026-07-14 09:55:07,968 - debug - DEBUG - Validation accuracy: 37.60%
+2026-07-14 09:55:07,968 - debug - DEBUG - Epoch 44: validation acc=37.60%
+2026-07-14 09:55:07,969 - debug - DEBUG - Training gate epoch 45
+2026-07-14 09:55:08,161 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:08,172 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:08,175 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:08,179 - debug - DEBUG - Gate weights sample: [9.7734743e-01 4.1385242e-08 2.2652555e-02]
+2026-07-14 09:55:08,190 - debug - DEBUG - Loss components: mix_nll=0.0173, ent_reg=0.1064, bal_reg=0.0326
+2026-07-14 09:55:08,480 - debug - DEBUG - Gate Epoch 45 completed: avg_loss=0.0204, avg_acc=100.00%
+2026-07-14 09:55:08,480 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:08,686 - debug - DEBUG - Validation batch 0: weights sample [9.4105734e-10 9.7513956e-01 2.4860468e-02]
+2026-07-14 09:55:10,915 - debug - DEBUG - Validation accuracy: 37.95%
+2026-07-14 09:55:10,915 - debug - DEBUG - Epoch 45: validation acc=37.95%
+2026-07-14 09:55:10,916 - debug - DEBUG - Training gate epoch 46
+2026-07-14 09:55:11,128 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:11,140 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:11,144 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:11,148 - debug - DEBUG - Gate weights sample: [1.7307055e-17 9.9999583e-01 4.2233410e-06]
+2026-07-14 09:55:11,159 - debug - DEBUG - Loss components: mix_nll=0.0093, ent_reg=0.1348, bal_reg=0.0003
+2026-07-14 09:55:11,455 - debug - DEBUG - Gate Epoch 46 completed: avg_loss=0.0198, avg_acc=100.00%
+2026-07-14 09:55:11,455 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:11,662 - debug - DEBUG - Validation batch 0: weights sample [3.2612806e-07 8.4869564e-01 1.5130402e-01]
+2026-07-14 09:55:13,812 - debug - DEBUG - Validation accuracy: 37.69%
+2026-07-14 09:55:13,813 - debug - DEBUG - Epoch 46: validation acc=37.69%
+2026-07-14 09:55:13,813 - debug - DEBUG - Training gate epoch 47
+2026-07-14 09:55:14,038 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:14,053 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:14,058 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:14,065 - debug - DEBUG - Gate weights sample: [1.06743224e-04 7.12634996e-02 9.28629756e-01]
+2026-07-14 09:55:14,082 - debug - DEBUG - Loss components: mix_nll=0.0205, ent_reg=0.1256, bal_reg=0.0094
+2026-07-14 09:55:14,383 - debug - DEBUG - Gate Epoch 47 completed: avg_loss=0.0208, avg_acc=99.91%
+2026-07-14 09:55:14,383 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:14,597 - debug - DEBUG - Validation batch 0: weights sample [9.990208e-10 9.905628e-01 9.437227e-03]
+2026-07-14 09:55:16,805 - debug - DEBUG - Validation accuracy: 37.85%
+2026-07-14 09:55:16,805 - debug - DEBUG - Epoch 47: validation acc=37.85%
+2026-07-14 09:55:16,805 - debug - DEBUG - Training gate epoch 48
+2026-07-14 09:55:17,019 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:17,034 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:17,038 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:17,041 - debug - DEBUG - Gate weights sample: [1.3630670e-04 3.5903044e-02 9.6396065e-01]
+2026-07-14 09:55:17,051 - debug - DEBUG - Loss components: mix_nll=0.0201, ent_reg=0.1473, bal_reg=0.0064
+2026-07-14 09:55:17,348 - debug - DEBUG - Gate Epoch 48 completed: avg_loss=0.0208, avg_acc=99.91%
+2026-07-14 09:55:17,349 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:17,542 - debug - DEBUG - Validation batch 0: weights sample [3.7677535e-07 8.1043559e-01 1.8956405e-01]
+2026-07-14 09:55:19,757 - debug - DEBUG - Validation accuracy: 37.63%
+2026-07-14 09:55:19,757 - debug - DEBUG - Epoch 48: validation acc=37.63%
+2026-07-14 09:55:19,757 - debug - DEBUG - Training gate epoch 49
+2026-07-14 09:55:19,952 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:19,962 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:19,965 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:19,970 - debug - DEBUG - Gate weights sample: [1.122555e-16 9.999958e-01 4.219822e-06]
+2026-07-14 09:55:19,982 - debug - DEBUG - Loss components: mix_nll=0.0160, ent_reg=0.1417, bal_reg=0.0508
+2026-07-14 09:55:20,289 - debug - DEBUG - Gate Epoch 49 completed: avg_loss=0.0194, avg_acc=100.00%
+2026-07-14 09:55:20,289 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:20,462 - debug - DEBUG - Validation batch 0: weights sample [2.5583216e-09 9.7202516e-01 2.7974872e-02]
+2026-07-14 09:55:22,582 - debug - DEBUG - Validation accuracy: 37.85%
+2026-07-14 09:55:22,583 - debug - DEBUG - Epoch 49: validation acc=37.85%
+2026-07-14 09:55:22,583 - debug - DEBUG - Training gate epoch 50
+2026-07-14 09:55:22,768 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:22,781 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:22,785 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:22,790 - debug - DEBUG - Gate weights sample: [9.9983346e-01 6.5686731e-12 1.6646823e-04]
+2026-07-14 09:55:22,801 - debug - DEBUG - Loss components: mix_nll=0.0201, ent_reg=0.1133, bal_reg=0.0004
+2026-07-14 09:55:23,125 - debug - DEBUG - Gate Epoch 50 completed: avg_loss=0.0218, avg_acc=100.00%
+2026-07-14 09:55:23,126 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:23,314 - debug - DEBUG - Validation batch 0: weights sample [1.1041269e-07 8.4982145e-01 1.5017845e-01]
+2026-07-14 09:55:25,514 - debug - DEBUG - Validation accuracy: 37.70%
+2026-07-14 09:55:25,514 - debug - DEBUG - Epoch 50: validation acc=37.70%
+2026-07-14 09:55:25,514 - debug - DEBUG - Training gate epoch 51
+2026-07-14 09:55:25,704 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:25,717 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:25,720 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:25,723 - debug - DEBUG - Gate weights sample: [1.0000000e+00 5.9377626e-18 3.2197068e-08]
+2026-07-14 09:55:25,734 - debug - DEBUG - Loss components: mix_nll=0.0126, ent_reg=0.1675, bal_reg=0.0140
+2026-07-14 09:55:26,029 - debug - DEBUG - Gate Epoch 51 completed: avg_loss=0.0191, avg_acc=100.00%
+2026-07-14 09:55:26,029 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:26,223 - debug - DEBUG - Validation batch 0: weights sample [1.8701638e-09 9.7430873e-01 2.5691234e-02]
+2026-07-14 09:55:28,428 - debug - DEBUG - Validation accuracy: 37.86%
+2026-07-14 09:55:28,428 - debug - DEBUG - Epoch 51: validation acc=37.86%
+2026-07-14 09:55:28,429 - debug - DEBUG - Training gate epoch 52
+2026-07-14 09:55:28,650 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:28,662 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:28,666 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:28,671 - debug - DEBUG - Gate weights sample: [9.9511379e-01 1.1424924e-09 4.8862728e-03]
+2026-07-14 09:55:28,682 - debug - DEBUG - Loss components: mix_nll=0.0205, ent_reg=0.1012, bal_reg=0.0148
+2026-07-14 09:55:28,970 - debug - DEBUG - Gate Epoch 52 completed: avg_loss=0.0196, avg_acc=100.00%
+2026-07-14 09:55:28,971 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:29,187 - debug - DEBUG - Validation batch 0: weights sample [5.5081927e-08 9.0862197e-01 9.1377936e-02]
+2026-07-14 09:55:31,322 - debug - DEBUG - Validation accuracy: 37.65%
+2026-07-14 09:55:31,322 - debug - DEBUG - Epoch 52: validation acc=37.65%
+2026-07-14 09:55:31,323 - debug - DEBUG - Training gate epoch 53
+2026-07-14 09:55:31,541 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:31,556 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:31,560 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:31,565 - debug - DEBUG - Gate weights sample: [1.0000000e+00 5.5080443e-18 2.8451069e-08]
+2026-07-14 09:55:31,582 - debug - DEBUG - Loss components: mix_nll=0.0209, ent_reg=0.1415, bal_reg=0.0112
+2026-07-14 09:55:31,921 - debug - DEBUG - Gate Epoch 53 completed: avg_loss=0.0200, avg_acc=100.00%
+2026-07-14 09:55:31,922 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:32,131 - debug - DEBUG - Validation batch 0: weights sample [3.0152398e-09 9.8157012e-01 1.8429898e-02]
+2026-07-14 09:55:34,337 - debug - DEBUG - Validation accuracy: 37.76%
+2026-07-14 09:55:34,337 - debug - DEBUG - Epoch 53: validation acc=37.76%
+2026-07-14 09:55:34,338 - debug - DEBUG - Training gate epoch 54
+2026-07-14 09:55:34,555 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:34,569 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:34,573 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:34,575 - debug - DEBUG - Gate weights sample: [9.9998164e-01 2.8326584e-13 1.8376651e-05]
+2026-07-14 09:55:34,586 - debug - DEBUG - Loss components: mix_nll=0.0141, ent_reg=0.1311, bal_reg=0.0154
+2026-07-14 09:55:34,873 - debug - DEBUG - Gate Epoch 54 completed: avg_loss=0.0189, avg_acc=100.00%
+2026-07-14 09:55:34,874 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:35,090 - debug - DEBUG - Validation batch 0: weights sample [4.2041504e-09 9.6432799e-01 3.5672013e-02]
+2026-07-14 09:55:37,303 - debug - DEBUG - Validation accuracy: 37.76%
+2026-07-14 09:55:37,303 - debug - DEBUG - Epoch 54: validation acc=37.76%
+2026-07-14 09:55:37,304 - debug - DEBUG - Training gate epoch 55
+2026-07-14 09:55:37,519 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:37,531 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:37,535 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:37,540 - debug - DEBUG - Gate weights sample: [1.7504607e-01 1.2689621e-05 8.2494122e-01]
+2026-07-14 09:55:37,551 - debug - DEBUG - Loss components: mix_nll=0.0246, ent_reg=0.1350, bal_reg=0.0275
+2026-07-14 09:55:37,847 - debug - DEBUG - Gate Epoch 55 completed: avg_loss=0.0225, avg_acc=100.00%
+2026-07-14 09:55:37,848 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:38,056 - debug - DEBUG - Validation batch 0: weights sample [2.8388870e-08 8.5633874e-01 1.4366122e-01]
+2026-07-14 09:55:40,191 - debug - DEBUG - Validation accuracy: 37.71%
+2026-07-14 09:55:40,191 - debug - DEBUG - Epoch 55: validation acc=37.71%
+2026-07-14 09:55:40,192 - debug - DEBUG - Training gate epoch 56
+2026-07-14 09:55:40,400 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:40,413 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:40,416 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:40,419 - debug - DEBUG - Gate weights sample: [1.7492777e-02 4.2095493e-05 9.8246521e-01]
+2026-07-14 09:55:40,437 - debug - DEBUG - Loss components: mix_nll=0.0132, ent_reg=0.1262, bal_reg=0.0138
+2026-07-14 09:55:40,751 - debug - DEBUG - Gate Epoch 56 completed: avg_loss=0.0189, avg_acc=100.00%
+2026-07-14 09:55:40,751 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:40,971 - debug - DEBUG - Validation batch 0: weights sample [1.4271717e-07 7.2582567e-01 2.7417424e-01]
+2026-07-14 09:55:43,165 - debug - DEBUG - Validation accuracy: 37.59%
+2026-07-14 09:55:43,166 - debug - DEBUG - Epoch 56: validation acc=37.59%
+2026-07-14 09:55:43,166 - debug - DEBUG - Training gate epoch 57
+2026-07-14 09:55:43,382 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:43,400 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:43,406 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:43,408 - debug - DEBUG - Gate weights sample: [1.0000000e+00 1.8650939e-20 1.1986014e-09]
+2026-07-14 09:55:43,419 - debug - DEBUG - Loss components: mix_nll=0.0158, ent_reg=0.1434, bal_reg=0.0017
+2026-07-14 09:55:43,709 - debug - DEBUG - Gate Epoch 57 completed: avg_loss=0.0215, avg_acc=99.82%
+2026-07-14 09:55:43,710 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:43,913 - debug - DEBUG - Validation batch 0: weights sample [1.9126778e-10 9.9154752e-01 8.4525393e-03]
+2026-07-14 09:55:46,111 - debug - DEBUG - Validation accuracy: 37.84%
+2026-07-14 09:55:46,112 - debug - DEBUG - Epoch 57: validation acc=37.84%
+2026-07-14 09:55:46,112 - debug - DEBUG - Training gate epoch 58
+2026-07-14 09:55:46,334 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:46,347 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:46,350 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:46,353 - debug - DEBUG - Gate weights sample: [9.7848594e-01 9.2571044e-09 2.1514034e-02]
+2026-07-14 09:55:46,356 - debug - DEBUG - Loss components: mix_nll=0.0183, ent_reg=0.1599, bal_reg=0.0098
+2026-07-14 09:55:46,656 - debug - DEBUG - Gate Epoch 58 completed: avg_loss=0.0193, avg_acc=100.00%
+2026-07-14 09:55:46,657 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:46,864 - debug - DEBUG - Validation batch 0: weights sample [9.501645e-08 9.209536e-01 7.904635e-02]
+2026-07-14 09:55:48,988 - debug - DEBUG - Validation accuracy: 37.59%
+2026-07-14 09:55:48,989 - debug - DEBUG - Epoch 58: validation acc=37.59%
+2026-07-14 09:55:48,989 - debug - DEBUG - Training gate epoch 59
+2026-07-14 09:55:49,211 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:49,221 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:49,224 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:49,228 - debug - DEBUG - Gate weights sample: [2.3155058e-18 9.9999952e-01 4.1983284e-07]
+2026-07-14 09:55:49,241 - debug - DEBUG - Loss components: mix_nll=0.0219, ent_reg=0.1410, bal_reg=0.0230
+2026-07-14 09:55:49,557 - debug - DEBUG - Gate Epoch 59 completed: avg_loss=0.0217, avg_acc=100.00%
+2026-07-14 09:55:49,558 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:49,770 - debug - DEBUG - Validation batch 0: weights sample [5.6896426e-10 9.8841876e-01 1.1581210e-02]
+2026-07-14 09:55:51,968 - debug - DEBUG - Validation accuracy: 37.73%
+2026-07-14 09:55:51,969 - debug - DEBUG - Epoch 59: validation acc=37.73%
+2026-07-14 09:55:51,969 - debug - DEBUG - Training gate epoch 60
+2026-07-14 09:55:52,192 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:52,208 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:52,212 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:52,217 - debug - DEBUG - Gate weights sample: [3.6094324e-22 1.0000000e+00 1.4231146e-08]
+2026-07-14 09:55:52,228 - debug - DEBUG - Loss components: mix_nll=0.0146, ent_reg=0.1490, bal_reg=0.0104
+2026-07-14 09:55:52,531 - debug - DEBUG - Gate Epoch 60 completed: avg_loss=0.0194, avg_acc=100.00%
+2026-07-14 09:55:52,531 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:52,743 - debug - DEBUG - Validation batch 0: weights sample [1.6527688e-08 9.1440809e-01 8.5591927e-02]
+2026-07-14 09:55:55,084 - debug - DEBUG - Validation accuracy: 37.63%
+2026-07-14 09:55:55,085 - debug - DEBUG - Epoch 60: validation acc=37.63%
+2026-07-14 09:55:55,085 - debug - DEBUG - Training gate epoch 61
+2026-07-14 09:55:55,298 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:55,310 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:55,313 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:55,316 - debug - DEBUG - Gate weights sample: [9.9999130e-01 1.9402789e-14 8.7392918e-06]
+2026-07-14 09:55:55,328 - debug - DEBUG - Loss components: mix_nll=0.0162, ent_reg=0.1139, bal_reg=0.0200
+2026-07-14 09:55:55,663 - debug - DEBUG - Gate Epoch 61 completed: avg_loss=0.0205, avg_acc=100.00%
+2026-07-14 09:55:55,664 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:55,882 - debug - DEBUG - Validation batch 0: weights sample [4.617927e-08 9.112529e-01 8.874703e-02]
+2026-07-14 09:55:58,041 - debug - DEBUG - Validation accuracy: 37.58%
+2026-07-14 09:55:58,042 - debug - DEBUG - Epoch 61: validation acc=37.58%
+2026-07-14 09:55:58,042 - debug - DEBUG - Training gate epoch 62
+2026-07-14 09:55:58,267 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:55:58,286 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:55:58,291 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:55:58,294 - debug - DEBUG - Gate weights sample: [9.9999797e-01 7.0892118e-15 2.0485286e-06]
+2026-07-14 09:55:58,304 - debug - DEBUG - Loss components: mix_nll=0.0133, ent_reg=0.1252, bal_reg=0.0091
+2026-07-14 09:55:58,596 - debug - DEBUG - Gate Epoch 62 completed: avg_loss=0.0167, avg_acc=100.00%
+2026-07-14 09:55:58,596 - debug - DEBUG - Starting validation.
+2026-07-14 09:55:58,823 - debug - DEBUG - Validation batch 0: weights sample [8.2339762e-09 9.6936184e-01 3.0638130e-02]
+2026-07-14 09:56:01,036 - debug - DEBUG - Validation accuracy: 37.58%
+2026-07-14 09:56:01,037 - debug - DEBUG - Epoch 62: validation acc=37.58%
+2026-07-14 09:56:01,037 - debug - DEBUG - Training gate epoch 63
+2026-07-14 09:56:01,253 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:01,271 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:01,276 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:01,281 - debug - DEBUG - Gate weights sample: [5.7201415e-01 1.0041587e-05 4.2797583e-01]
+2026-07-14 09:56:01,292 - debug - DEBUG - Loss components: mix_nll=0.0138, ent_reg=0.1264, bal_reg=0.0204
+2026-07-14 09:56:01,588 - debug - DEBUG - Gate Epoch 63 completed: avg_loss=0.0185, avg_acc=100.00%
+2026-07-14 09:56:01,589 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:01,803 - debug - DEBUG - Validation batch 0: weights sample [4.728379e-10 9.799501e-01 2.004991e-02]
+2026-07-14 09:56:03,970 - debug - DEBUG - Validation accuracy: 37.77%
+2026-07-14 09:56:03,970 - debug - DEBUG - Epoch 63: validation acc=37.77%
+2026-07-14 09:56:03,971 - debug - DEBUG - Training gate epoch 64
+2026-07-14 09:56:04,187 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:04,207 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:04,212 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:04,215 - debug - DEBUG - Gate weights sample: [6.8161561e-14 9.9975485e-01 2.4514523e-04]
+2026-07-14 09:56:04,225 - debug - DEBUG - Loss components: mix_nll=0.0191, ent_reg=0.1254, bal_reg=0.0109
+2026-07-14 09:56:04,571 - debug - DEBUG - Gate Epoch 64 completed: avg_loss=0.0201, avg_acc=100.00%
+2026-07-14 09:56:04,571 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:04,781 - debug - DEBUG - Validation batch 0: weights sample [1.9857262e-06 4.5345432e-01 5.4654372e-01]
+2026-07-14 09:56:07,050 - debug - DEBUG - Validation accuracy: 37.51%
+2026-07-14 09:56:07,050 - debug - DEBUG - Epoch 64: validation acc=37.51%
+2026-07-14 09:56:07,050 - debug - DEBUG - Training gate epoch 65
+2026-07-14 09:56:07,268 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:07,283 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:07,287 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:07,292 - debug - DEBUG - Gate weights sample: [3.9178053e-06 2.8635409e-01 7.1364194e-01]
+2026-07-14 09:56:07,302 - debug - DEBUG - Loss components: mix_nll=0.0121, ent_reg=0.1548, bal_reg=0.0589
+2026-07-14 09:56:07,603 - debug - DEBUG - Gate Epoch 65 completed: avg_loss=0.0199, avg_acc=100.00%
+2026-07-14 09:56:07,604 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:07,814 - debug - DEBUG - Validation batch 0: weights sample [5.3576250e-09 9.7906154e-01 2.0938493e-02]
+2026-07-14 09:56:10,038 - debug - DEBUG - Validation accuracy: 37.59%
+2026-07-14 09:56:10,038 - debug - DEBUG - Epoch 65: validation acc=37.59%
+2026-07-14 09:56:10,039 - debug - DEBUG - Training gate epoch 66
+2026-07-14 09:56:10,261 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:10,273 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:10,277 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:10,281 - debug - DEBUG - Gate weights sample: [2.8226275e-03 6.1644008e-04 9.9656087e-01]
+2026-07-14 09:56:10,293 - debug - DEBUG - Loss components: mix_nll=0.0138, ent_reg=0.1589, bal_reg=0.0011
+2026-07-14 09:56:10,595 - debug - DEBUG - Gate Epoch 66 completed: avg_loss=0.0213, avg_acc=100.00%
+2026-07-14 09:56:10,596 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:10,809 - debug - DEBUG - Validation batch 0: weights sample [1.0415814e-08 9.6583343e-01 3.4166574e-02]
+2026-07-14 09:56:12,950 - debug - DEBUG - Validation accuracy: 37.59%
+2026-07-14 09:56:12,950 - debug - DEBUG - Epoch 66: validation acc=37.59%
+2026-07-14 09:56:12,950 - debug - DEBUG - Training gate epoch 67
+2026-07-14 09:56:13,162 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:13,173 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:13,175 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:13,178 - debug - DEBUG - Gate weights sample: [9.9998581e-01 4.8270690e-14 1.4127897e-05]
+2026-07-14 09:56:13,191 - debug - DEBUG - Loss components: mix_nll=0.0236, ent_reg=0.1283, bal_reg=0.0134
+2026-07-14 09:56:13,509 - debug - DEBUG - Gate Epoch 67 completed: avg_loss=0.0205, avg_acc=100.00%
+2026-07-14 09:56:13,509 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:13,711 - debug - DEBUG - Validation batch 0: weights sample [3.8735418e-10 9.8774362e-01 1.2256449e-02]
+2026-07-14 09:56:15,890 - debug - DEBUG - Validation accuracy: 37.68%
+2026-07-14 09:56:15,891 - debug - DEBUG - Epoch 67: validation acc=37.68%
+2026-07-14 09:56:15,891 - debug - DEBUG - Training gate epoch 68
+2026-07-14 09:56:16,102 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:16,118 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:16,123 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:16,126 - debug - DEBUG - Gate weights sample: [9.9420786e-01 3.3846070e-10 5.7921461e-03]
+2026-07-14 09:56:16,137 - debug - DEBUG - Loss components: mix_nll=0.0235, ent_reg=0.1412, bal_reg=0.0052
+2026-07-14 09:56:16,432 - debug - DEBUG - Gate Epoch 68 completed: avg_loss=0.0179, avg_acc=100.00%
+2026-07-14 09:56:16,433 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:16,636 - debug - DEBUG - Validation batch 0: weights sample [1.4490186e-07 7.6828885e-01 2.3171099e-01]
+2026-07-14 09:56:18,839 - debug - DEBUG - Validation accuracy: 37.59%
+2026-07-14 09:56:18,839 - debug - DEBUG - Epoch 68: validation acc=37.59%
+2026-07-14 09:56:18,840 - debug - DEBUG - Training gate epoch 69
+2026-07-14 09:56:19,063 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:19,078 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:19,083 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:19,086 - debug - DEBUG - Gate weights sample: [2.4050458e-03 2.0710686e-04 9.9738783e-01]
+2026-07-14 09:56:19,096 - debug - DEBUG - Loss components: mix_nll=0.0312, ent_reg=0.1101, bal_reg=0.0137
+2026-07-14 09:56:19,388 - debug - DEBUG - Gate Epoch 69 completed: avg_loss=0.0253, avg_acc=99.72%
+2026-07-14 09:56:19,389 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:19,600 - debug - DEBUG - Validation batch 0: weights sample [2.3970019e-09 9.7996420e-01 2.0035867e-02]
+2026-07-14 09:56:21,724 - debug - DEBUG - Validation accuracy: 37.59%
+2026-07-14 09:56:21,725 - debug - DEBUG - Epoch 69: validation acc=37.59%
+2026-07-14 09:56:21,725 - debug - DEBUG - Training gate epoch 70
+2026-07-14 09:56:21,947 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:21,961 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:21,964 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:21,971 - debug - DEBUG - Gate weights sample: [9.9968970e-01 5.3667457e-12 3.1037047e-04]
+2026-07-14 09:56:21,985 - debug - DEBUG - Loss components: mix_nll=0.0196, ent_reg=0.1025, bal_reg=0.0033
+2026-07-14 09:56:22,282 - debug - DEBUG - Gate Epoch 70 completed: avg_loss=0.0217, avg_acc=99.91%
+2026-07-14 09:56:22,283 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:22,503 - debug - DEBUG - Validation batch 0: weights sample [7.5801426e-10 9.9090695e-01 9.0930117e-03]
+2026-07-14 09:56:24,730 - debug - DEBUG - Validation accuracy: 37.59%
+2026-07-14 09:56:24,730 - debug - DEBUG - Epoch 70: validation acc=37.59%
+2026-07-14 09:56:24,731 - debug - DEBUG - Training gate epoch 71
+2026-07-14 09:56:24,915 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:24,928 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:24,932 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:24,937 - debug - DEBUG - Gate weights sample: [9.8947722e-01 1.0258261e-09 1.0522794e-02]
+2026-07-14 09:56:24,948 - debug - DEBUG - Loss components: mix_nll=0.0153, ent_reg=0.1489, bal_reg=0.0072
+2026-07-14 09:56:25,244 - debug - DEBUG - Gate Epoch 71 completed: avg_loss=0.0177, avg_acc=100.00%
+2026-07-14 09:56:25,244 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:25,452 - debug - DEBUG - Validation batch 0: weights sample [2.4990943e-08 8.7318152e-01 1.2681837e-01]
+2026-07-14 09:56:27,652 - debug - DEBUG - Validation accuracy: 37.58%
+2026-07-14 09:56:27,652 - debug - DEBUG - Epoch 71: validation acc=37.58%
+2026-07-14 09:56:27,653 - debug - DEBUG - Training gate epoch 72
+2026-07-14 09:56:27,870 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:27,881 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:27,884 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:27,887 - debug - DEBUG - Gate weights sample: [6.5391010e-04 4.2805285e-04 9.9891806e-01]
+2026-07-14 09:56:27,898 - debug - DEBUG - Loss components: mix_nll=0.0297, ent_reg=0.1435, bal_reg=0.0141
+2026-07-14 09:56:28,188 - debug - DEBUG - Gate Epoch 72 completed: avg_loss=0.0235, avg_acc=99.82%
+2026-07-14 09:56:28,188 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:28,408 - debug - DEBUG - Validation batch 0: weights sample [4.0203443e-07 6.4081860e-01 3.5918102e-01]
+2026-07-14 09:56:30,533 - debug - DEBUG - Validation accuracy: 37.54%
+2026-07-14 09:56:30,533 - debug - DEBUG - Epoch 72: validation acc=37.54%
+2026-07-14 09:56:30,533 - debug - DEBUG - Training gate epoch 73
+2026-07-14 09:56:30,743 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:30,756 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:30,760 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:30,764 - debug - DEBUG - Gate weights sample: [0.00157184 0.00109502 0.99733317]
+2026-07-14 09:56:30,776 - debug - DEBUG - Loss components: mix_nll=0.0155, ent_reg=0.1453, bal_reg=0.0147
+2026-07-14 09:56:31,099 - debug - DEBUG - Gate Epoch 73 completed: avg_loss=0.0203, avg_acc=100.00%
+2026-07-14 09:56:31,099 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:31,309 - debug - DEBUG - Validation batch 0: weights sample [8.889955e-09 9.591714e-01 4.082859e-02]
+2026-07-14 09:56:33,518 - debug - DEBUG - Validation accuracy: 37.57%
+2026-07-14 09:56:33,518 - debug - DEBUG - Epoch 73: validation acc=37.57%
+2026-07-14 09:56:33,518 - debug - DEBUG - Training gate epoch 74
+2026-07-14 09:56:33,728 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:33,743 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:33,747 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:33,750 - debug - DEBUG - Gate weights sample: [1.9599430e-03 6.9495552e-04 9.9734515e-01]
+2026-07-14 09:56:33,761 - debug - DEBUG - Loss components: mix_nll=0.0160, ent_reg=0.1507, bal_reg=0.0117
+2026-07-14 09:56:34,039 - debug - DEBUG - Gate Epoch 74 completed: avg_loss=0.0221, avg_acc=99.91%
+2026-07-14 09:56:34,039 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:34,262 - debug - DEBUG - Validation batch 0: weights sample [1.2528490e-09 9.8443168e-01 1.5568374e-02]
+2026-07-14 09:56:36,465 - debug - DEBUG - Validation accuracy: 37.58%
+2026-07-14 09:56:36,466 - debug - DEBUG - Epoch 74: validation acc=37.58%
+2026-07-14 09:56:36,466 - debug - DEBUG - Training gate epoch 75
+2026-07-14 09:56:36,676 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:36,687 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:36,689 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:36,693 - debug - DEBUG - Gate weights sample: [5.426661e-02 6.694305e-06 9.457268e-01]
+2026-07-14 09:56:36,705 - debug - DEBUG - Loss components: mix_nll=0.0225, ent_reg=0.1669, bal_reg=0.0474
+2026-07-14 09:56:37,020 - debug - DEBUG - Gate Epoch 75 completed: avg_loss=0.0217, avg_acc=99.91%
+2026-07-14 09:56:37,021 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:37,240 - debug - DEBUG - Validation batch 0: weights sample [1.5211889e-07 8.4387970e-01 1.5612021e-01]
+2026-07-14 09:56:39,277 - debug - DEBUG - Validation accuracy: 37.50%
+2026-07-14 09:56:39,278 - debug - DEBUG - Epoch 75: validation acc=37.50%
+2026-07-14 09:56:39,278 - debug - DEBUG - Training gate epoch 76
+2026-07-14 09:56:39,482 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:39,494 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:39,497 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:39,502 - debug - DEBUG - Gate weights sample: [9.9734455e-01 4.8410942e-11 2.6555173e-03]
+2026-07-14 09:56:39,512 - debug - DEBUG - Loss components: mix_nll=0.0154, ent_reg=0.0988, bal_reg=0.0216
+2026-07-14 09:56:39,803 - debug - DEBUG - Gate Epoch 76 completed: avg_loss=0.0223, avg_acc=99.82%
+2026-07-14 09:56:39,803 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:40,009 - debug - DEBUG - Validation batch 0: weights sample [2.4642475e-07 7.9562902e-01 2.0437078e-01]
+2026-07-14 09:56:41,998 - debug - DEBUG - Validation accuracy: 37.52%
+2026-07-14 09:56:41,999 - debug - DEBUG - Epoch 76: validation acc=37.52%
+2026-07-14 09:56:41,999 - debug - DEBUG - Training gate epoch 77
+2026-07-14 09:56:42,240 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:42,257 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:42,261 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:42,266 - debug - DEBUG - Gate weights sample: [1.2939674e-07 8.0935633e-01 1.9064355e-01]
+2026-07-14 09:56:42,276 - debug - DEBUG - Loss components: mix_nll=0.0128, ent_reg=0.1202, bal_reg=0.0034
+2026-07-14 09:56:42,577 - debug - DEBUG - Gate Epoch 77 completed: avg_loss=0.0195, avg_acc=100.00%
+2026-07-14 09:56:42,577 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:42,797 - debug - DEBUG - Validation batch 0: weights sample [1.2510424e-09 9.8665804e-01 1.3341986e-02]
+2026-07-14 09:56:44,820 - debug - DEBUG - Validation accuracy: 37.58%
+2026-07-14 09:56:44,820 - debug - DEBUG - Epoch 77: validation acc=37.58%
+2026-07-14 09:56:44,821 - debug - DEBUG - Training gate epoch 78
+2026-07-14 09:56:45,045 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:45,057 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:45,060 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:45,066 - debug - DEBUG - Gate weights sample: [3.2526370e-23 1.0000000e+00 1.0110809e-09]
+2026-07-14 09:56:45,083 - debug - DEBUG - Loss components: mix_nll=0.0130, ent_reg=0.1617, bal_reg=0.0027
+2026-07-14 09:56:45,378 - debug - DEBUG - Gate Epoch 78 completed: avg_loss=0.0226, avg_acc=100.00%
+2026-07-14 09:56:45,378 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:45,599 - debug - DEBUG - Validation batch 0: weights sample [1.7374170e-10 9.9453342e-01 5.4665804e-03]
+2026-07-14 09:56:47,621 - debug - DEBUG - Validation accuracy: 37.60%
+2026-07-14 09:56:47,621 - debug - DEBUG - Epoch 78: validation acc=37.60%
+2026-07-14 09:56:47,622 - debug - DEBUG - Training gate epoch 79
+2026-07-14 09:56:47,839 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:47,856 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:47,860 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:47,866 - debug - DEBUG - Gate weights sample: [1.715428e-20 9.999999e-01 6.229795e-08]
+2026-07-14 09:56:47,876 - debug - DEBUG - Loss components: mix_nll=0.0187, ent_reg=0.1148, bal_reg=0.0031
+2026-07-14 09:56:48,164 - debug - DEBUG - Gate Epoch 79 completed: avg_loss=0.0202, avg_acc=100.00%
+2026-07-14 09:56:48,165 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:48,385 - debug - DEBUG - Validation batch 0: weights sample [5.9979727e-10 9.9081564e-01 9.1843773e-03]
+2026-07-14 09:56:50,436 - debug - DEBUG - Validation accuracy: 37.59%
+2026-07-14 09:56:50,437 - debug - DEBUG - Epoch 79: validation acc=37.59%
+2026-07-14 09:56:50,437 - debug - DEBUG - Training gate epoch 80
+2026-07-14 09:56:50,648 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:50,664 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:50,669 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:50,672 - debug - DEBUG - Gate weights sample: [4.2397194e-10 9.9336773e-01 6.6322223e-03]
+2026-07-14 09:56:50,683 - debug - DEBUG - Loss components: mix_nll=0.0137, ent_reg=0.1062, bal_reg=0.0212
+2026-07-14 09:56:50,982 - debug - DEBUG - Gate Epoch 80 completed: avg_loss=0.0211, avg_acc=99.82%
+2026-07-14 09:56:50,983 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:51,186 - debug - DEBUG - Validation batch 0: weights sample [8.0044353e-09 9.6369076e-01 3.6309239e-02]
+2026-07-14 09:56:53,221 - debug - DEBUG - Validation accuracy: 37.61%
+2026-07-14 09:56:53,221 - debug - DEBUG - Epoch 80: validation acc=37.61%
+2026-07-14 09:56:53,221 - debug - DEBUG - Training gate epoch 81
+2026-07-14 09:56:53,439 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:53,449 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:53,452 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:53,455 - debug - DEBUG - Gate weights sample: [9.9854255e-01 1.8649790e-11 1.4575080e-03]
+2026-07-14 09:56:53,466 - debug - DEBUG - Loss components: mix_nll=0.0154, ent_reg=0.1198, bal_reg=0.0145
+2026-07-14 09:56:53,747 - debug - DEBUG - Gate Epoch 81 completed: avg_loss=0.0203, avg_acc=100.00%
+2026-07-14 09:56:53,747 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:53,954 - debug - DEBUG - Validation batch 0: weights sample [1.2682484e-09 9.8613805e-01 1.3861953e-02]
+2026-07-14 09:56:55,995 - debug - DEBUG - Validation accuracy: 37.57%
+2026-07-14 09:56:55,995 - debug - DEBUG - Epoch 81: validation acc=37.57%
+2026-07-14 09:56:55,996 - debug - DEBUG - Training gate epoch 82
+2026-07-14 09:56:56,210 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:56,224 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:56,228 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:56,231 - debug - DEBUG - Gate weights sample: [5.7841305e-09 9.6402246e-01 3.5977557e-02]
+2026-07-14 09:56:56,241 - debug - DEBUG - Loss components: mix_nll=0.0320, ent_reg=0.1341, bal_reg=0.0200
+2026-07-14 09:56:56,528 - debug - DEBUG - Gate Epoch 82 completed: avg_loss=0.0192, avg_acc=100.00%
+2026-07-14 09:56:56,529 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:56,724 - debug - DEBUG - Validation batch 0: weights sample [1.3885095e-09 9.8889822e-01 1.1101756e-02]
+2026-07-14 09:56:58,731 - debug - DEBUG - Validation accuracy: 37.58%
+2026-07-14 09:56:58,732 - debug - DEBUG - Epoch 82: validation acc=37.58%
+2026-07-14 09:56:58,732 - debug - DEBUG - Training gate epoch 83
+2026-07-14 09:56:58,955 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:56:58,965 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:56:58,968 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:56:58,972 - debug - DEBUG - Gate weights sample: [1.5001213e-19 9.9999988e-01 6.3640542e-08]
+2026-07-14 09:56:58,980 - debug - DEBUG - Loss components: mix_nll=0.0182, ent_reg=0.1603, bal_reg=0.0011
+2026-07-14 09:56:59,261 - debug - DEBUG - Gate Epoch 83 completed: avg_loss=0.0230, avg_acc=99.91%
+2026-07-14 09:56:59,261 - debug - DEBUG - Starting validation.
+2026-07-14 09:56:59,454 - debug - DEBUG - Validation batch 0: weights sample [1.2576109e-09 9.8461932e-01 1.5380716e-02]
+2026-07-14 09:57:01,446 - debug - DEBUG - Validation accuracy: 37.57%
+2026-07-14 09:57:01,447 - debug - DEBUG - Epoch 83: validation acc=37.57%
+2026-07-14 09:57:01,447 - debug - DEBUG - Training gate epoch 84
+2026-07-14 09:57:01,659 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:01,672 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:01,676 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:01,679 - debug - DEBUG - Gate weights sample: [9.9999976e-01 1.7984619e-17 2.3079618e-07]
+2026-07-14 09:57:01,689 - debug - DEBUG - Loss components: mix_nll=0.0189, ent_reg=0.1234, bal_reg=0.0178
+2026-07-14 09:57:02,001 - debug - DEBUG - Gate Epoch 84 completed: avg_loss=0.0192, avg_acc=100.00%
+2026-07-14 09:57:02,002 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:02,222 - debug - DEBUG - Validation batch 0: weights sample [1.1281029e-09 9.8635477e-01 1.3645208e-02]
+2026-07-14 09:57:04,243 - debug - DEBUG - Validation accuracy: 37.56%
+2026-07-14 09:57:04,243 - debug - DEBUG - Epoch 84: validation acc=37.56%
+2026-07-14 09:57:04,244 - debug - DEBUG - Training gate epoch 85
+2026-07-14 09:57:04,466 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:04,476 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:04,479 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:04,485 - debug - DEBUG - Gate weights sample: [2.2250621e-05 6.8765685e-02 9.3121207e-01]
+2026-07-14 09:57:04,495 - debug - DEBUG - Loss components: mix_nll=0.0271, ent_reg=0.1297, bal_reg=0.0002
+2026-07-14 09:57:04,789 - debug - DEBUG - Gate Epoch 85 completed: avg_loss=0.0211, avg_acc=99.91%
+2026-07-14 09:57:04,789 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:05,004 - debug - DEBUG - Validation batch 0: weights sample [1.0209193e-08 9.6904421e-01 3.0955711e-02]
+2026-07-14 09:57:07,027 - debug - DEBUG - Validation accuracy: 37.52%
+2026-07-14 09:57:07,028 - debug - DEBUG - Epoch 85: validation acc=37.52%
+2026-07-14 09:57:07,028 - debug - DEBUG - Training gate epoch 86
+2026-07-14 09:57:07,233 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:07,248 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:07,252 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:07,256 - debug - DEBUG - Gate weights sample: [9.8920995e-01 5.0852961e-10 1.0790094e-02]
+2026-07-14 09:57:07,267 - debug - DEBUG - Loss components: mix_nll=0.0159, ent_reg=0.1631, bal_reg=0.0160
+2026-07-14 09:57:07,554 - debug - DEBUG - Gate Epoch 86 completed: avg_loss=0.0197, avg_acc=100.00%
+2026-07-14 09:57:07,555 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:07,762 - debug - DEBUG - Validation batch 0: weights sample [2.2706965e-08 9.4942433e-01 5.0575677e-02]
+2026-07-14 09:57:09,799 - debug - DEBUG - Validation accuracy: 37.49%
+2026-07-14 09:57:09,800 - debug - DEBUG - Epoch 86: validation acc=37.49%
+2026-07-14 09:57:09,800 - debug - DEBUG - Training gate epoch 87
+2026-07-14 09:57:10,014 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:10,030 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:10,035 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:10,040 - debug - DEBUG - Gate weights sample: [8.98088753e-01 3.45405127e-08 1.01911254e-01]
+2026-07-14 09:57:10,050 - debug - DEBUG - Loss components: mix_nll=0.0170, ent_reg=0.1438, bal_reg=0.0185
+2026-07-14 09:57:10,323 - debug - DEBUG - Gate Epoch 87 completed: avg_loss=0.0222, avg_acc=100.00%
+2026-07-14 09:57:10,324 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:10,542 - debug - DEBUG - Validation batch 0: weights sample [2.3143010e-09 9.7871953e-01 2.1280503e-02]
+2026-07-14 09:57:12,574 - debug - DEBUG - Validation accuracy: 37.60%
+2026-07-14 09:57:12,574 - debug - DEBUG - Epoch 87: validation acc=37.60%
+2026-07-14 09:57:12,575 - debug - DEBUG - Training gate epoch 88
+2026-07-14 09:57:12,788 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:12,802 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:12,806 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:12,809 - debug - DEBUG - Gate weights sample: [9.9999702e-01 7.1539942e-16 3.0126962e-06]
+2026-07-14 09:57:12,820 - debug - DEBUG - Loss components: mix_nll=0.0194, ent_reg=0.1065, bal_reg=0.0057
+2026-07-14 09:57:13,119 - debug - DEBUG - Gate Epoch 88 completed: avg_loss=0.0204, avg_acc=100.00%
+2026-07-14 09:57:13,120 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:13,335 - debug - DEBUG - Validation batch 0: weights sample [1.7766215e-09 9.8134089e-01 1.8659148e-02]
+2026-07-14 09:57:15,362 - debug - DEBUG - Validation accuracy: 37.58%
+2026-07-14 09:57:15,362 - debug - DEBUG - Epoch 88: validation acc=37.58%
+2026-07-14 09:57:15,362 - debug - DEBUG - Training gate epoch 89
+2026-07-14 09:57:15,585 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:15,598 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:15,602 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:15,605 - debug - DEBUG - Gate weights sample: [5.1889926e-01 3.0076953e-07 4.8110044e-01]
+2026-07-14 09:57:15,615 - debug - DEBUG - Loss components: mix_nll=0.0271, ent_reg=0.1327, bal_reg=0.0094
+2026-07-14 09:57:15,903 - debug - DEBUG - Gate Epoch 89 completed: avg_loss=0.0192, avg_acc=99.91%
+2026-07-14 09:57:15,904 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:16,117 - debug - DEBUG - Validation batch 0: weights sample [1.2438164e-09 9.8587924e-01 1.4120693e-02]
+2026-07-14 09:57:18,155 - debug - DEBUG - Validation accuracy: 37.57%
+2026-07-14 09:57:18,155 - debug - DEBUG - Epoch 89: validation acc=37.57%
+2026-07-14 09:57:18,155 - debug - DEBUG - Training gate epoch 90
+2026-07-14 09:57:18,392 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:18,406 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:18,410 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:18,413 - debug - DEBUG - Gate weights sample: [9.9995434e-01 1.1883737e-13 4.5601279e-05]
+2026-07-14 09:57:18,424 - debug - DEBUG - Loss components: mix_nll=0.0291, ent_reg=0.1064, bal_reg=0.0012
+2026-07-14 09:57:18,713 - debug - DEBUG - Gate Epoch 90 completed: avg_loss=0.0216, avg_acc=99.91%
+2026-07-14 09:57:18,713 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:18,915 - debug - DEBUG - Validation batch 0: weights sample [1.8227737e-09 9.8363227e-01 1.6367728e-02]
+2026-07-14 09:57:20,920 - debug - DEBUG - Validation accuracy: 37.61%
+2026-07-14 09:57:20,921 - debug - DEBUG - Epoch 90: validation acc=37.61%
+2026-07-14 09:57:20,921 - debug - DEBUG - Training gate epoch 91
+2026-07-14 09:57:21,138 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:21,150 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:21,153 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:21,156 - debug - DEBUG - Gate weights sample: [6.4900957e-02 4.3512587e-06 9.3509465e-01]
+2026-07-14 09:57:21,168 - debug - DEBUG - Loss components: mix_nll=0.0224, ent_reg=0.1459, bal_reg=0.0118
+2026-07-14 09:57:21,461 - debug - DEBUG - Gate Epoch 91 completed: avg_loss=0.0200, avg_acc=99.91%
+2026-07-14 09:57:21,461 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:21,669 - debug - DEBUG - Validation batch 0: weights sample [3.0639435e-09 9.7871143e-01 2.1288624e-02]
+2026-07-14 09:57:23,697 - debug - DEBUG - Validation accuracy: 37.61%
+2026-07-14 09:57:23,697 - debug - DEBUG - Epoch 91: validation acc=37.61%
+2026-07-14 09:57:23,697 - debug - DEBUG - Training gate epoch 92
+2026-07-14 09:57:23,916 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:23,929 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:23,933 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:23,936 - debug - DEBUG - Gate weights sample: [9.9993634e-01 1.2303709e-13 6.3645457e-05]
+2026-07-14 09:57:23,947 - debug - DEBUG - Loss components: mix_nll=0.0157, ent_reg=0.1161, bal_reg=0.0114
+2026-07-14 09:57:24,233 - debug - DEBUG - Gate Epoch 92 completed: avg_loss=0.0208, avg_acc=100.00%
+2026-07-14 09:57:24,233 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:24,408 - debug - DEBUG - Validation batch 0: weights sample [5.9810863e-09 9.7284126e-01 2.7158758e-02]
+2026-07-14 09:57:26,505 - debug - DEBUG - Validation accuracy: 37.55%
+2026-07-14 09:57:26,506 - debug - DEBUG - Epoch 92: validation acc=37.55%
+2026-07-14 09:57:26,506 - debug - DEBUG - Training gate epoch 93
+2026-07-14 09:57:26,717 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:26,733 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:26,737 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:26,742 - debug - DEBUG - Gate weights sample: [4.0180623e-11 9.9771869e-01 2.2813177e-03]
+2026-07-14 09:57:26,747 - debug - DEBUG - Loss components: mix_nll=0.0186, ent_reg=0.1371, bal_reg=0.0043
+2026-07-14 09:57:27,043 - debug - DEBUG - Gate Epoch 93 completed: avg_loss=0.0194, avg_acc=99.91%
+2026-07-14 09:57:27,044 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:27,249 - debug - DEBUG - Validation batch 0: weights sample [6.6065553e-09 9.7157806e-01 2.8421873e-02]
+2026-07-14 09:57:29,359 - debug - DEBUG - Validation accuracy: 37.55%
+2026-07-14 09:57:29,360 - debug - DEBUG - Epoch 93: validation acc=37.55%
+2026-07-14 09:57:29,360 - debug - DEBUG - Training gate epoch 94
+2026-07-14 09:57:29,580 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:29,592 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:29,596 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:29,600 - debug - DEBUG - Gate weights sample: [9.9823087e-01 2.7191771e-11 1.7691525e-03]
+2026-07-14 09:57:29,612 - debug - DEBUG - Loss components: mix_nll=0.0185, ent_reg=0.1568, bal_reg=0.0171
+2026-07-14 09:57:29,897 - debug - DEBUG - Gate Epoch 94 completed: avg_loss=0.0197, avg_acc=99.91%
+2026-07-14 09:57:29,897 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:30,120 - debug - DEBUG - Validation batch 0: weights sample [6.0729897e-09 9.7162431e-01 2.8375709e-02]
+2026-07-14 09:57:32,250 - debug - DEBUG - Validation accuracy: 37.55%
+2026-07-14 09:57:32,251 - debug - DEBUG - Epoch 94: validation acc=37.55%
+2026-07-14 09:57:32,251 - debug - DEBUG - Training gate epoch 95
+2026-07-14 09:57:32,460 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:32,470 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:32,472 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:32,476 - debug - DEBUG - Gate weights sample: [1.9693203e-04 3.2265573e-03 9.9657649e-01]
+2026-07-14 09:57:32,488 - debug - DEBUG - Loss components: mix_nll=0.0194, ent_reg=0.1376, bal_reg=0.0212
+2026-07-14 09:57:32,781 - debug - DEBUG - Gate Epoch 95 completed: avg_loss=0.0216, avg_acc=99.91%
+2026-07-14 09:57:32,782 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:32,981 - debug - DEBUG - Validation batch 0: weights sample [2.8683538e-09 9.8005563e-01 1.9944333e-02]
+2026-07-14 09:57:35,074 - debug - DEBUG - Validation accuracy: 37.60%
+2026-07-14 09:57:35,075 - debug - DEBUG - Epoch 95: validation acc=37.60%
+2026-07-14 09:57:35,075 - debug - DEBUG - Training gate epoch 96
+2026-07-14 09:57:35,293 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:35,308 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:35,313 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:35,317 - debug - DEBUG - Gate weights sample: [1.0000000e+00 1.4599875e-18 5.4206094e-08]
+2026-07-14 09:57:35,328 - debug - DEBUG - Loss components: mix_nll=0.0133, ent_reg=0.1370, bal_reg=0.0172
+2026-07-14 09:57:35,628 - debug - DEBUG - Gate Epoch 96 completed: avg_loss=0.0189, avg_acc=100.00%
+2026-07-14 09:57:35,629 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:35,853 - debug - DEBUG - Validation batch 0: weights sample [2.6683664e-09 9.8078823e-01 1.9211834e-02]
+2026-07-14 09:57:37,978 - debug - DEBUG - Validation accuracy: 37.60%
+2026-07-14 09:57:37,978 - debug - DEBUG - Epoch 96: validation acc=37.60%
+2026-07-14 09:57:37,979 - debug - DEBUG - Training gate epoch 97
+2026-07-14 09:57:38,195 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:38,210 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:38,214 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:38,217 - debug - DEBUG - Gate weights sample: [1.2357765e-06 4.2011651e-01 5.7988226e-01]
+2026-07-14 09:57:38,229 - debug - DEBUG - Loss components: mix_nll=0.0190, ent_reg=0.1307, bal_reg=0.0168
+2026-07-14 09:57:38,516 - debug - DEBUG - Gate Epoch 97 completed: avg_loss=0.0194, avg_acc=99.91%
+2026-07-14 09:57:38,516 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:38,723 - debug - DEBUG - Validation batch 0: weights sample [3.2499270e-09 9.7978199e-01 2.0218067e-02]
+2026-07-14 09:57:40,821 - debug - DEBUG - Validation accuracy: 37.58%
+2026-07-14 09:57:40,821 - debug - DEBUG - Epoch 97: validation acc=37.58%
+2026-07-14 09:57:40,821 - debug - DEBUG - Training gate epoch 98
+2026-07-14 09:57:41,056 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:41,072 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:41,077 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:41,082 - debug - DEBUG - Gate weights sample: [9.9935657e-01 7.3508109e-12 6.4344489e-04]
+2026-07-14 09:57:41,093 - debug - DEBUG - Loss components: mix_nll=0.0182, ent_reg=0.1762, bal_reg=0.0057
+2026-07-14 09:57:41,392 - debug - DEBUG - Gate Epoch 98 completed: avg_loss=0.0206, avg_acc=99.91%
+2026-07-14 09:57:41,393 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:41,596 - debug - DEBUG - Validation batch 0: weights sample [3.9586618e-09 9.7765589e-01 2.2344137e-02]
+2026-07-14 09:57:43,712 - debug - DEBUG - Validation accuracy: 37.57%
+2026-07-14 09:57:43,713 - debug - DEBUG - Epoch 98: validation acc=37.57%
+2026-07-14 09:57:43,713 - debug - DEBUG - Training gate epoch 99
+2026-07-14 09:57:43,930 - debug - DEBUG - Batch 0: images shape torch.Size([128, 3, 32, 32]), labels shape torch.Size([128])
+2026-07-14 09:57:43,942 - debug - DEBUG - Expert logits shapes: [torch.Size([128, 100]), torch.Size([128, 100]), torch.Size([128, 100])]
+2026-07-14 09:57:43,945 - debug - DEBUG - Gate features shape: torch.Size([128, 24])
+2026-07-14 09:57:43,947 - debug - DEBUG - Gate weights sample: [1.7247206e-05 6.9719553e-02 9.3026316e-01]
+2026-07-14 09:57:43,959 - debug - DEBUG - Loss components: mix_nll=0.0121, ent_reg=0.1439, bal_reg=0.0098
+2026-07-14 09:57:44,248 - debug - DEBUG - Gate Epoch 99 completed: avg_loss=0.0184, avg_acc=100.00%
+2026-07-14 09:57:44,248 - debug - DEBUG - Starting validation.
+2026-07-14 09:57:44,453 - debug - DEBUG - Validation batch 0: weights sample [4.4185779e-09 9.7619593e-01 2.3804097e-02]
+2026-07-14 09:57:46,531 - debug - DEBUG - Validation accuracy: 37.56%
+2026-07-14 09:57:46,531 - debug - DEBUG - Epoch 99: validation acc=37.56%
+2026-07-14 09:57:46,531 - debug - DEBUG - Gate training complete.

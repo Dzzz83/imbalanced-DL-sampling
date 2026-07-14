@@ -31,13 +31,10 @@ class Network(nn.Module):
 
     def forward(self, x, **kwargs):
         hidden = self.backbone(x)
-        
-        # Route through 3 independent heads if strategy is 'Experts'
-        if self.cfg.strategy == 'Experts':
+        if isinstance(self.classifier, nn.ModuleList):
             out = [clf(hidden) for clf in self.classifier]
         else:
             out = self.classifier(hidden)
-            
         return out, hidden
 
     def _get_feature_len(self):

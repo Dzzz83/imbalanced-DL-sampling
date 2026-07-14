@@ -141,7 +141,6 @@ def get_args():
     # Experts Strategy Parameters
     parser.add_argument('--expert_batch_size', default=256, type=int, help='Batch size for expert training')
     parser.add_argument('--gating_batch_size', default=128, type=int, help='Batch size for gating training')
-    parser.add_argument('--routing_sparsity', default=0.4, type=float, help='Routing sparsity k')
 
     # Gate parameters
     parser.add_argument('--lambda_ent', default=0.01, type=float, help='Entropy regularization coefficient for gate')
@@ -153,6 +152,7 @@ def get_args():
     parser.add_argument('--gate_hidden_size2', default=128, type=int, help='Second hidden size of gate MLP')
     parser.add_argument('--gate_split_ratio', default=0.9, type=float, help='Fraction of training data for expert training; remaining for gate')
     parser.add_argument('--routing_sparsity', default=2, type=int, help='Number of top experts to keep (k)')
+    parser.add_argument('--expert_checkpoint', default=None, type=str, help='Path to pre-trained expert model checkpoint for gate training')
 
     # update config from command line
     parser.set_defaults(**config)
