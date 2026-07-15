@@ -74,19 +74,36 @@ def compute_plugin_metrics(p_mix, labels, group_ids, alpha, mu, c, beta=None):
     coverage = np.mean(~reject)
     
     # 5. Calculate Balanced Risk
-    # Map true labels to their groups
+    # Map true labels to their groups (0=Head, 1=Medium, 2=Tail)
+    # E.g., if labels = [0, 99, 5], label_groups becomes [0, 2, 1]
     label_groups = group_ids[labels]
     
     bal_risk = 0.0
+    # Loop through each group: k=0 (Head), k=1 (Medium), k=2 (Tail)
     for k in range(K):
+        # Create a boolean mask: True for images that belong to group k, False otherwise
         idx_k = (label_groups == k)
+        
+        # Check if the model answered ANY images from this group.
+        # idx_k & ~reject means "belongs to group k" AND "was NOT rejected"
         if np.sum(idx_k & ~reject) == 0:
+            # Safety check: If the model rejected 100% of this group, 
+            # we can't divide by zero, so error rate is set to 0.0
             risk_k = 0.0
         else:
-            # Risk is error rate among non-rejected samples in group k
+            # Count the mistakes: 
+            # (preds != labels) -> Model predicted the wrong class
+            # & idx_k           -> AND the image belongs to group k
+            # & ~reject         -> AND the model chose to answer it (not rejected)
             err = np.sum((preds != labels) & idx_k & ~reject)
+            
+            # Calculate the error rate for this specific group:
+            # Mistakes / Total number of answered images in this group
             risk_k = err / np.sum(idx_k & ~reject)
-        # Weight risk equally across all groups
+            
+        # Weight risk equally across all groups (beta = [1/3, 1/3, 1/3])
+        # This forces Head, Medium, and Tail groups to contribute exactly 33.3% 
+        # to the final score, preventing Head classes from dominating the metric.
         bal_risk += beta[k] * risk_k
         
     return preds, reject, coverage, bal_risk
