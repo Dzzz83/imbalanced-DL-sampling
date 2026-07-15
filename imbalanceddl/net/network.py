@@ -25,10 +25,10 @@ class Network(nn.Module):
         self.num_classes = self._get_num_classes()
         self.feature_len = self._get_feature_len()
         
-        # Store architecture choice as instance variable to prevent forward pass errors
-        # if cfg.strategy is mutated externally after initialization
+        # Store architecture choice as instance variable
         self.is_experts = (self.cfg.strategy == 'Experts')
         
+        # 3 independent backbones and classifiers
         if self.is_experts:
             self.backbones = nn.ModuleList([self._get_backbone() for _ in range(3)])
             self.classifiers = self._get_classifier()
