@@ -7,6 +7,7 @@ from torch.utils.data import Subset, DataLoader
 from .base import BaseTrainer
 from ..loss import LogitAdjustedLoss, BalancedSoftmaxLoss
 
+# for printing average loss and average accuracy
 class AverageMeter(object):
     def __init__(self):
         self.reset()
@@ -32,11 +33,14 @@ class ExpertsTrainer(BaseTrainer):
         print(f"[INFO] ExpertsTrainer: model on {self.device}")
 
         self.cls_num_list = cfg.cls_num_list
+        # initialize the 3 loss functions
         self.criterion_ce = torch.nn.CrossEntropyLoss().to(self.device)
         self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
         self.criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
+        # group into the list
         self.losses = [self.criterion_ce, self.criterion_la, self.criterion_bs]
 
+        # set up optimizer
         self.optimizer = optim.SGD(
             self.model.parameters(),
             lr=cfg.learning_rate,
@@ -50,6 +54,7 @@ class ExpertsTrainer(BaseTrainer):
         
         print(f"[INFO] ExpertsTrainer initialized with CE, LA (tau=1.0), BS losses.")
 
+    # split dataset into 2 parts: 90% for experts training, 10% for gate training
     def _split_dataset(self):
         targets = np.array(self.train_dataset.targets)
         indices = np.arange(len(targets))
@@ -67,6 +72,7 @@ class ExpertsTrainer(BaseTrainer):
     def get_criterion(self):
         return self.criterion_ce
 
+    # lr schedule, the same as paper
     def adjust_learning_rate(self, epoch):
         if epoch < 15:
             lr = self.cfg.learning_rate * (epoch + 1) / 15.0
@@ -92,6 +98,7 @@ class ExpertsTrainer(BaseTrainer):
             targets = targets.to(self.device, non_blocking=True)
 
             self.optimizer.zero_grad()
+            # out is a list of 3 sets of logits: [expert1_logits, expert2_logits, expert3_logits]
             out, _ = self.model(images)
             experts_logits = out
 
