@@ -9,14 +9,16 @@ model_names = sorted(name for name in backbone.__dict__
                      and callable(backbone.__dict__[name]))
 
 class NormedLinear(nn.Module):
-    def __init__(self, in_features, out_features):
+    def __init__(self, in_features, out_features, s=30.0):
         super(NormedLinear, self).__init__()
         self.weight = Parameter(torch.Tensor(in_features, out_features))
         self.weight.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
+        # FIX: Add scale factor to prevent logits from collapsing to [-1, 1]
+        self.s = s
 
     def forward(self, x):
         out = F.normalize(x, dim=1).mm(F.normalize(self.weight, dim=0))
-        return out
+        return out * self.s
 
 class Network(nn.Module):
     def __init__(self, cfg):
@@ -25,33 +27,19 @@ class Network(nn.Module):
         self.num_classes = self._get_num_classes()
         self.feature_len = self._get_feature_len()
         
-        # Store architecture choice as instance variable
         self.is_experts = (self.cfg.strategy == 'Experts')
         
-        # 3 independent backbones and classifiers
-        if self.is_experts:
-            self.backbones = nn.ModuleList([self._get_backbone() for _ in range(3)])
-            self.classifiers = self._get_classifier()
-        else:
-            self.backbone = self._get_backbone()
-            self.classifier = self._get_classifier()
+        # Shared backbone for all experts
+        self.backbone = self._get_backbone()
+        self.classifier = self._get_classifier()
 
     def forward(self, x, **kwargs):
-        if self.is_experts:
-            out = []
-            hidden = []
-            for bb, clf in zip(self.backbones, self.classifiers):
-                h = bb(x)
-                o = clf(h)
-                out.append(o)
-                hidden.append(h)
-            return out, hidden
+        hidden = self.backbone(x)
+        if isinstance(self.classifier, nn.ModuleList):
+            out = [clf(hidden) for clf in self.classifier]
+            return out, [hidden] * len(self.classifier)
         else:
-            hidden = self.backbone(x)
-            if isinstance(self.classifier, nn.ModuleList):
-                out = [clf(hidden) for clf in self.classifier]
-            else:
-                out = self.classifier(hidden)
+            out = self.classifier(hidden)
             return out, hidden
 
     def _get_feature_len(self):
@@ -74,7 +62,7 @@ class Network(nn.Module):
 
     def _get_backbone(self):
         if self.cfg.backbone is not None:
-            print("=> Initializing backbone : {}".format(self.cfg.backbone))
+            print("=> Initializing shared backbone : {}".format(self.cfg.backbone))
             my_backbone = backbone.__dict__[self.cfg.backbone]()
             return my_backbone
         else:
@@ -87,8 +75,9 @@ class Network(nn.Module):
                 self.cfg.classifier = 'cosine_similarity_classifier'
                 
             if self.is_experts:
-                print("=> Initializing 3 independent expert classifiers")
+                print("=> Initializing 3 distinct expert heads on shared backbone")
                 if self.cfg.classifier == 'dot_product_classifier':
+                    # MUST use bias=False for LA and BS to work properly
                     return nn.ModuleList([
                         nn.Linear(self.feature_len, self.num_classes, bias=False) 
                         for _ in range(3)

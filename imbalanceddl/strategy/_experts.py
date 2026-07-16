@@ -6,8 +6,8 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset, DataLoader
 from .base import BaseTrainer
 from ..loss import LogitAdjustedLoss, BalancedSoftmaxLoss
+from ..utils.debug_logger import get_debug_logger
 
-# for printing average loss and average accuracy
 class AverageMeter(object):
     def __init__(self):
         self.reset()
@@ -32,15 +32,15 @@ class ExpertsTrainer(BaseTrainer):
         self.model.to(self.device)
         print(f"[INFO] ExpertsTrainer: model on {self.device}")
 
+        self.debug = getattr(cfg, 'debug', False)
+        self.debug_logger = get_debug_logger(debug=self.debug)
+
         self.cls_num_list = cfg.cls_num_list
-        # initialize the 3 loss functions
         self.criterion_ce = torch.nn.CrossEntropyLoss().to(self.device)
         self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
         self.criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
-        # group into the list
         self.losses = [self.criterion_ce, self.criterion_la, self.criterion_bs]
 
-        # set up optimizer
         self.optimizer = optim.SGD(
             self.model.parameters(),
             lr=cfg.learning_rate,
@@ -54,7 +54,6 @@ class ExpertsTrainer(BaseTrainer):
         
         print(f"[INFO] ExpertsTrainer initialized with CE, LA (tau=1.0), BS losses.")
 
-    # split dataset into 2 parts: 90% for experts training, 10% for gate training
     def _split_dataset(self):
         targets = np.array(self.train_dataset.targets)
         indices = np.arange(len(targets))
@@ -72,7 +71,6 @@ class ExpertsTrainer(BaseTrainer):
     def get_criterion(self):
         return self.criterion_ce
 
-    # lr schedule, the same as paper
     def adjust_learning_rate(self, epoch):
         if epoch < 15:
             lr = self.cfg.learning_rate * (epoch + 1) / 15.0
@@ -98,19 +96,29 @@ class ExpertsTrainer(BaseTrainer):
             targets = targets.to(self.device, non_blocking=True)
 
             self.optimizer.zero_grad()
-            # out is a list of 3 sets of logits: [expert1_logits, expert2_logits, expert3_logits]
             out, _ = self.model(images)
             experts_logits = out
 
-            # Sum losses. DO NOT divide by 3. Independent backbones require full gradients.
             loss = 0.0
             for i, logits in enumerate(experts_logits):
                 loss += self.losses[i](logits, targets)
+            
+            # FIX: Average the loss so the shared backbone doesn't receive 3x gradients (effective LR 1.2)
+            loss = loss / 3.0
             
             loss.backward()
             self.optimizer.step()
 
             losses.update(loss.item(), images.size(0))
+
+            if self.debug and batch_idx == 0 and self.epoch % 10 == 0:
+                self.debug_logger.debug("="*50)
+                self.debug_logger.debug(f"[TRAIN EPOCH {self.epoch}] Logit Analysis")
+                for i, logits in enumerate(experts_logits):
+                    true_logit = logits[0, targets[0].item()].item()
+                    max_logit, pred_class = torch.max(logits[0], dim=0)
+                    gap = max_logit.item() - true_logit
+                    self.debug_logger.debug(f"  Expert {i}: True Logit={true_logit:.4f}, Max Logit={max_logit.item():.4f} (Class {pred_class.item()}), Gap={gap:.4f}")
 
             probs = [torch.softmax(logits, dim=1) for logits in experts_logits]
             avg_probs = torch.stack(probs, dim=0).mean(dim=0)
@@ -132,6 +140,16 @@ class ExpertsTrainer(BaseTrainer):
 
             out, _ = self.model(images)
             experts_logits = out
+
+            if self.debug and self.epoch % 10 == 0 and not hasattr(self, '_val_logged'):
+                self.debug_logger.debug("="*50)
+                self.debug_logger.debug(f"[VAL EPOCH {self.epoch}] Logit Analysis")
+                for i, logits in enumerate(experts_logits):
+                    true_logit = logits[0, targets[0].item()].item()
+                    max_logit, pred_class = torch.max(logits[0], dim=0)
+                    gap = max_logit.item() - true_logit
+                    self.debug_logger.debug(f"  Expert {i}: True Logit={true_logit:.4f}, Max Logit={max_logit.item():.4f} (Class {pred_class.item()}), Gap={gap:.4f}")
+                self._val_logged = True
 
             probs = [torch.softmax(logits, dim=1) for logits in experts_logits]
             avg_probs = torch.stack(probs, dim=0).mean(dim=0)
@@ -155,6 +173,16 @@ class ExpertsTrainer(BaseTrainer):
 
             out, _ = self.model(images)
             experts_logits = out
+
+            if self.debug and not hasattr(self, '_logged_individual'):
+                self.debug_logger.debug("="*50)
+                self.debug_logger.debug("[EVAL BEST MODEL] Logit Analysis")
+                for i, logits in enumerate(experts_logits):
+                    true_logit = logits[0, targets[0].item()].item()
+                    max_logit, pred_class = torch.max(logits[0], dim=0)
+                    gap = max_logit.item() - true_logit
+                    self.debug_logger.debug(f"  Expert {i}: True Logit={true_logit:.4f}, Max Logit={max_logit.item():.4f} (Class {pred_class.item()}), Gap={gap:.4f}")
+                self._logged_individual = True
 
             probs = [torch.softmax(logits, dim=1) for logits in experts_logits]
             avg_probs = torch.stack(probs, dim=0).mean(dim=0)
@@ -184,7 +212,6 @@ class ExpertsTrainer(BaseTrainer):
             self.logger.info(log_msg)
             print(log_msg)
 
-        # Save the final epoch model. No early stopping on test set.
         self.save_checkpoint(epoch, val_top1.avg)
         print("[INFO] Expert training complete.")
 

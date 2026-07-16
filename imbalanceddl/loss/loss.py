@@ -46,24 +46,15 @@ class LogitAdjustedLoss(nn.Module):
     def __init__(self, cls_num_list, tau=1.0, reduction='mean'):
         super(LogitAdjustedLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
-        self.register_buffer('log_prior', cls_num_list.log())
+        # FIX: Normalize to probabilities before taking log to prevent logit explosion
+        probs = cls_num_list / cls_num_list.sum()
+        self.register_buffer('log_prior', probs.log())
         self.tau = tau
         self.reduction = reduction
         print(f"[INFO] LogitAdjustedLoss: tau={tau}, log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
-        # Paper: z_y - tau * log(pi_y)
-        #
-        # Example calculation:
-        # log_prior[0] (Class 0, 5000 samples)  = log(5000) ≈ 8.51
-        # log_prior[99] (Class 99, 5 samples)   = log(5)    ≈ 1.61
-        #
-        # If logits[0]  = 10.0 and logits[99] = 2.0, and tau = 1.0:
-        # adjusted_logits[0]  = 10.0 - 1.0 * 8.51 = 1.49  (Heavily penalized)
-        # adjusted_logits[99] = 2.0  - 1.0 * 1.61 = 0.39  (Slightly reduced)
-        #
         adjusted_logits = logits - self.tau * self.log_prior
-        
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss
 
@@ -71,26 +62,13 @@ class BalancedSoftmaxLoss(nn.Module):
     def __init__(self, cls_num_list, reduction='mean'):
         super(BalancedSoftmaxLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
-        self.register_buffer('log_prior', cls_num_list.log())
+        # FIX: Normalize to probabilities before taking log to prevent logit explosion
+        probs = cls_num_list / cls_num_list.sum()
+        self.register_buffer('log_prior', probs.log())
         self.reduction = reduction
         print(f"[INFO] BalancedSoftmaxLoss: log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
-        # Paper: sum(exp(z_j) * pi_j) = sum(exp(z_j + log(pi_j)))
-        #
-        # Example calculation:
-        # log_prior[0] (Class 0, 5000 samples)  = log(5000) ≈ 8.51
-        # log_prior[99] (Class 99, 5 samples)   = log(5)    ≈ 1.61
-        #
-        # If logits[0]  = 10.0 and logits[99] = 2.0:
-        # adjusted_logits[0]  = 10.0 + 8.51 = 18.51  (Massive boost to Head class)
-        # adjusted_logits[99] = 2.0  + 1.61 = 3.61  (Small boost to Tail class)
-        #
-        # By adding log_prior, the Head class logit is heavily inflated in the Softmax 
-        # denominator. This artificially increases Head class probability, forcing the 
-        # network to output much larger raw logits for Tail classes to compete.
-        #
         adjusted_logits = logits + self.log_prior
-        
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss

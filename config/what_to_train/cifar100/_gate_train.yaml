@@ -4,7 +4,8 @@ num_classes: 100
 imb_type: exp
 imb_factor: 0.01
 data_path: ./data
-classifier: 'dot_product_classifier'
+# FIX: Change to cosine similarity to bound logits and prevent saturation
+classifier: 'cosine_similarity_classifier'
 augmentation: weak
 
 # Selection Settings (no selection)
@@ -26,7 +27,7 @@ routing_sparsity: 2
 
 # Path to the best expert checkpoint from first run
 expert_checkpoint: checkpoint/experts_cifar100/checkpoint_experts_epoch255.pth
-best_model: checkpoint/gate_cifar100/gate_checkpoint_epoch99.pth
+# best_model: checkpoint/gate_cifar100/gate_checkpoint_epoch99.pth
 
 # Data split ratio (must match the split used in expert training)
 gate_split_ratio: 0.9

@@ -6,13 +6,13 @@ import torch.optim as optim
 import numpy as np
 import math
 from sklearn.model_selection import train_test_split
-from torch.utils.data import Subset, DataLoader
+from torch.utils.data import Subset, DataLoader, random_split
 from .base import BaseTrainer
 from ..utils.gate_features import compute_gate_features
 from ..utils.metrics import accuracy
 from ..utils.debug_logger import get_debug_logger
 from ..utils.utils import AverageMeter
-from ..utils.plugin_rule import define_groups, tune_plugin_bal, tune_plugin_worst, compute_plugin_metrics
+from ..utils.plugin_rule import define_groups, tune_plugin_bal, tune_plugin_worst, compute_paper_metrics
 from ..net.network import build_model
 
 class GateMLP(nn.Module):
@@ -55,6 +55,10 @@ class GateTrainer(BaseTrainer):
         self.model.eval()
         print("[INFO] Expert model loaded and frozen.")
 
+        cls_num_list = torch.FloatTensor(self.cfg.cls_num_list)
+        probs = cls_num_list / cls_num_list.sum()
+        self.log_prior = probs.log().to(self.device)
+
         self.gate_split_ratio = getattr(cfg, 'gate_split_ratio', 0.9)
         self._split_dataset()
 
@@ -84,6 +88,7 @@ class GateTrainer(BaseTrainer):
         print("[INFO] GateTrainer initialization complete.")
 
     def _split_dataset(self):
+        # 1. Split train dataset for gate training (D_gate)
         targets = np.array(self.train_dataset.targets)
         indices = np.arange(len(targets))
         train_idx, gate_idx = train_test_split(
@@ -97,8 +102,39 @@ class GateTrainer(BaseTrainer):
         )
         print(f"[INFO] Gating split size: {len(self.gate_dataset)}")
 
+        # 2. Split validation dataset (10k test set) into D_val (5k) and D_test (5k)
+        val_len = len(self.val_dataset)
+        tune_len = val_len // 2
+        test_len = val_len - tune_len
+        self.tune_dataset, self.test_dataset = random_split(
+            self.val_dataset, [tune_len, test_len], 
+            generator=torch.Generator().manual_seed(self.cfg.seed)
+        )
+        self.tune_loader = DataLoader(
+            self.tune_dataset, batch_size=self.cfg.batch_size,
+            shuffle=False, num_workers=self.cfg.workers, pin_memory=True
+        )
+        self.test_loader = DataLoader(
+            self.test_dataset, batch_size=self.cfg.batch_size,
+            shuffle=False, num_workers=self.cfg.workers, pin_memory=True
+        )
+        print(f"[INFO] Split test set into Tune: {tune_len} | Test: {test_len}")
+
     def get_criterion(self):
         return None
+
+    def get_adjusted_probs(self, logits_list):
+        """
+        FIX: Map all experts back to the true posterior eta(x) using adjusted softmax.
+        Expert 1 (CE): raw logits -> softmax(z)
+        Expert 2 (LA): logits - log_prior -> softmax(z - log_prior)
+        Expert 3 (BS): logits + log_prior -> softmax(z + log_prior)
+        """
+        return [
+            F.softmax(logits_list[0], dim=1),
+            F.softmax(logits_list[1] - self.log_prior, dim=1),
+            F.softmax(logits_list[2] + self.log_prior, dim=1)
+        ]
 
     def train_one_epoch(self, epoch):
         self.gate.train()
@@ -113,23 +149,23 @@ class GateTrainer(BaseTrainer):
             with torch.no_grad():
                 logits_list, _ = self.model(images)
 
-            phi = compute_gate_features(logits_list)
+            probs = self.get_adjusted_probs(logits_list)
+            phi = compute_gate_features(logits_list, probs)
+            
             gate_logits = self.gate(phi)
             weights = F.softmax(gate_logits, dim=1)
-
-            probs = [F.softmax(logits, dim=1) for logits in logits_list]
             B = labels.size(0)
 
             prob_true = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
             mix_prob = (weights * prob_true).sum(dim=1)
             mix_nll = -torch.log(mix_prob + 1e-8).mean()
 
-            ent_reg = (weights * torch.log(weights + 1e-8)).sum(dim=1).mean()
-
+            # FIX: Entropy is positive. We must MAXIMIZE entropy to prevent collapse, so subtract it from loss.
+            ent_reg = -(weights * torch.log(weights + 1e-8)).sum(dim=1).mean()
             avg_weights = weights.mean(dim=0)
             bal_reg = ((avg_weights - 1.0 / 3.0) ** 2).sum()
 
-            loss = mix_nll + self.lambda_ent * ent_reg + self.lambda_bal * bal_reg
+            loss = mix_nll - self.lambda_ent * ent_reg + self.lambda_bal * bal_reg
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -168,17 +204,16 @@ class GateTrainer(BaseTrainer):
         all_p_mix = []
         all_labels = []
         
-        for images, labels in loader:
+        for batch_idx, (images, labels) in enumerate(loader):
             images = images.to(self.device, non_blocking=True)
             
             logits_list, _ = self.model(images)
-            phi = compute_gate_features(logits_list)
+            probs = self.get_adjusted_probs(logits_list)
+            phi = compute_gate_features(logits_list, probs)
+            
             gate_logits = self.gate(phi)
             weights = F.softmax(gate_logits, dim=1)
             
-            probs = [F.softmax(logits, dim=1) for logits in logits_list]
-            
-            # Top-k routing on probabilities
             k = getattr(self.cfg, 'routing_sparsity', 2)
             topk_weights, topk_indices = torch.topk(weights, k, dim=1)
             topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
@@ -192,6 +227,33 @@ class GateTrainer(BaseTrainer):
                 expert_probs = stacked_probs[torch.arange(images.size(0)), idx, :]
                 mix_prob += w * expert_probs
 
+            if self.debug and batch_idx == 0:
+                self.debug_logger.debug("="*70)
+                self.debug_logger.debug("DETAILED DEBUGGING POSTERIOR EXTRACTION (First Batch)")
+                true_label = labels[0].item()
+                self.debug_logger.debug(f"True Label for Sample 0: {true_label}")
+                
+                for exp_idx in range(3):
+                    raw_logits = logits_list[exp_idx][0]
+                    adj_probs = probs[exp_idx][0]
+                    pred_prob, pred_class = torch.max(adj_probs, dim=0)
+                    raw_logit_true = raw_logits[true_label].item()
+                    raw_logit_pred = raw_logits[pred_class.item()].item()
+                    log_prior_true = self.log_prior[true_label].item()
+                    log_prior_pred = self.log_prior[pred_class.item()].item()
+                    adj_prob_true = adj_probs[true_label].item()
+                    
+                    self.debug_logger.debug(f"--- Expert {exp_idx} ---")
+                    self.debug_logger.debug(f"  Predicted Class: {pred_class.item()} (Adj Prob: {pred_prob.item():.4f})")
+                    self.debug_logger.debug(f"  -> Raw Logit (Pred): {raw_logit_pred:.4f} | Log Prior (Pred): {log_prior_pred:.4f}")
+                    self.debug_logger.debug(f"  True Class: {true_label} (Adj Prob: {adj_prob_true:.4f})")
+                    self.debug_logger.debug(f"  -> Raw Logit (True): {raw_logit_true:.4f} | Log Prior (True): {log_prior_true:.4f}")
+                
+                self.debug_logger.debug(f"--- Gate & Mixture ---")
+                self.debug_logger.debug(f"Gate Weights: {weights[0].cpu().numpy()}")
+                self.debug_logger.debug(f"Mixture Prob (True Class): {mix_prob[0, true_label].item():.4f}")
+                self.debug_logger.debug("="*70)
+
             all_p_mix.append(mix_prob.cpu().numpy())
             all_labels.append(labels.numpy())
             
@@ -202,17 +264,17 @@ class GateTrainer(BaseTrainer):
         total_correct = 0
         total_samples = 0
         with torch.no_grad():
-            for images, labels in self.val_loader:
+            for images, labels in self.tune_loader:
                 images = images.to(self.device, non_blocking=True)
                 labels = labels.to(self.device, non_blocking=True)
                 B = images.size(0)
                 
                 logits_list, _ = self.model(images)
-                phi = compute_gate_features(logits_list)
+                probs = self.get_adjusted_probs(logits_list)
+                phi = compute_gate_features(logits_list, probs)
+                
                 gate_logits = self.gate(phi)
                 weights = F.softmax(gate_logits, dim=1)
-                
-                probs = [F.softmax(logits, dim=1) for logits in logits_list]
                 
                 k = getattr(self.cfg, 'routing_sparsity', 2)
                 topk_weights, topk_indices = torch.topk(weights, k, dim=1)
@@ -254,44 +316,53 @@ class GateTrainer(BaseTrainer):
             self.gate.load_state_dict(checkpoint['gate_state_dict'])
             print(f"[INFO] Loaded gate checkpoint from {gate_checkpoint_path}")
 
-        print("[INFO] Extracting posteriors for Gate Split (Tuning)...")
-        p_mix_tune, labels_tune = self.extract_posteriors(self.gate_loader)
+        # FIX: Tune on D_val (tune_loader) and evaluate on D_test (test_loader) to prevent data leakage
+        print("[INFO] Extracting posteriors for Val Split (Tuning)...")
+        p_mix_tune, labels_tune = self.extract_posteriors(self.tune_loader)
         
         print("[INFO] Extracting posteriors for Test Split (Evaluation)...")
-        p_mix_test, labels_test = self.extract_posteriors(self.val_loader)
+        p_mix_test, labels_test = self.extract_posteriors(self.test_loader)
+        
+        if self.debug:
+            true_probs_mix = p_mix_test[np.arange(len(labels_test)), labels_test]
+            nll_mix = -np.mean(np.log(true_probs_mix + 1e-8))
+            self.debug_logger.debug(f"Test Mixture NLL: {nll_mix:.4f}")
         
         group_ids = define_groups(self.cfg.cls_num_list)
         target_rejections = np.arange(0.0, 1.1, 0.1)
         
-        algo = getattr(self.cfg, 'plugin_algo', 'Bal')
-        print(f"\n[INFO] Tuning Plug-in [{algo}] parameters on Gate Split...")
+        print("\n[INFO] Tuning Plug-in [Bal] parameters on Val Split...")
+        tuned_params_bal = tune_plugin_bal(p_mix_tune, labels_tune, group_ids, target_rejections)
         
-        if algo == 'Bal':
-            tuned_params = tune_plugin_bal(p_mix_tune, labels_tune, group_ids, target_rejections)
-        else:
-            tuned_params = tune_plugin_worst(p_mix_tune, labels_tune, group_ids, target_rejections)
-            
+        print("[INFO] Tuning Plug-in [Worst] parameters on Val Split...")
+        tuned_params_worst = tune_plugin_worst(p_mix_tune, labels_tune, group_ids, target_rejections)
+        
+        params_bal_0 = tuned_params_bal.get(0.0)
+        params_worst_0 = tuned_params_worst.get(0.0)
+        
         print("\n" + "="*70)
-        print(f"STAGE 3: PLUG-IN [{algo}] EVALUATION RESULTS (TEST SET)")
+        print("CRISP PAPER TABLE 3 REPLICATION (TEST SET)")
         print("="*70)
-        print(f"{'Target Rej':<12} | {'Actual Cov':<12} | {'Bal Risk':<10} | {'Bal Acc':<10}")
+        print(f"{'Method':<25} | {'AURCbal':<10} | {'AURCwst':<10} | {'NLL':<10} | {'Brier':<10} | {'tail-ECE':<10}")
         print("-"*70)
         
-        for rho in target_rejections:
-            if rho not in tuned_params:
-                continue
-                
-            p = tuned_params[rho]
-            preds, reject, cov, risk = compute_plugin_metrics(
-                p_mix_test, labels_test, group_ids, p['alpha'], p['mu'], p['c']
+        if params_bal_0:
+            metrics_bal = compute_paper_metrics(
+                p_mix_test, labels_test, group_ids, 
+                params_bal_0['alpha'], params_bal_0['mu']
             )
+            print(f"{'CRISP+Plug-in[Bal]':<25} | {metrics_bal['AURCbal']:<10.4f} | {metrics_bal['AURCwst']:<10.4f} | {metrics_bal['NLL']:<10.4f} | {metrics_bal['Brier']:<10.4f} | {metrics_bal['tail-ECE']:<10.4f}")
             
-            # Balanced Accuracy = 1 - Risk (evaluated only on non-rejected samples)
-            # If coverage is 0, accuracy is undefined
-            bal_acc = (1.0 - risk) * 100 if cov > 0 else 0.0
+        if params_worst_0:
+            metrics_worst = compute_paper_metrics(
+                p_mix_test, labels_test, group_ids, 
+                params_worst_0['alpha'], params_worst_0['mu']
+            )
+            print(f"{'CRISP+Plug-in[Worst]':<25} | {metrics_worst['AURCbal']:<10.4f} | {metrics_worst['AURCwst']:<10.4f} | {metrics_worst['NLL']:<10.4f} | {metrics_worst['Brier']:<10.4f} | {metrics_worst['tail-ECE']:<10.4f}")
             
-            print(f"{rho*100:>10.1f}% | {cov*100:>10.2f}% | {risk:>10.4f} | {bal_acc:>9.2f}%")
-            
+        print("="*70)
+        print("Paper Reference (CRISP):    | 0.253      | 0.302      | 1.18       | 0.403      | 0.088      ")
+        print("Paper Reference (CRISP):    | 0.233      | 0.248      | 1.18       | 0.403      | 0.088      ")
         print("="*70)
 
     def eval_best_model(self):
