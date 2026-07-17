@@ -15,6 +15,40 @@ from ..utils.utils import AverageMeter
 from ..utils.plugin_rule import define_groups, tune_plugin_bal, tune_plugin_worst, compute_paper_metrics
 from ..net.network import build_model
 
+class ExpertEnsemble(nn.Module):
+    """Wrapper to hold the 3 independent expert models."""
+    def __init__(self, cfg, device):
+        super().__init__()
+        self.experts = nn.ModuleList()
+        
+        # FIX: Use expert_ckpt_dir if provided, otherwise fallback to root_model
+        expert_dir = getattr(cfg, 'expert_ckpt_dir', cfg.root_model)
+        
+        for i in range(3):
+            model = build_model(cfg)
+            # Match bias setting used during training
+            if i == 0: # CE
+                model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=True).to(device)
+            else:      # LA, BS
+                model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=False).to(device)
+            
+            ckpt_path = os.path.join(expert_dir, f"expert_{i}.pth")
+            print(f"[INFO] Loading expert {i} from {ckpt_path}")
+            ckpt = torch.load(ckpt_path, map_location=device)
+            model.load_state_dict(ckpt['state_dict'])
+            for param in model.parameters():
+                param.requires_grad = False
+            model.eval()
+            self.experts.append(model)
+
+    @torch.no_grad()
+    def forward(self, x):
+        logits_list = []
+        for expert in self.experts:
+            logits, _ = expert(x)
+            logits_list.append(logits)
+        return logits_list, None
+
 class GateMLP(nn.Module):
     def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3):
         super().__init__()
@@ -38,22 +72,12 @@ class GateTrainer(BaseTrainer):
             self.debug_logger.debug("GateTrainer initialization started.")
 
         super(GateTrainer, self).__init__(cfg, dataset, **kwargs)
-        self.expert_checkpoint = cfg.expert_checkpoint
-        if self.expert_checkpoint is None:
-            raise ValueError("GateTrainer requires a pre-trained expert model checkpoint via --best_model")
         self.device = torch.device(cfg.device if torch.cuda.is_available() else 'cpu')
         
-        orig_strategy = self.cfg.strategy
-        self.cfg.strategy = 'Experts'
-        self.model = build_model(self.cfg)
-        self.cfg.strategy = orig_strategy
-
-        checkpoint = torch.load(self.expert_checkpoint, map_location=self.device)
-        self.model.load_state_dict(checkpoint['state_dict'])
-        for param in self.model.parameters():
-            param.requires_grad = False
+        # Load the 3 independent experts
+        self.model = ExpertEnsemble(cfg, self.device).to(self.device)
         self.model.eval()
-        print("[INFO] Expert model loaded and frozen.")
+        print("[INFO] Expert ensemble loaded and frozen.")
 
         cls_num_list = torch.FloatTensor(self.cfg.cls_num_list)
         probs = cls_num_list / cls_num_list.sum()
@@ -123,15 +147,14 @@ class GateTrainer(BaseTrainer):
 
     def get_adjusted_probs(self, logits_list):
         """
-        FIX: Map all experts back to the true posterior eta(x) using adjusted softmax.
-        Expert 1 (CE): raw logits -> softmax(z)
-        Expert 2 (LA): logits - log_prior -> softmax(z - log_prior)
-        Expert 3 (BS): logits + log_prior -> softmax(z + log_prior)
+        FIX: Apply temperature scaling T=3.0 to prevent softmax saturation.
+        This restores continuous posterior shapes, fulfilling the paper's assumption.
         """
+        T = 3.0
         return [
-            F.softmax(logits_list[0], dim=1),
-            F.softmax(logits_list[1] - self.log_prior, dim=1),
-            F.softmax(logits_list[2] + self.log_prior, dim=1)
+            F.softmax(logits_list[0] / T, dim=1),
+            F.softmax((logits_list[1] - self.log_prior) / T, dim=1),
+            F.softmax((logits_list[2] + self.log_prior) / T, dim=1)
         ]
 
     def train_one_epoch(self, epoch):
@@ -147,7 +170,6 @@ class GateTrainer(BaseTrainer):
             with torch.no_grad():
                 logits_list, _ = self.model(images)
 
-            # FIX: Use ADJUSTED probabilities for gate features to reflect true posterior signals
             adj_probs = self.get_adjusted_probs(logits_list)
             phi = compute_gate_features(logits_list, adj_probs)
             
@@ -207,7 +229,6 @@ class GateTrainer(BaseTrainer):
             
             logits_list, _ = self.model(images)
             
-            # FIX: Use ADJUSTED probabilities for gate features
             adj_probs = self.get_adjusted_probs(logits_list)
             phi = compute_gate_features(logits_list, adj_probs)
             
@@ -227,33 +248,6 @@ class GateTrainer(BaseTrainer):
                 expert_probs = stacked_probs[torch.arange(images.size(0)), idx, :]
                 mix_prob += w * expert_probs
 
-            if self.debug and batch_idx == 0:
-                self.debug_logger.debug("="*70)
-                self.debug_logger.debug("DETAILED DEBUGGING POSTERIOR EXTRACTION (First Batch)")
-                true_label = labels[0].item()
-                self.debug_logger.debug(f"True Label for Sample 0: {true_label}")
-                
-                for exp_idx in range(3):
-                    raw_logits = logits_list[exp_idx][0]
-                    adj_p = adj_probs[exp_idx][0]
-                    pred_prob, pred_class = torch.max(adj_p, dim=0)
-                    raw_logit_true = raw_logits[true_label].item()
-                    raw_logit_pred = raw_logits[pred_class.item()].item()
-                    log_prior_true = self.log_prior[true_label].item()
-                    log_prior_pred = self.log_prior[pred_class.item()].item()
-                    adj_prob_true = adj_p[true_label].item()
-                    
-                    self.debug_logger.debug(f"--- Expert {exp_idx} ---")
-                    self.debug_logger.debug(f"  Predicted Class: {pred_class.item()} (Adj Prob: {pred_prob.item():.4f})")
-                    self.debug_logger.debug(f"  -> Raw Logit (Pred): {raw_logit_pred:.4f} | Log Prior (Pred): {log_prior_pred:.4f}")
-                    self.debug_logger.debug(f"  True Class: {true_label} (Adj Prob: {adj_prob_true:.4f})")
-                    self.debug_logger.debug(f"  -> Raw Logit (True): {raw_logit_true:.4f} | Log Prior (True): {log_prior_true:.4f}")
-                
-                self.debug_logger.debug(f"--- Gate & Mixture ---")
-                self.debug_logger.debug(f"Gate Weights: {weights[0].cpu().numpy()}")
-                self.debug_logger.debug(f"Mixture Prob (True Class): {mix_prob[0, true_label].item():.4f}")
-                self.debug_logger.debug("="*70)
-
             all_p_mix.append(mix_prob.cpu().numpy())
             all_labels.append(labels.numpy())
             
@@ -270,7 +264,6 @@ class GateTrainer(BaseTrainer):
                 B = images.size(0)
                 
                 logits_list, _ = self.model(images)
-                # FIX: Use ADJUSTED probabilities for gate features
                 adj_probs = self.get_adjusted_probs(logits_list)
                 phi = compute_gate_features(logits_list, adj_probs)
                 
@@ -322,11 +315,6 @@ class GateTrainer(BaseTrainer):
         
         print("[INFO] Extracting posteriors for Test Split (Evaluation)...")
         p_mix_test, labels_test = self.extract_posteriors(self.test_loader)
-        
-        if self.debug:
-            true_probs_mix = p_mix_test[np.arange(len(labels_test)), labels_test]
-            nll_mix = -np.mean(np.log(true_probs_mix + 1e-8))
-            self.debug_logger.debug(f"Test Mixture NLL: {nll_mix:.4f}")
         
         group_ids = define_groups(self.cfg.cls_num_list)
         

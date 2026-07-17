@@ -4,16 +4,11 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 import imbalanceddl.net as backbone
 
-model_names = sorted(name for name in backbone.__dict__
-                     if name.islower() and not name.startswith("__")
-                     and callable(backbone.__dict__[name]))
-
 class NormedLinear(nn.Module):
     def __init__(self, in_features, out_features, s=30.0):
         super(NormedLinear, self).__init__()
         self.weight = Parameter(torch.Tensor(in_features, out_features))
         self.weight.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
-        # FIX: Add scale factor to prevent logits from collapsing to [-1, 1]
         self.s = s
 
     def forward(self, x):
@@ -26,21 +21,13 @@ class Network(nn.Module):
         self.cfg = cfg
         self.num_classes = self._get_num_classes()
         self.feature_len = self._get_feature_len()
-        
-        self.is_experts = (self.cfg.strategy == 'Experts')
-        
-        # Shared backbone for all experts
         self.backbone = self._get_backbone()
         self.classifier = self._get_classifier()
 
     def forward(self, x, **kwargs):
         hidden = self.backbone(x)
-        if isinstance(self.classifier, nn.ModuleList):
-            out = [clf(hidden) for clf in self.classifier]
-            return out, [hidden] * len(self.classifier)
-        else:
-            out = self.classifier(hidden)
-            return out, hidden
+        out = self.classifier(hidden)
+        return out, hidden
 
     def _get_feature_len(self):
         if self.cfg.backbone == 'resnet32':
@@ -62,35 +49,15 @@ class Network(nn.Module):
 
     def _get_backbone(self):
         if self.cfg.backbone is not None:
-            print("=> Initializing shared backbone : {}".format(self.cfg.backbone))
-            my_backbone = backbone.__dict__[self.cfg.backbone]()
-            return my_backbone
-        else:
-            raise ValueError("=> No backbone is specified !")
+            print("=> Initializing backbone : {}".format(self.cfg.backbone))
+            return backbone.__dict__[self.cfg.backbone]()
+        raise ValueError("=> No backbone is specified !")
 
     def _get_classifier(self):
         if self.cfg.classifier is not None:
             if self.cfg.strategy == 'LDAM_DRW':
-                print("=> Due to LDAM, change classifier to cosine similarity classifier !")
                 self.cfg.classifier = 'cosine_similarity_classifier'
                 
-            if self.is_experts:
-                print("=> Initializing 3 distinct expert heads on shared backbone")
-                if self.cfg.classifier == 'dot_product_classifier':
-                    # FIX: CE needs bias=True. LA and BS use log_prior as bias, so bias=False.
-                    return nn.ModuleList([
-                        nn.Linear(self.feature_len, self.num_classes, bias=True),  # CE
-                        nn.Linear(self.feature_len, self.num_classes, bias=False), # LA
-                        nn.Linear(self.feature_len, self.num_classes, bias=False)  # BS
-                    ])
-                elif self.cfg.classifier == 'cosine_similarity_classifier':
-                    return nn.ModuleList([
-                        NormedLinear(self.feature_len, self.num_classes) 
-                        for _ in range(3)
-                    ])
-                else:
-                    raise NotImplementedError
-                    
             print("=> Initializing classifier: {}".format(self.cfg.classifier))
             if self.cfg.classifier == 'dot_product_classifier':
                 return nn.Linear(self.feature_len, self.num_classes, bias=False)
@@ -98,17 +65,13 @@ class Network(nn.Module):
                 return NormedLinear(self.feature_len, self.num_classes)
             else:
                 raise NotImplementedError
-        else:
-            raise ValueError("=> No classifier is specified !")
+        raise ValueError("=> No classifier is specified !")
 
 def build_model(cfg):
     model = Network(cfg)
-
     if cfg.gpu is not None:
-        print("=> Use GPU {} for training".format(cfg.gpu))
         torch.cuda.set_device(cfg.gpu)
         model = model.cuda(cfg.gpu)
     else:
-        print("=> Use DataParallel for training")
         model = torch.nn.DataParallel(model).cuda()
     return model
