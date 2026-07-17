@@ -77,10 +77,11 @@ class Network(nn.Module):
             if self.is_experts:
                 print("=> Initializing 3 distinct expert heads on shared backbone")
                 if self.cfg.classifier == 'dot_product_classifier':
-                    # MUST use bias=False for LA and BS to work properly
+                    # FIX: CE needs bias=True. LA and BS use log_prior as bias, so bias=False.
                     return nn.ModuleList([
-                        nn.Linear(self.feature_len, self.num_classes, bias=False) 
-                        for _ in range(3)
+                        nn.Linear(self.feature_len, self.num_classes, bias=True),  # CE
+                        nn.Linear(self.feature_len, self.num_classes, bias=False), # LA
+                        nn.Linear(self.feature_len, self.num_classes, bias=False)  # BS
                     ])
                 elif self.cfg.classifier == 'cosine_similarity_classifier':
                     return nn.ModuleList([

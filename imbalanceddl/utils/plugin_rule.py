@@ -46,11 +46,12 @@ def compute_plugin_metrics(p_mix, labels, group_ids, alpha, mu, c, beta=None):
         
     return preds, reject, coverage, bal_risk, wst_risk
 
-def tune_plugin_bal(p_mix, labels, group_ids, target_rejections):
+def tune_plugin_bal(p_mix, labels, group_ids):
     K = len(np.unique(group_ids))
     beta = np.ones(K) / K
     mu_delta_grid = [-5, -2, -1, 0, 1, 2, 3, 5, 6, 8, 11, 15, 20]
-    best_params = {}
+    best_aurc = 1e9
+    best_params = None
     
     for mu_delta in mu_delta_grid:
         mu = np.zeros(K)
@@ -58,56 +59,44 @@ def tune_plugin_bal(p_mix, labels, group_ids, target_rejections):
         if K > 1:
             mu[1:] = mu_delta
             
-        for rho in target_rejections:
-            alpha = np.ones(K) / K * (1.0 - rho)
+        # FIX: Tune alpha via fixed point at a nominal rho=0.5 to get a stable alpha for AURC evaluation
+        rho_tune = 0.5
+        alpha = np.ones(K) / K * (1.0 - rho_tune)
+        for _ in range(20):
+            alpha_safe = np.clip(alpha, 1e-6, 1.0)
+            W = beta[group_ids] / alpha_safe[group_ids]
+            M = mu[group_ids]
+            Wp = p_mix * W
+            S_max = np.max(Wp, axis=1)
+            S_sum = np.sum(p_mix * (W - M), axis=1)
+            margin = S_sum - S_max
             
-            for _ in range(20):
-                alpha_safe = np.clip(alpha, 1e-6, 1.0)
-                W = beta[group_ids] / alpha_safe[group_ids]
-                M = mu[group_ids]
-                Wp = p_mix * W
-                S_max = np.max(Wp, axis=1)
-                S_sum = np.sum(p_mix * (W - M), axis=1)
-                margin = S_sum - S_max
-                
-                c = np.percentile(margin, 100.0 * (1.0 - rho))
-                
-                reject = margin > c
-                preds = np.argmax(Wp, axis=1)
-                
-                label_groups = group_ids[labels]
-                alpha_new = np.zeros(K)
-                for k in range(K):
-                    alpha_new[k] = np.mean((~reject) & (label_groups == k))
-                alpha_new = np.clip(alpha_new, 1e-6, 1.0)
-                alpha = 0.5 * alpha + 0.5 * alpha_new
-                # FIX: Clamp alpha to prevent W from exploding and causing a feedback loop
-                alpha = np.clip(alpha, 0.01 * (1.0 - rho), 1.0)
-                
-            _, _, cov, risk, _ = compute_plugin_metrics(p_mix, labels, group_ids, alpha, mu, c, beta)
+            c = np.percentile(margin, 100.0 * (1.0 - rho_tune))
             
-            key = (rho, mu_delta)
-            if key not in best_params or risk < best_params[key]['risk']:
-                best_params[key] = {'alpha': alpha.copy(), 'mu': mu.copy(), 'c': c, 'risk': risk, 'coverage': cov}
-                
-    final_params = {}
-    for rho in target_rejections:
-        best_risk = 1e9
-        best_p = None
-        for mu_delta in mu_delta_grid:
-            p = best_params.get((rho, mu_delta))
-            if p and p['risk'] < best_risk:
-                best_risk = p['risk']
-                best_p = p
-        if best_p:
-            final_params[rho] = best_p
-    return final_params
+            reject = margin > c
+            preds = np.argmax(Wp, axis=1)
+            
+            label_groups = group_ids[labels]
+            alpha_new = np.zeros(K)
+            for k in range(K):
+                alpha_new[k] = np.mean((~reject) & (label_groups == k))
+            alpha_new = np.clip(alpha_new, 1e-6, 1.0)
+            alpha = 0.5 * alpha + 0.5 * alpha_new
+            alpha = np.clip(alpha, 0.01 * (1.0 - rho_tune), 1.0)
+            
+        metrics = compute_paper_metrics(p_mix, labels, group_ids, alpha, mu)
+        if metrics['AURCbal'] < best_aurc:
+            best_aurc = metrics['AURCbal']
+            best_params = {'alpha': alpha.copy(), 'mu': mu.copy()}
+            
+    return best_params
 
-def tune_plugin_worst(p_mix, labels, group_ids, target_rejections):
+def tune_plugin_worst(p_mix, labels, group_ids):
     K = len(np.unique(group_ids))
     beta = np.ones(K) / K
     mu_delta_grid = [1, 6, 11]
-    best_params = {}
+    best_aurc = 1e9
+    best_params = None
     
     for mu_delta in mu_delta_grid:
         mu = np.zeros(K)
@@ -115,57 +104,43 @@ def tune_plugin_worst(p_mix, labels, group_ids, target_rejections):
         if K > 1:
             mu[1:] = mu_delta
             
-        for rho in target_rejections:
-            alpha = np.ones(K) / K * (1.0 - rho)
+        rho_tune = 0.5
+        alpha = np.ones(K) / K * (1.0 - rho_tune)
+        for _ in range(25):
+            alpha_safe = np.clip(alpha, 1e-6, 1.0)
+            W = beta[group_ids] / alpha_safe[group_ids]
+            M = mu[group_ids]
+            Wp = p_mix * W
+            S_max = np.max(Wp, axis=1)
+            S_sum = np.sum(p_mix * (W - M), axis=1)
+            margin = S_sum - S_max
             
-            for _ in range(25):
-                alpha_safe = np.clip(alpha, 1e-6, 1.0)
-                W = beta[group_ids] / alpha_safe[group_ids]
-                M = mu[group_ids]
-                Wp = p_mix * W
-                S_max = np.max(Wp, axis=1)
-                S_sum = np.sum(p_mix * (W - M), axis=1)
-                margin = S_sum - S_max
-                
-                c = np.percentile(margin, 100.0 * (1.0 - rho))
-                
-                reject = margin > c
-                preds = np.argmax(Wp, axis=1)
-                
-                label_groups = group_ids[labels]
-                grad = np.zeros(K)
-                for k in range(K):
-                    idx_k = (label_groups == k) & (~reject)
-                    if np.sum(idx_k) > 0:
-                        err = np.sum(preds[idx_k] != labels[idx_k])
-                        grad[k] = err / np.sum(idx_k)
-                    else:
-                        grad[k] = 1.0
-                        
-                alpha = alpha * np.exp(1.0 * grad)
-                alpha = np.clip(alpha, 1e-6, 1.0)
-                alpha = alpha / alpha.sum() * (1.0 - rho)
-                # FIX: Clamp alpha to prevent W from exploding
-                alpha = np.clip(alpha, 0.01 * (1.0 - rho), 1.0)
-                
-            _, _, cov, _, wst_risk = compute_plugin_metrics(p_mix, labels, group_ids, alpha, mu, c, beta)
+            c = np.percentile(margin, 100.0 * (1.0 - rho_tune))
             
-            key = (rho, mu_delta)
-            if key not in best_params or wst_risk < best_params[key]['risk']:
-                best_params[key] = {'alpha': alpha.copy(), 'mu': mu.copy(), 'c': c, 'risk': wst_risk, 'coverage': cov}
-                
-    final_params = {}
-    for rho in target_rejections:
-        best_risk = 1e9
-        best_p = None
-        for mu_delta in mu_delta_grid:
-            p = best_params.get((rho, mu_delta))
-            if p and p['risk'] < best_risk:
-                best_risk = p['risk']
-                best_p = p
-        if best_p:
-            final_params[rho] = best_p
-    return final_params
+            reject = margin > c
+            preds = np.argmax(Wp, axis=1)
+            
+            label_groups = group_ids[labels]
+            grad = np.zeros(K)
+            for k in range(K):
+                idx_k = (label_groups == k) & (~reject)
+                if np.sum(idx_k) > 0:
+                    err = np.sum(preds[idx_k] != labels[idx_k])
+                    grad[k] = err / np.sum(idx_k)
+                else:
+                    grad[k] = 1.0
+                    
+            alpha = alpha * np.exp(1.0 * grad)
+            alpha = np.clip(alpha, 1e-6, 1.0)
+            alpha = alpha / alpha.sum() * (1.0 - rho_tune)
+            alpha = np.clip(alpha, 0.01 * (1.0 - rho_tune), 1.0)
+            
+        metrics = compute_paper_metrics(p_mix, labels, group_ids, alpha, mu)
+        if metrics['AURCwst'] < best_aurc:
+            best_aurc = metrics['AURCwst']
+            best_params = {'alpha': alpha.copy(), 'mu': mu.copy()}
+            
+    return best_params
 
 def compute_paper_metrics(p_mix, labels, group_ids, alpha, mu, beta=None):
     N, C = p_mix.shape
@@ -226,21 +201,17 @@ def compute_paper_metrics(p_mix, labels, group_ids, alpha, mu, beta=None):
     for k in range(K):
         valid = cum_count[:, k] > 0
         risk[valid, k] = cum_err[valid, k] / cum_count[valid, k]
-        # FIX: Use NaN for missing groups so they don't artificially inflate the average
         risk[~valid, k] = np.nan 
         
-    # FIX: Use nanmean and nanmax to ignore missing groups
     with np.errstate(invalid='ignore'):
         bal_risks = np.nanmean(risk, axis=1)
         wst_risks = np.nanmax(risk, axis=1)
         
-    # FIX: Prepend coverage 0 with risk 0 for proper AURC integration
     coverages = np.arange(1, N + 1) / N
     coverages = np.insert(coverages, 0, 0.0)
     bal_risks = np.insert(bal_risks, 0, 0.0)
     wst_risks = np.insert(wst_risks, 0, 0.0)
     
-    # Fill any NaNs that might occur at the very first index if all groups are missing
     bal_risks = np.nan_to_num(bal_risks, nan=0.0)
     wst_risks = np.nan_to_num(wst_risks, nan=0.0)
     

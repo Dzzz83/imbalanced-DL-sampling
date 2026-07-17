@@ -4,8 +4,7 @@ num_classes: 100
 imb_type: exp
 imb_factor: 0.01
 data_path: ./data
-# FIX: Change to cosine similarity to bound logits and prevent saturation
-classifier: 'cosine_similarity_classifier'
+classifier: 'dot_product_classifier'
 augmentation: weak
 
 # Selection Settings (no selection)
@@ -46,7 +45,7 @@ cifar_root: ./data
 
 # Hardware
 device: cuda
-gpu: 0
+gpu: 1
 
 # Seed
 seed: 42

@@ -40,6 +40,11 @@ class ExpertsTrainer(BaseTrainer):
         self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
         self.criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
         self.losses = [self.criterion_ce, self.criterion_la, self.criterion_bs]
+        
+        # FIX: Define log_prior for proper posterior adjustment during validation
+        cls_num_list = torch.FloatTensor(self.cls_num_list)
+        probs = cls_num_list / cls_num_list.sum()
+        self.log_prior = probs.log().to(self.device)
 
         self.optimizer = optim.SGD(
             self.model.parameters(),
@@ -103,7 +108,6 @@ class ExpertsTrainer(BaseTrainer):
             for i, logits in enumerate(experts_logits):
                 loss += self.losses[i](logits, targets)
             
-            # FIX: Average the loss so the shared backbone doesn't receive 3x gradients (effective LR 1.2)
             loss = loss / 3.0
             
             loss.backward()
@@ -120,7 +124,12 @@ class ExpertsTrainer(BaseTrainer):
                     gap = max_logit.item() - true_logit
                     self.debug_logger.debug(f"  Expert {i}: True Logit={true_logit:.4f}, Max Logit={max_logit.item():.4f} (Class {pred_class.item()}), Gap={gap:.4f}")
 
-            probs = [torch.softmax(logits, dim=1) for logits in experts_logits]
+            # FIX: Use adjusted posteriors for accurate validation metrics
+            probs = [
+                torch.softmax(experts_logits[0], dim=1),
+                torch.softmax(experts_logits[1] - self.log_prior, dim=1),
+                torch.softmax(experts_logits[2] + self.log_prior, dim=1)
+            ]
             avg_probs = torch.stack(probs, dim=0).mean(dim=0)
             _, predicted = avg_probs.max(1)
             acc = predicted.eq(targets).sum().item() / targets.size(0)
@@ -151,7 +160,12 @@ class ExpertsTrainer(BaseTrainer):
                     self.debug_logger.debug(f"  Expert {i}: True Logit={true_logit:.4f}, Max Logit={max_logit.item():.4f} (Class {pred_class.item()}), Gap={gap:.4f}")
                 self._val_logged = True
 
-            probs = [torch.softmax(logits, dim=1) for logits in experts_logits]
+            # FIX: Use adjusted posteriors for accurate validation metrics
+            probs = [
+                torch.softmax(experts_logits[0], dim=1),
+                torch.softmax(experts_logits[1] - self.log_prior, dim=1),
+                torch.softmax(experts_logits[2] + self.log_prior, dim=1)
+            ]
             avg_probs = torch.stack(probs, dim=0).mean(dim=0)
 
             _, predicted = avg_probs.max(1)
@@ -184,14 +198,19 @@ class ExpertsTrainer(BaseTrainer):
                     self.debug_logger.debug(f"  Expert {i}: True Logit={true_logit:.4f}, Max Logit={max_logit.item():.4f} (Class {pred_class.item()}), Gap={gap:.4f}")
                 self._logged_individual = True
 
-            probs = [torch.softmax(logits, dim=1) for logits in experts_logits]
+            # FIX: Use adjusted posteriors for accurate validation metrics
+            probs = [
+                torch.softmax(experts_logits[0], dim=1),
+                torch.softmax(experts_logits[1] - self.log_prior, dim=1),
+                torch.softmax(experts_logits[2] + self.log_prior, dim=1)
+            ]
             avg_probs = torch.stack(probs, dim=0).mean(dim=0)
             _, pred_avg = avg_probs.max(1)
             acc_avg = pred_avg.eq(targets).sum().item() / targets.size(0)
             top1_avg.update(acc_avg, targets.size(0))
 
-            for i, logits in enumerate(experts_logits):
-                _, pred_i = logits.max(1)
+            for i, prob in enumerate(probs):
+                _, pred_i = prob.max(1)
                 acc_i = pred_i.eq(targets).sum().item() / targets.size(0)
                 top1_heads[i].update(acc_i, targets.size(0))
 
