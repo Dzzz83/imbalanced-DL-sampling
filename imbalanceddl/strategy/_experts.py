@@ -98,11 +98,8 @@ class ExpertsTrainer(BaseTrainer):
             print(f"\n{'='*50}\n[INFO] Training Independent Expert {i} ({self.loss_names[i]})\n{'='*50}")
             model = build_model(self.cfg)
             
-            # FIX: Dynamically set bias. CE needs bias=True to prevent logit explosion. LA/BS need bias=False.
-            if i == 0: # CE
-                model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=True).to(self.device)
-            else:      # LA, BS
-                model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=False).to(self.device)
+            # FIX: Revert to bias=True for all experts to restore representation learning
+            model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=True).to(self.device)
                 
             optimizer = optim.SGD(model.parameters(), lr=self.cfg.learning_rate, momentum=self.cfg.momentum, weight_decay=self.cfg.weight_decay)
             

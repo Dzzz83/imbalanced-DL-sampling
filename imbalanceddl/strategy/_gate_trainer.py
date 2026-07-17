@@ -21,16 +21,12 @@ class ExpertEnsemble(nn.Module):
         super().__init__()
         self.experts = nn.ModuleList()
         
-        # FIX: Use expert_ckpt_dir if provided, otherwise fallback to root_model
         expert_dir = getattr(cfg, 'expert_ckpt_dir', cfg.root_model)
         
         for i in range(3):
             model = build_model(cfg)
-            # Match bias setting used during training
-            if i == 0: # CE
-                model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=True).to(device)
-            else:      # LA, BS
-                model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=False).to(device)
+            # FIX: Revert to bias=True
+            model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=True).to(device)
             
             ckpt_path = os.path.join(expert_dir, f"expert_{i}.pth")
             print(f"[INFO] Loading expert {i} from {ckpt_path}")
@@ -48,7 +44,7 @@ class ExpertEnsemble(nn.Module):
             logits, _ = expert(x)
             logits_list.append(logits)
         return logits_list, None
-
+    
 class GateMLP(nn.Module):
     def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3):
         super().__init__()
@@ -147,10 +143,11 @@ class GateTrainer(BaseTrainer):
 
     def get_adjusted_probs(self, logits_list):
         """
-        FIX: Apply temperature scaling T=3.0 to prevent softmax saturation.
-        This restores continuous posterior shapes, fulfilling the paper's assumption.
+        FIX: Apply temperature scaling T=2.0 to prevent softmax saturation.
+        This softens the probabilities, restoring variance to gate features
+        and preventing NLL explosion when experts disagree.
         """
-        T = 3.0
+        T = 2.0
         return [
             F.softmax(logits_list[0] / T, dim=1),
             F.softmax((logits_list[1] - self.log_prior) / T, dim=1),

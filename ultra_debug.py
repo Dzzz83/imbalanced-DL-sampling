@@ -52,10 +52,8 @@ def main():
     models = []
     for i in range(3):
         m = build_model(cfg)
-        if i == 0: 
-            m.classifier = torch.nn.Linear(m.feature_len, m.num_classes, bias=True).to(device)
-        else:      
-            m.classifier = torch.nn.Linear(m.feature_len, m.num_classes, bias=False).to(device)
+        # FIX: Revert to bias=True
+        m.classifier = torch.nn.Linear(m.feature_len, m.num_classes, bias=True).to(device)
             
         ckpt = torch.load(os.path.join(experts_dir, f"expert_{i}.pth"), map_location=device)
         m.load_state_dict(ckpt['state_dict'])
@@ -98,7 +96,8 @@ def main():
     print("DIAGNOSTIC 2: STRUCTURAL DIVERSITY & ORACLE ACCURACY")
     print("="*80)
     
-    T = 3.0
+    # FIX: Apply T=2.0 to prevent saturation and restore posterior shapes
+    T = 2.0
     adj_probs = [
         F.softmax(all_logits[0] / T, dim=1),
         F.softmax((all_logits[1] - log_prior) / T, dim=1),
@@ -116,12 +115,19 @@ def main():
         print(f"Exp {i}     | {acc_overall:<10.2f} | {acc_head:<10.2f} | {acc_med:<10.2f} | {acc_tail:<10.2f}")
         
     # ORACLE ACCURACY: If we pick the correct expert for every sample
-    oracle_correct = 0
-    for i in range(len(labels_np)):
-        # An expert is "correct" if its top prediction matches the label
-        if any(adj_probs[e][i].argmax().item() == labels_np[i] for e in range(3)):
-            oracle_correct += 1
-    print(f"\n[INFO] Oracle Ensemble Accuracy (Max Possible): {oracle_correct / len(labels_np) * 100:.2f}%")
+    preds_exp0 = adj_probs[0].argmax(dim=1)
+    preds_exp1 = adj_probs[1].argmax(dim=1)
+    preds_exp2 = adj_probs[2].argmax(dim=1)
+    
+    correct_exp0 = (preds_exp0 == all_labels)
+    correct_exp1 = (preds_exp1 == all_labels)
+    correct_exp2 = (preds_exp2 == all_labels)
+    
+    # Vectorized logical OR: correct if ANY expert is correct
+    oracle_correct = (correct_exp0 | correct_exp1 | correct_exp2).sum().item()
+    oracle_acc = oracle_correct / len(labels_np) * 100
+    
+    print(f"\n[INFO] Oracle Ensemble Accuracy (Max Possible): {oracle_acc:.2f}%")
     print("[INFO] If Oracle Acc is < 45%, the experts are too correlated and CRISP cannot work.")
 
     print("\n" + "="*80)
