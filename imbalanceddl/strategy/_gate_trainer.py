@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import math
+import logging
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset, DataLoader, random_split
 from .base import BaseTrainer
@@ -25,8 +26,8 @@ class ExpertEnsemble(nn.Module):
         
         for i in range(3):
             model = build_model(cfg)
-            # FIX: Revert to bias=True
-            model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=True).to(device)
+            # Enforce bias=False
+            model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=False).to(device)
             
             ckpt_path = os.path.join(expert_dir, f"expert_{i}.pth")
             print(f"[INFO] Loading expert {i} from {ckpt_path}")
@@ -70,7 +71,6 @@ class GateTrainer(BaseTrainer):
         super(GateTrainer, self).__init__(cfg, dataset, **kwargs)
         self.device = torch.device(cfg.device if torch.cuda.is_available() else 'cpu')
         
-        # Load the 3 independent experts
         self.model = ExpertEnsemble(cfg, self.device).to(self.device)
         self.model.eval()
         print("[INFO] Expert ensemble loaded and frozen.")
@@ -105,7 +105,26 @@ class GateTrainer(BaseTrainer):
         self.lambda_bal = cfg.lambda_bal
         self.gate_epochs = cfg.gate_epochs
         self.best_gate_acc = 0.0
+        
+        self._init_file_logger()
         print("[INFO] GateTrainer initialization complete.")
+
+    def _init_file_logger(self):
+        os.makedirs(self.cfg.root_log, exist_ok=True)
+        log_path = os.path.join(self.cfg.root_log, 'gate_debug.log')
+        
+        self.file_logger = logging.getLogger(f"GateDebug_{self.cfg.store_name}")
+        self.file_logger.setLevel(logging.INFO)
+        
+        if self.file_logger.handlers:
+            self.file_logger.handlers.clear()
+            
+        handler = logging.FileHandler(log_path, mode='w')
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+        self.file_logger.addHandler(handler)
+        
+        self.file_logger.info(f"Starting gate training. Store: {self.cfg.store_name}")
+        self.file_logger.info(f"Config - LR: {self.cfg.gate_lr}, WD: {self.cfg.gate_weight_decay}, lambda_ent: {self.lambda_ent}, lambda_bal: {self.lambda_bal}")
 
     def _split_dataset(self):
         targets = np.array(self.train_dataset.targets)
@@ -143,15 +162,13 @@ class GateTrainer(BaseTrainer):
 
     def get_adjusted_probs(self, logits_list):
         """
-        FIX: Apply temperature scaling T=2.0 to prevent softmax saturation.
-        This softens the probabilities, restoring variance to gate features
-        and preventing NLL explosion when experts disagree.
+        Corrected LA sign to + log_prior (log_prior is negative, so this subtracts).
+        No T=2.0 scaling.
         """
-        T = 2.0
         return [
-            F.softmax(logits_list[0] / T, dim=1),
-            F.softmax((logits_list[1] - self.log_prior) / T, dim=1),
-            F.softmax((logits_list[2] + self.log_prior) / T, dim=1)
+            F.softmax(logits_list[0], dim=1),
+            F.softmax(logits_list[1] + self.log_prior, dim=1),
+            F.softmax(logits_list[2] + self.log_prior, dim=1)
         ]
 
     def train_one_epoch(self, epoch):
@@ -159,6 +176,10 @@ class GateTrainer(BaseTrainer):
         total_loss = 0.0
         total_correct = 0
         total_samples = 0
+
+        max_mix_prob = 0.0
+        gate_logit_std = 0.0
+        grad_norm = 0.0
 
         for batch_idx, (images, labels) in enumerate(self.gate_loader):
             images = images.to(self.device, non_blocking=True)
@@ -186,6 +207,10 @@ class GateTrainer(BaseTrainer):
 
             self.optimizer.zero_grad()
             loss.backward()
+            
+            if self.gate.fc3.weight.grad is not None:
+                grad_norm += self.gate.fc3.weight.grad.norm().item()
+            
             self.optimizer.step()
 
             total_loss += loss.item() * images.size(0)
@@ -197,10 +222,22 @@ class GateTrainer(BaseTrainer):
             
             total_correct += pred.eq(labels).sum().item()
             total_samples += images.size(0)
+            
+            max_mix_prob += mix_prob.max().item()
+            gate_logit_std += gate_logits.std(dim=0).mean().item()
 
         avg_loss = total_loss / total_samples
         avg_acc = total_correct / total_samples * 100
+        
+        log_msg = (
+            f"[Gate] Epoch {epoch} | Loss: {avg_loss:.4f} | Acc: {avg_acc:.2f}% | "
+            f"MaxMixProb: {max_mix_prob/len(self.gate_loader):.4f} | "
+            f"GateLogitStd: {gate_logit_std/len(self.gate_loader):.4f} | "
+            f"GradNorm: {grad_norm/len(self.gate_loader):.4f}"
+        )
+        self.file_logger.info(log_msg)
         print(f"[INFO] Gate Epoch {epoch}: Loss={avg_loss:.4f}, Acc={avg_acc:.2f}%")
+              
         return avg_loss, avg_acc
 
     def do_train_val(self):

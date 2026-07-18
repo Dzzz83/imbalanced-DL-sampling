@@ -46,7 +46,6 @@ class LogitAdjustedLoss(nn.Module):
     def __init__(self, cls_num_list, tau=1.0, reduction='mean'):
         super(LogitAdjustedLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
-        # FIX: Normalize to probabilities before taking log to prevent logit explosion
         probs = cls_num_list / cls_num_list.sum()
         self.register_buffer('log_prior', probs.log())
         self.tau = tau
@@ -54,21 +53,24 @@ class LogitAdjustedLoss(nn.Module):
         print(f"[INFO] LogitAdjustedLoss: tau={tau}, log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
-        adjusted_logits = logits - self.tau * self.log_prior
-        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
+        # log_prior is negative, so this correctly subtracts the penalty
+        adjusted_logits = logits + self.tau * self.log_prior
+        # Label smoothing prevents logit explosion and MaxMixProb = 1.0
+        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction, label_smoothing=0.1)
         return loss
 
 class BalancedSoftmaxLoss(nn.Module):
     def __init__(self, cls_num_list, reduction='mean'):
         super(BalancedSoftmaxLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
-        # FIX: Normalize to probabilities before taking log to prevent logit explosion
         probs = cls_num_list / cls_num_list.sum()
         self.register_buffer('log_prior', probs.log())
         self.reduction = reduction
         print(f"[INFO] BalancedSoftmaxLoss: log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
+        # Correctly adds negative log_prior
         adjusted_logits = logits + self.log_prior
-        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
+        # Label smoothing prevents logit explosion and MaxMixProb = 1.0
+        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction, label_smoothing=0.1)
         return loss

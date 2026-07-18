@@ -23,7 +23,7 @@ def get_args():
                     choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW',
                             'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE', 
                             'DeepSMOTE_LAVA', 'LAVA_Reweight', 'ClassBalanced_ERM', 
-                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW', 'SAVA_Mixup_DRW', 'Experts'], # <-- Added SAVA_Mixup_DRW
+                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW', 'SAVA_Mixup_DRW', 'Experts'],
                         help='select strategy for trainer')
     parser.add_argument('--base_strategy', default='ERM', type=str,
                     choices=['ERM', 'Mixup', 'DRW', 'LDAM_DRW', 'Reweight_CB'],
@@ -41,6 +41,7 @@ def get_args():
     parser.add_argument('--net_t', default=None, type=str, help='checkpoint path of network for train')
     parser.add_argument('--net_both', default=None, type=str, help='checkpoint path of both networks')
     parser.add_argument('--backbone', default='resnet32', type=str, help='model type (default: ResNet18)')
+    parser.add_argument('--classifier', default='dot_product_classifier', type=str, help='classifier type')
     parser.add_argument('--effect_over', action='store_true', help='Use effective number in oversampling')
     parser.add_argument('--no_over', dest='over', action='store_false', help='Do not use over-sampling')
     parser.add_argument('--gen', '-gen', action='store_false', help='')
