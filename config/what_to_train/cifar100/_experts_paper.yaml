@@ -1,4 +1,3 @@
-# Dataset Settings
 dataset: cifar100
 num_classes: 100
 imb_type: exp
@@ -16,15 +15,13 @@ strategy: Experts
 loss_type: CE
 base_strategy: ERM
 
-# Expert‑specific hyperparameters
-expert_batch_size: 128
-gating_batch_size: 128
-routing_sparsity: 2
+# Which experts to train (0=CE, 1=LA, 2=BS)
+experts_to_train: [0, 1]          # <-- only CE and LA
 
-# Data split: 90% for experts, 10% held out for gate
+# Data split (90% for experts, 10% held out for gate)
 gate_split_ratio: 0.9
 
-# Hyperparameters (Mapped to Paper)
+# Hyperparameters (paper for CE/LA, tuned for BS)
 epochs: 256
 start_epoch: 0
 print_freq: 10
@@ -37,10 +34,15 @@ rand_number: 42
 workers: 4
 optimizer: sgd
 
+# Per‑expert overrides (order: CE, LA, BS)
+expert_bias: [false, false, true]
+expert_lr: [0.4, 0.4, 0.2]
+expert_weight_decay: [1e-4, 1e-4, 5e-4]
+
 # Logging & Checkpoints
-root_log: results/experts_cifar100
-root_model: checkpoint/experts_cifar100
-store_name: cifar100_exp0.01_Experts_seed42
+root_log: results/experts_paper
+root_model: checkpoint/experts_paper
+store_name: cifar100_exp0.01_Experts_paper_seed42
 cifar_root: ./data
 
 # Hardware
@@ -52,5 +54,5 @@ seed: 42
 
 # Debug and safety checks
 debug: true
-grad_clip_value: 10.0           # Max gradient norm (set to null to disable)
-check_freq: 10                  # Print detailed stats every N epochs
+grad_clip_value: 10.0
+check_freq: 10

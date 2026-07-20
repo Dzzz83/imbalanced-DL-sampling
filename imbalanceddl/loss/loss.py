@@ -46,15 +46,15 @@ class LogitAdjustedLoss(nn.Module):
     def __init__(self, cls_num_list, tau=1.0, reduction='mean'):
         super(LogitAdjustedLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
-        # FIX: Normalize to probabilities before taking log to prevent logit explosion
         probs = cls_num_list / cls_num_list.sum()
         self.register_buffer('log_prior', probs.log())
         self.tau = tau
         self.reduction = reduction
-        print(f"[INFO] LogitAdjustedLoss: tau={tau}, log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
-        adjusted_logits = logits - self.tau * self.log_prior
+        # Move buffer to logits device
+        log_prior = self.log_prior.to(logits.device)
+        adjusted_logits = logits + self.tau * log_prior
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss
 
@@ -62,13 +62,14 @@ class BalancedSoftmaxLoss(nn.Module):
     def __init__(self, cls_num_list, reduction='mean'):
         super(BalancedSoftmaxLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
-        # FIX: Normalize to probabilities before taking log to prevent logit explosion
         probs = cls_num_list / cls_num_list.sum()
         self.register_buffer('log_prior', probs.log())
         self.reduction = reduction
         print(f"[INFO] BalancedSoftmaxLoss: log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
-        adjusted_logits = logits + self.log_prior
+        # FIX: Move log_prior to the same device as logits
+        log_prior = self.log_prior.to(logits.device)
+        adjusted_logits = logits + log_prior
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss

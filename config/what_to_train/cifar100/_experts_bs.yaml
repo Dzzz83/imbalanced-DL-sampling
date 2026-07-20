@@ -1,0 +1,38 @@
+dataset: cifar100
+num_classes: 100
+imb_type: exp
+imb_factor: 0.01
+data_path: ./data
+classifier: 'dot_product_classifier'
+augmentation: weak
+
+strategy: Experts
+epochs: 256
+batch_size: 128
+learning_rate: 0.2
+momentum: 0.9
+weight_decay: 5e-4
+gamma: 0.1
+rand_number: 42
+workers: 4
+optimizer: sgd
+
+# Only train BS (2)
+experts_to_train: [2]
+
+# Explicitly set per‑expert settings for BS
+expert_bias: [true, true, true]   # bias=True for BS
+expert_lr: [0.2, 0.2, 0.2]
+expert_weight_decay: [5e-4, 5e-4, 5e-4]
+
+root_log: results/experts_bs
+root_model: checkpoint/experts_ce_la   # same directory as CE/LA to overwrite expert_2.pth
+store_name: cifar100_exp0.01_Experts_bs_seed42
+cifar_root: ./data
+
+device: cuda
+gpu: 0
+seed: 42
+debug: true
+grad_clip_value: 10.0
+check_freq: 10

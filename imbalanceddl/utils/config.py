@@ -18,12 +18,16 @@ def get_args():
     parser.add_argument('--dataset', default='cifar10', type=str, help='dataset to use')
     parser.add_argument('--imb_type', default="exp", type=str, choices=['exp', 'step'], help='imbalance type')
     parser.add_argument('--imb_factor', default=0.01, type=float, help='imbalance factor')
+    # Classifier type (ADDED)
+    parser.add_argument('--classifier', default='dot_product_classifier', type=str,
+                        choices=['dot_product_classifier', 'cosine_classifier'],
+                        help='Type of classifier head to use')
     # Strategy
     parser.add_argument('--strategy', default="ERM", type=str, 
                     choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW',
                             'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE', 
                             'DeepSMOTE_LAVA', 'LAVA_Reweight', 'ClassBalanced_ERM', 
-                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW', 'SAVA_Mixup_DRW', 'Experts'], # <-- Added SAVA_Mixup_DRW
+                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW', 'SAVA_Mixup_DRW', 'Experts'],
                         help='select strategy for trainer')
     parser.add_argument('--base_strategy', default='ERM', type=str,
                     choices=['ERM', 'Mixup', 'DRW', 'LDAM_DRW', 'Reweight_CB'],
@@ -156,6 +160,12 @@ def get_args():
     # Stage 3: Plug-in Rule parameters
     parser.add_argument('--plugin_algo', default='Bal', type=str, choices=['Bal', 'Worst'],
                         help='Plug-in algorithm to use for Stage 3 (Bal or Worst)')
+    
+    # For ultra_debug.py
+    parser.add_argument('--experts_dir', type=str, default=None,
+                        help='Directory containing expert_0.pth, expert_1.pth, expert_2.pth')
+    parser.add_argument('--gate_ckpt', type=str, default=None,
+                        help='Path to gate checkpoint file')
     
     # update config from command line
     parser.set_defaults(**config)

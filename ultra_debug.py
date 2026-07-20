@@ -1,4 +1,3 @@
-# ultra_debug.py
 import sys
 import os
 
@@ -30,7 +29,10 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.net.network import build_model
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.gate_features import compute_gate_features
-from imbalanceddl.utils.plugin_rule import define_groups, tune_plugin_bal, tune_plugin_worst, compute_paper_metrics
+from imbalanceddl.utils.plugin_rule import (
+    define_groups, tune_plugin_bal, tune_plugin_worst,
+    compute_paper_metrics, power_iteration_alpha, exponentiated_gradient_alpha
+)
 from torch.utils.data import DataLoader
 
 def get_group_masks(labels, cls_num_list):
@@ -39,34 +41,56 @@ def get_group_masks(labels, cls_num_list):
     label_groups = group_ids[labels]
     return {'Head': label_groups == 0, 'Medium': label_groups == 1, 'Tail': label_groups == 2}
 
+def load_expert(cfg, ckpt_path, device):
+    """Load an expert model with the correct bias setting based on checkpoint."""
+    ckpt = torch.load(ckpt_path, map_location='cpu')
+    has_bias = 'classifier.bias' in ckpt['state_dict']
+    num_classes = ckpt['state_dict']['classifier.weight'].shape[0]
+    cfg.num_classes = num_classes
+    model = build_model(cfg)
+    if isinstance(model, torch.nn.DataParallel):
+        model = model.module
+    model.classifier = torch.nn.Linear(model.feature_len, num_classes, bias=has_bias).to(device)
+    model.load_state_dict(ckpt['state_dict'])
+    model.eval()
+    return model.to(device)
+
 def main():
     cfg = get_args()
-    if cfg.dataset == 'cifar100': cfg.num_classes = 100
+    if cfg.dataset != 'cifar100':
+        print(f"WARNING: Config dataset is {cfg.dataset}, forcing to cifar100.")
+        cfg.dataset = 'cifar100'
+        cfg.num_classes = 100
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     print("\n" + "="*80)
-    print("ULTRA DEBUG: CRISP PIPELINE (ORACLE & DIVERSITY CHECK)")
+    print("ULTRA DEBUG: CRISP PIPELINE (ORACLE & DIVERSITY CHECK) - CORRECTED")
     print("="*80)
 
     print("\n[1] LOADING 3 INDEPENDENT EXPERTS")
     models = []
     for i in range(3):
-        m = build_model(cfg)
-        # FIX: Revert to bias=True
-        m.classifier = torch.nn.Linear(m.feature_len, m.num_classes, bias=True).to(device)
-            
-        ckpt = torch.load(os.path.join(experts_dir, f"expert_{i}.pth"), map_location=device)
-        m.load_state_dict(ckpt['state_dict'])
-        m.eval()
-        models.append(m)
+        ckpt_path = os.path.join(experts_dir, f"expert_{i}.pth")
+        model = load_expert(cfg, ckpt_path, device)
+        models.append(model)
+        print(f"Loaded expert {i} from {ckpt_path}")
 
     print("\n[2] LOADING DATA")
     dataset = ImbalancedDataset(cfg, dataset_name=cfg.dataset, augmentation='none')
     _, val_dataset = dataset.train_val_sets
     val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=4)
 
-    cls_num_list = torch.FloatTensor(cfg.cls_num_list).to(device)
-    log_prior = (cls_num_list / cls_num_list.sum()).log()
+    if hasattr(dataset, 'get_cls_num_list'):
+        cls_num_list = dataset.get_cls_num_list()
+    else:
+        train_targets = np.array(dataset.train_val_sets[0].targets)
+        cls_num_list = np.bincount(train_targets, minlength=cfg.num_classes)
+
+    cls_num_list_torch = torch.FloatTensor(cls_num_list).to(device)
+    log_prior = (cls_num_list_torch / cls_num_list_torch.sum()).log()
+    T = getattr(cfg, 'gate_temperature', 2.0)
+    print(f"[INFO] Using temperature T={T}")
 
     all_logits = [[], [], []]
     all_labels = []
@@ -83,7 +107,13 @@ def main():
     all_logits = [torch.cat(l, dim=0) for l in all_logits]
     all_labels = torch.cat(all_labels, dim=0).to(device)
     labels_np = all_labels.cpu().numpy()
-    masks = get_group_masks(labels_np, cfg.cls_num_list)
+    masks = get_group_masks(labels_np, cls_num_list)
+
+    adj_probs = [
+        F.softmax((all_logits[0] - log_prior) / T, dim=1),
+        F.softmax(all_logits[1] / T, dim=1),
+        F.softmax(all_logits[2] / T, dim=1)
+    ]
 
     print("\n" + "="*80)
     print("DIAGNOSTIC 1: EXPERT LOGIT HEALTH")
@@ -95,15 +125,6 @@ def main():
     print("\n" + "="*80)
     print("DIAGNOSTIC 2: STRUCTURAL DIVERSITY & ORACLE ACCURACY")
     print("="*80)
-    
-    # FIX: Apply T=2.0 to prevent saturation and restore posterior shapes
-    T = 2.0
-    adj_probs = [
-        F.softmax(all_logits[0] / T, dim=1),
-        F.softmax((all_logits[1] - log_prior) / T, dim=1),
-        F.softmax((all_logits[2] + log_prior) / T, dim=1)
-    ]
-    
     print(f"{'Expert':<10} | {'Overall':<10} | {'Head':<10} | {'Medium':<10} | {'Tail':<10}")
     print("-"*60)
     for i in range(3):
@@ -113,20 +134,15 @@ def main():
         acc_med = np.mean(preds[masks['Medium']] == labels_np[masks['Medium']]) * 100 if np.sum(masks['Medium']) > 0 else 0
         acc_tail = np.mean(preds[masks['Tail']] == labels_np[masks['Tail']]) * 100 if np.sum(masks['Tail']) > 0 else 0
         print(f"Exp {i}     | {acc_overall:<10.2f} | {acc_head:<10.2f} | {acc_med:<10.2f} | {acc_tail:<10.2f}")
-        
-    # ORACLE ACCURACY: If we pick the correct expert for every sample
+
     preds_exp0 = adj_probs[0].argmax(dim=1)
     preds_exp1 = adj_probs[1].argmax(dim=1)
     preds_exp2 = adj_probs[2].argmax(dim=1)
-    
     correct_exp0 = (preds_exp0 == all_labels)
     correct_exp1 = (preds_exp1 == all_labels)
     correct_exp2 = (preds_exp2 == all_labels)
-    
-    # Vectorized logical OR: correct if ANY expert is correct
     oracle_correct = (correct_exp0 | correct_exp1 | correct_exp2).sum().item()
     oracle_acc = oracle_correct / len(labels_np) * 100
-    
     print(f"\n[INFO] Oracle Ensemble Accuracy (Max Possible): {oracle_acc:.2f}%")
     print("[INFO] If Oracle Acc is < 45%, the experts are too correlated and CRISP cannot work.")
 
@@ -134,11 +150,13 @@ def main():
     print("DIAGNOSTIC 3: INDIVIDUAL EXPERT AURC (Baseline)")
     print("="*80)
     p_mix_np_list = [adj_probs[i].cpu().numpy() for i in range(3)]
-    group_ids = define_groups(cfg.cls_num_list)
-    
+    group_ids = define_groups(cls_num_list)
     for i in range(3):
         params = tune_plugin_bal(p_mix_np_list[i], labels_np, group_ids)
-        metrics = compute_paper_metrics(p_mix_np_list[i], labels_np, group_ids, params['alpha'], params['mu'])
+        metrics = compute_paper_metrics(p_mix_np_list[i], labels_np, group_ids,
+                                        params['alpha'], params['mu'],
+                                        tune_alpha_per_threshold=True,
+                                        alpha_tuner=power_iteration_alpha)
         print(f"Expert {i} (Alone) AURCbal: {metrics['AURCbal']:.4f}")
 
     print("\n" + "="*80)
@@ -146,7 +164,7 @@ def main():
     print("="*80)
     phi = compute_gate_features(all_logits, adj_probs)
     print(f"Gate Feature Mean Std Dev: {phi.std(dim=0).mean().item():.6f}")
-    
+
     if gate_ckpt and os.path.exists(gate_ckpt):
         from imbalanceddl.strategy._gate_trainer import GateMLP
         gate = GateMLP(input_dim=24, hidden1=256, hidden2=128, num_experts=3).to(device)
@@ -156,7 +174,6 @@ def main():
             weights = F.softmax(gate(phi), dim=1)
             avg_weights = weights.mean(dim=0)
             print(f"Avg Gate Weights: CE={avg_weights[0]:.4f}, LA={avg_weights[1]:.4f}, BS={avg_weights[2]:.4f}")
-            
             k = 2
             topk_weights, topk_indices = torch.topk(weights, k, dim=1)
             topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
@@ -175,8 +192,11 @@ def main():
     print("="*80)
     p_mix_np = p_mix.cpu().numpy()
     params_bal = tune_plugin_bal(p_mix_np, labels_np, group_ids)
-    metrics_bal = compute_paper_metrics(p_mix_np, labels_np, group_ids, params_bal['alpha'], params_bal['mu'])
-    
+    metrics_bal = compute_paper_metrics(p_mix_np, labels_np, group_ids,
+                                        params_bal['alpha'], params_bal['mu'],
+                                        tune_alpha_per_threshold=True,
+                                        alpha_tuner=power_iteration_alpha)
+
     print(f"{'Method':<25} | {'AURCbal':<10} | {'AURCwst':<10} | {'NLL':<10} | {'Brier':<10} | {'tail-ECE':<10}")
     print("-"*80)
     print(f"{'CRISP+Plug-in[Bal]':<25} | {metrics_bal['AURCbal']:<10.4f} | {metrics_bal['AURCwst']:<10.4f} | {metrics_bal['NLL']:<10.4f} | {metrics_bal['Brier']:<10.4f} | {metrics_bal['tail-ECE']:<10.4f}")

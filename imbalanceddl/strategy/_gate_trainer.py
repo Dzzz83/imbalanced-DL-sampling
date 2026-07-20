@@ -16,26 +16,23 @@ from ..utils.plugin_rule import define_groups, tune_plugin_bal, tune_plugin_wors
 from ..net.network import build_model
 
 class ExpertEnsemble(nn.Module):
-    """Wrapper to hold the 3 independent expert models."""
+    """Wrapper to hold the 3 independent expert models with auto-bias detection."""
     def __init__(self, cfg, device):
         super().__init__()
         self.experts = nn.ModuleList()
-        
         expert_dir = getattr(cfg, 'expert_ckpt_dir', cfg.root_model)
-        
         for i in range(3):
-            model = build_model(cfg)
-            # FIX: Revert to bias=True
-            model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=True).to(device)
-            
             ckpt_path = os.path.join(expert_dir, f"expert_{i}.pth")
             print(f"[INFO] Loading expert {i} from {ckpt_path}")
-            ckpt = torch.load(ckpt_path, map_location=device)
+            ckpt = torch.load(ckpt_path, map_location='cpu')
+            has_bias = 'classifier.bias' in ckpt['state_dict']
+            model = build_model(cfg)
+            model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=has_bias).to(device)
             model.load_state_dict(ckpt['state_dict'])
             for param in model.parameters():
                 param.requires_grad = False
             model.eval()
-            self.experts.append(model)
+            self.experts.append(model.to(device))
 
     @torch.no_grad()
     def forward(self, x):
@@ -44,7 +41,7 @@ class ExpertEnsemble(nn.Module):
             logits, _ = expert(x)
             logits_list.append(logits)
         return logits_list, None
-    
+
 class GateMLP(nn.Module):
     def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3):
         super().__init__()
@@ -75,9 +72,14 @@ class GateTrainer(BaseTrainer):
         self.model.eval()
         print("[INFO] Expert ensemble loaded and frozen.")
 
+        # Compute log_prior for CE adjustment
         cls_num_list = torch.FloatTensor(self.cfg.cls_num_list)
         probs = cls_num_list / cls_num_list.sum()
         self.log_prior = probs.log().to(self.device)
+
+        # Temperature scaling (default 2.0)
+        self.temp = getattr(cfg, 'gate_temperature', 2.0)
+        print(f"[INFO] Gate temperature = {self.temp}")
 
         self.gate_split_ratio = getattr(cfg, 'gate_split_ratio', 0.9)
         self._split_dataset()
@@ -143,15 +145,17 @@ class GateTrainer(BaseTrainer):
 
     def get_adjusted_probs(self, logits_list):
         """
-        FIX: Apply temperature scaling T=2.0 to prevent softmax saturation.
-        This softens the probabilities, restoring variance to gate features
-        and preventing NLL explosion when experts disagree.
+        Compute balanced posteriors with temperature scaling:
+        - CE: softmax((logits - log_prior) / T)
+        - LA: softmax(logits / T)
+        - BS: softmax(logits / T)
         """
-        T = 2.0
+        T = self.temp
+        log_prior = self.log_prior.to(logits_list[0].device)
         return [
-            F.softmax(logits_list[0] / T, dim=1),
-            F.softmax((logits_list[1] - self.log_prior) / T, dim=1),
-            F.softmax((logits_list[2] + self.log_prior) / T, dim=1)
+            F.softmax((logits_list[0] - log_prior) / T, dim=1),
+            F.softmax(logits_list[1] / T, dim=1),
+            F.softmax(logits_list[2] / T, dim=1)
         ]
 
     def train_one_epoch(self, epoch):
