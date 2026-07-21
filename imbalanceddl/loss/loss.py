@@ -47,12 +47,12 @@ class LogitAdjustedLoss(nn.Module):
         super(LogitAdjustedLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
         probs = cls_num_list / cls_num_list.sum()
-        self.register_buffer('log_prior', probs.log())
+        # Add 1e-12 for numerical stability to strictly match official TF implementation
+        self.register_buffer('log_prior', torch.log(probs + 1e-12))
         self.tau = tau
         self.reduction = reduction
 
     def forward(self, logits, targets):
-        # Move buffer to logits device
         log_prior = self.log_prior.to(logits.device)
         adjusted_logits = logits + self.tau * log_prior
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
@@ -62,14 +62,12 @@ class BalancedSoftmaxLoss(nn.Module):
     def __init__(self, cls_num_list, reduction='mean'):
         super(BalancedSoftmaxLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
-        probs = cls_num_list / cls_num_list.sum()
-        self.register_buffer('log_prior', probs.log())
+        # Match official BALMS implementation: use log(spc) directly
+        self.register_buffer('log_spc', cls_num_list.log())
         self.reduction = reduction
-        print(f"[INFO] BalancedSoftmaxLoss: log_prior sample: {self.log_prior[:5]}")
 
     def forward(self, logits, targets):
-        # FIX: Move log_prior to the same device as logits
-        log_prior = self.log_prior.to(logits.device)
-        adjusted_logits = logits + log_prior
+        log_spc = self.log_spc.to(logits.device)
+        adjusted_logits = logits + log_spc
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss
