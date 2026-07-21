@@ -27,7 +27,6 @@ def per_class_acc(probs, labels, num_classes):
 
 def load_expert(cfg, ckpt_path, device):
     ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
-    # Use bias=True as trained
     has_bias = True 
     model = build_model(cfg)
     model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=has_bias).to(device)
@@ -73,11 +72,11 @@ def main():
     all_logits = [torch.cat(logs, dim=0) for logs in all_logits] 
 
     cls_num_list = torch.FloatTensor(cfg.cls_num_list)
-    log_spc = cls_num_list.log()
+    log_prior = (cls_num_list / cls_num_list.sum()).log()
 
-    # CE requires subtraction of log_spc for balanced inference
-    probs_ce_bal = F.softmax(all_logits[0] - log_spc, dim=1).numpy()
-    # LA and BS raw logits are already balanced
+    # CE requires subtraction of log_prior for balanced inference
+    # LA (tau=1.0) and BS raw logits are already balanced
+    probs_ce_bal = F.softmax(all_logits[0] - log_prior, dim=1).numpy()
     probs_la_bal = F.softmax(all_logits[1], dim=1).numpy()
     probs_bs_bal = F.softmax(all_logits[2], dim=1).numpy()
 
@@ -111,7 +110,6 @@ def main():
         r = results[name]
         print(f"{name:<6} | {r['bal_acc']:<8.2f} | {r['many']:<6.2f} | {r['med']:<6.2f} | {r['low']:<6.2f} | {logit_stats[i]['mean_max']:<12.4f} | {logit_stats[i]['saturated']:<10.2f}")
 
-    # Corrected thresholds based on official LA/BALMS papers for CIFAR-100-LT (imb_factor=0.01)
     thresholds = {
         'CE_bal': 38.0, 'LA_bal': 42.0, 'BS_bal': 42.0,
         'CE_tail': 10.0, 'LA_tail': 15.0, 'BS_tail': 15.0,

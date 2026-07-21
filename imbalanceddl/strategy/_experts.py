@@ -17,10 +17,8 @@ class ExpertsTrainer(BaseTrainer):
         self.cfg = cfg
         self.cls_num_list = cfg.cls_num_list
 
-        # Losses
         self.criterion_ce = torch.nn.CrossEntropyLoss().to(self.device)
-        # tau=0.5 for LA to ensure structural diversity from BS (which implicitly uses tau=1.0)
-        self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=0.5).to(self.device)
+        self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
         self.criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
         self.losses = [self.criterion_ce, self.criterion_la, self.criterion_bs]
         self.loss_names = ['CE', 'LA', 'BS']
@@ -30,7 +28,6 @@ class ExpertsTrainer(BaseTrainer):
             self.experts_to_train = [self.experts_to_train]
         self.experts_to_train = [int(i) for i in self.experts_to_train]
 
-        # Use bias=True as per official LA/BS implementations. Weight decay handles regularization.
         self.expert_bias = [True, True, True]
         self.expert_lr = self._parse_list_typed(
             getattr(cfg, 'expert_lr', [cfg.lr] * 3), float
@@ -148,9 +145,10 @@ class ExpertsTrainer(BaseTrainer):
         model.eval()
         top1 = AverageMeter('Acc@1', ':6.2f')
         
-        # CE requires subtraction of log_spc for balanced validation
-        log_spc = self.criterion_bs.log_spc.to(self.device)
-        correction = -log_spc if expert_idx == 0 else 0.0
+        # CE requires subtraction of log_prior for balanced validation
+        # LA (tau=1.0) and BS raw logits are already balanced
+        log_prior = self.criterion_la.log_prior.to(self.device)
+        correction = -log_prior if expert_idx == 0 else 0.0
 
         with torch.no_grad():
             for images, targets in self.val_loader:

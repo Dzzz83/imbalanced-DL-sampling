@@ -47,7 +47,7 @@ class LogitAdjustedLoss(nn.Module):
         super(LogitAdjustedLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
         probs = cls_num_list / cls_num_list.sum()
-        # Add 1e-12 for numerical stability to strictly match official TF implementation
+        # 1e-12 strictly matches official TF implementation
         self.register_buffer('log_prior', torch.log(probs + 1e-12))
         self.tau = tau
         self.reduction = reduction
@@ -62,7 +62,6 @@ class BalancedSoftmaxLoss(nn.Module):
     def __init__(self, cls_num_list, reduction='mean'):
         super(BalancedSoftmaxLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
-        # Match official BALMS implementation: use log(spc) directly
         self.register_buffer('log_spc', cls_num_list.log())
         self.reduction = reduction
 
