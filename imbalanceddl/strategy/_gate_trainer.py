@@ -17,33 +17,18 @@ from ..utils.plugin_rule import define_groups, tune_plugin_bal, tune_plugin_wors
 from ..net.network import build_model
 
 class ExpertEnsemble(nn.Module):
-    """Wrapper to hold the 3 independent expert models."""
     def __init__(self, cfg, device):
         super().__init__()
-        self.experts = nn.ModuleList()
-        
-        expert_dir = getattr(cfg, 'expert_ckpt_dir', cfg.root_model)
-        
-        for i in range(3):
-            model = build_model(cfg)
-            # Enforce bias=False
-            model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=False).to(device)
-            
-            ckpt_path = os.path.join(expert_dir, f"expert_{i}.pth")
-            print(f"[INFO] Loading expert {i} from {ckpt_path}")
-            ckpt = torch.load(ckpt_path, map_location=device)
-            model.load_state_dict(ckpt['state_dict'])
-            for param in model.parameters():
-                param.requires_grad = False
-            model.eval()
-            self.experts.append(model)
+        self.model = build_model(cfg)
+        checkpoint = torch.load(os.path.join(cfg.expert_ckpt_dir, 'expert_shared.pth'), map_location=device)
+        self.model.load_state_dict(checkpoint['state_dict'])
+        for param in self.model.parameters():
+            param.requires_grad = False
+        self.model.eval()
 
     @torch.no_grad()
     def forward(self, x):
-        logits_list = []
-        for expert in self.experts:
-            logits, _ = expert(x)
-            logits_list.append(logits)
+        logits_list, _ = self.model(x)  # returns list of 3 logits
         return logits_list, None
     
 class GateMLP(nn.Module):
@@ -74,10 +59,6 @@ class GateTrainer(BaseTrainer):
         self.model = ExpertEnsemble(cfg, self.device).to(self.device)
         self.model.eval()
         print("[INFO] Expert ensemble loaded and frozen.")
-
-        cls_num_list = torch.FloatTensor(self.cfg.cls_num_list)
-        probs = cls_num_list / cls_num_list.sum()
-        self.log_prior = probs.log().to(self.device)
 
         self.gate_split_ratio = getattr(cfg, 'gate_split_ratio', 0.9)
         self._split_dataset()
@@ -144,15 +125,7 @@ class GateTrainer(BaseTrainer):
         return None
 
     def get_adjusted_probs(self, logits_list):
-        """
-        Corrected LA sign to + log_prior (log_prior is negative, so this subtracts).
-        No T=2.0 scaling.
-        """
-        return [
-            F.softmax(logits_list[0], dim=1),
-            F.softmax(logits_list[1] + self.log_prior, dim=1),
-            F.softmax(logits_list[2] + self.log_prior, dim=1)
-        ]
+        return [F.softmax(logits, dim=1) for logits in logits_list]
 
     def train_one_epoch(self, epoch):
         self.gate.train()

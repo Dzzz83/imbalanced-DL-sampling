@@ -55,8 +55,8 @@ class LogitAdjustedLoss(nn.Module):
     def forward(self, logits, targets):
         # log_prior is negative, so this correctly subtracts the penalty
         adjusted_logits = logits + self.tau * self.log_prior
-        # Label smoothing prevents logit explosion and MaxMixProb = 1.0
-        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction, label_smoothing=0.1)
+        
+        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss
 
 class BalancedSoftmaxLoss(nn.Module):
@@ -71,6 +71,6 @@ class BalancedSoftmaxLoss(nn.Module):
     def forward(self, logits, targets):
         # Correctly adds negative log_prior
         adjusted_logits = logits + self.log_prior
-        # Label smoothing prevents logit explosion and MaxMixProb = 1.0
-        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction, label_smoothing=0.1)
+        
+        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
         return loss
