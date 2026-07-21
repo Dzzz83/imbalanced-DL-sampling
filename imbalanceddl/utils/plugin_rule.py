@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.metrics import roc_auc_score
 
 def define_groups(cls_num_list, num_groups=3):
     cls_num_list = np.array(cls_num_list)
@@ -158,6 +159,9 @@ def compute_paper_metrics(p_mix, labels, group_ids, alpha, mu, beta=None):
     confidences = np.max(p_mix, axis=1)
     preds = np.argmax(p_mix, axis=1)
     correct = (preds == labels).astype(int)
+
+    auroc_corr = roc_auc_score(correct, confidences)
+
     label_groups = group_ids[labels]
     tail_mask = (label_groups == 2)
     
@@ -218,4 +222,11 @@ def compute_paper_metrics(p_mix, labels, group_ids, alpha, mu, beta=None):
     aurc_bal = np.trapz(bal_risks, coverages)
     aurc_wst = np.trapz(wst_risks, coverages)
     
-    return {'NLL': nll, 'Brier': brier, 'tail-ECE': ece, 'AURCbal': aurc_bal, 'AURCwst': aurc_wst}
+    return {
+        'NLL': nll,
+        'Brier': brier,
+        'tail-ECE': ece,
+        'AURCbal': aurc_bal,
+        'AURCwst': aurc_wst,
+        'AUROC-corr': auroc_corr
+    }

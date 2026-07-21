@@ -7,7 +7,7 @@ import numpy as np
 import math
 import logging
 from sklearn.model_selection import train_test_split
-from torch.utils.data import Subset, DataLoader, random_split
+from torch.utils.data import Subset, DataLoader
 from .base import BaseTrainer
 from ..utils.gate_features import compute_gate_features
 from ..utils.metrics import accuracy
@@ -139,23 +139,6 @@ class GateTrainer(BaseTrainer):
             shuffle=True, num_workers=self.cfg.workers, pin_memory=True
         )
         print(f"[INFO] Gating split size: {len(self.gate_dataset)}")
-
-        val_len = len(self.val_dataset)
-        tune_len = val_len // 2
-        test_len = val_len - tune_len
-        self.tune_dataset, self.test_dataset = random_split(
-            self.val_dataset, [tune_len, test_len], 
-            generator=torch.Generator().manual_seed(self.cfg.seed)
-        )
-        self.tune_loader = DataLoader(
-            self.tune_dataset, batch_size=self.cfg.batch_size,
-            shuffle=False, num_workers=self.cfg.workers, pin_memory=True
-        )
-        self.test_loader = DataLoader(
-            self.test_dataset, batch_size=self.cfg.batch_size,
-            shuffle=False, num_workers=self.cfg.workers, pin_memory=True
-        )
-        print(f"[INFO] Split test set into Tune: {tune_len} | Test: {test_len}")
 
     def get_criterion(self):
         return None
@@ -292,7 +275,7 @@ class GateTrainer(BaseTrainer):
         total_correct = 0
         total_samples = 0
         with torch.no_grad():
-            for images, labels in self.tune_loader:
+            for images, labels in self.val_loader:
                 images = images.to(self.device, non_blocking=True)
                 labels = labels.to(self.device, non_blocking=True)
                 B = images.size(0)
@@ -344,44 +327,53 @@ class GateTrainer(BaseTrainer):
             self.gate.load_state_dict(checkpoint['gate_state_dict'])
             print(f"[INFO] Loaded gate checkpoint from {gate_checkpoint_path}")
 
-        print("[INFO] Extracting posteriors for Val Split (Tuning)...")
-        p_mix_tune, labels_tune = self.extract_posteriors(self.tune_loader)
-        
+        print("[INFO] Extracting posteriors for Gate Split (Tuning)...")
+        p_mix_tune, labels_tune = self.extract_posteriors(self.gate_loader)
+
         print("[INFO] Extracting posteriors for Test Split (Evaluation)...")
-        p_mix_test, labels_test = self.extract_posteriors(self.test_loader)
-        
+        p_mix_test, labels_test = self.extract_posteriors(self.val_loader)
+
         group_ids = define_groups(self.cfg.cls_num_list)
-        
-        print("\n[INFO] Tuning Plug-in [Bal] parameters on Val Split...")
+
+        print("\n[INFO] Tuning Plug-in [Bal] parameters on Gate Split...")
         tuned_params_bal = tune_plugin_bal(p_mix_tune, labels_tune, group_ids)
-        
-        print("[INFO] Tuning Plug-in [Worst] parameters on Val Split...")
+
+        print("[INFO] Tuning Plug-in [Worst] parameters on Gate Split...")
         tuned_params_worst = tune_plugin_worst(p_mix_tune, labels_tune, group_ids)
-        
-        print("\n" + "="*70)
-        print("CRISP PAPER TABLE 3 REPLICATION (TEST SET)")
-        print("="*70)
-        print(f"{'Method':<25} | {'AURCbal':<10} | {'AURCwst':<10} | {'NLL':<10} | {'Brier':<10} | {'tail-ECE':<10}")
-        print("-"*70)
-        
-        if tuned_params_bal:
+
+        # Compute metrics for both plug-in rules
+        if tuned_params_bal is not None:
             metrics_bal = compute_paper_metrics(
-                p_mix_test, labels_test, group_ids, 
+                p_mix_test, labels_test, group_ids,
                 tuned_params_bal['alpha'], tuned_params_bal['mu']
             )
-            print(f"{'CRISP+Plug-in[Bal]':<25} | {metrics_bal['AURCbal']:<10.4f} | {metrics_bal['AURCwst']:<10.4f} | {metrics_bal['NLL']:<10.4f} | {metrics_bal['Brier']:<10.4f} | {metrics_bal['tail-ECE']:<10.4f}")
-            
-        if tuned_params_worst:
+        else:
+            metrics_bal = None
+
+        if tuned_params_worst is not None:
             metrics_worst = compute_paper_metrics(
-                p_mix_test, labels_test, group_ids, 
+                p_mix_test, labels_test, group_ids,
                 tuned_params_worst['alpha'], tuned_params_worst['mu']
             )
-            print(f"{'CRISP+Plug-in[Worst]':<25} | {metrics_worst['AURCbal']:<10.4f} | {metrics_worst['AURCwst']:<10.4f} | {metrics_worst['NLL']:<10.4f} | {metrics_worst['Brier']:<10.4f} | {metrics_worst['tail-ECE']:<10.4f}")
-            
-        print("="*70)
-        print("Paper Reference (CRISP):    | 0.253      | 0.302      | 1.18       | 0.403      | 0.088      ")
-        print("Paper Reference (CRISP):    | 0.233      | 0.248      | 1.18       | 0.403      | 0.088      ")
-        print("="*70)
+        else:
+            metrics_worst = None
+
+        print("\n" + "="*90)
+        print("CRISP RESULTS ON CIFAR-100-LT TEST SET")
+        print("="*90)
+        print(f"{'Method':<25} | {'AURCbal':<10} | {'AURCwst':<10} | {'NLL':<10} | {'Brier':<10} | {'tail-ECE':<10} | {'AUROC-corr':<10}")
+        print("-"*90)
+
+        if metrics_bal is not None:
+            print(f"{'CRISP+Plug-in[Bal]':<25} | {metrics_bal['AURCbal']:<10.4f} | {metrics_bal['AURCwst']:<10.4f} | {metrics_bal['NLL']:<10.4f} | {metrics_bal['Brier']:<10.4f} | {metrics_bal['tail-ECE']:<10.4f} | {metrics_bal['AUROC-corr']:<10.4f}")
+
+        if metrics_worst is not None:
+            print(f"{'CRISP+Plug-in[Worst]':<25} | {metrics_worst['AURCbal']:<10.4f} | {metrics_worst['AURCwst']:<10.4f} | {metrics_worst['NLL']:<10.4f} | {metrics_worst['Brier']:<10.4f} | {metrics_worst['tail-ECE']:<10.4f} | {metrics_worst['AUROC-corr']:<10.4f}")
+
+        print("="*90)
+        print("Paper Reference (Plug-in[Bal]): | 0.253      | 0.302      | 1.18       | 0.403      | 0.088      | 0.902      ")
+        print("Paper Reference (Plug-in[Worst]):| 0.233      | 0.248      | 1.18       | 0.403      | 0.088      | 0.902      ")
+        print("="*90)
 
     def eval_best_model(self):
         if self.cfg.best_model is not None:
