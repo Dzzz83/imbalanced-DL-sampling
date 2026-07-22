@@ -29,52 +29,26 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 class ExpertsTrainer(BaseTrainer):
-    def do_train_val(self):
-        print("[INFO] Training a single model with 3 expert heads (CE, LA, BS) sharing a backbone.")
+    def __init__(self, cfg, dataset, **kwargs):
+        super(ExpertsTrainer, self).__init__(cfg, dataset, **kwargs)
+        self.device = torch.device(cfg.device if torch.cuda.is_available() else 'cpu')
+        self.debug = getattr(cfg, 'debug', False)
+        self.debug_logger = get_debug_logger(debug=self.debug)
 
-        os.makedirs(self.cfg.root_model, exist_ok=True)
-
-        model = build_model(self.cfg)
-        # Replace the single classifier with a ModuleList of 3 heads (bias=False)
-        model.classifier = nn.ModuleList([
-            nn.Linear(model.feature_len, model.num_classes, bias=False).to(self.device)
-            for _ in range(3)
-        ])
-
-        # Losses (no label smoothing, correct LA/BS with log_prior)
-        criterion_ce = self.criterion_ce  # Already defined in __init__ (no label smoothing)
-        criterion_la = self.criterion_la
-        criterion_bs = self.criterion_bs
-        criteria = [criterion_ce, criterion_la, criterion_bs]
-
-        optimizer = optim.SGD(
-            model.parameters(),
-            lr=self.cfg.learning_rate,
-            momentum=self.cfg.momentum,
-            weight_decay=self.cfg.weight_decay
-        )
-
-        for epoch in range(self.cfg.epochs):
-            self.adjust_learning_rate(optimizer, epoch)
-            model.train()
-            for images, targets in self.train_loader:
-                images = images.to(self.device, non_blocking=True)
-                targets = targets.to(self.device, non_blocking=True)
-
-                optimizer.zero_grad()
-                logits_list, _ = model(images)  # list of 3 logit tensors
-                # Compute average loss over the three heads
-                loss = sum(criterion(logits, targets) for criterion, logits in zip(criteria, logits_list)) / 3
-                loss.backward()
-                optimizer.step()
-
-            # Optional: print progress every 10 epochs
-            if (epoch + 1) % 10 == 0 or epoch == self.cfg.epochs - 1:
-                print(f"[INFO] Epoch {epoch+1}/{self.cfg.epochs} completed.")
-
-        save_path = os.path.join(self.cfg.root_model, 'expert_shared.pth')
-        torch.save({'state_dict': model.state_dict()}, save_path)
-        print(f"[INFO] Shared expert model saved to {save_path}")
+        self.cls_num_list = cfg.cls_num_list
+        
+        # FIX: Label Smoothing on CE to prevent logit explosion
+        self.criterion_ce = torch.nn.CrossEntropyLoss(label_smoothing=0.1).to(self.device)
+        self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
+        self.criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
+        
+        self.losses = [self.criterion_ce, self.criterion_la, self.criterion_bs]
+        self.loss_names = ['CE', 'LA', 'BS']
+        
+        self.gate_split_ratio = getattr(cfg, 'gate_split_ratio', 0.9)
+        self._split_dataset()
+        self._init_file_logger()
+        print("[INFO] ExpertsTrainer initialized to train 3 independent models.")
 
     def _init_file_logger(self):
         os.makedirs(self.cfg.root_log, exist_ok=True)
@@ -181,36 +155,48 @@ class ExpertsTrainer(BaseTrainer):
         return top1.avg
 
     def do_train_val(self):
-        os.makedirs(self.cfg.root_model, exist_ok=True)
+        print("[INFO] Training a single model with 3 expert heads (CE, LA, BS) sharing a backbone.")
         
-        for i in range(3):
-            expert_name = self.loss_names[i]
-            print(f"\n{'='*50}\n[INFO] Training Independent Expert {i} ({expert_name})\n{'='*50}")
-            
-            model = build_model(self.cfg)
-            # FIX: Enforce bias=False (Standard for CIFAR ResNet)
-            model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=False).to(self.device)
+        model = build_model(self.cfg)
+        # Replace single classifier with ModuleList of 3 heads
+        model.classifier = nn.ModuleList([
+            nn.Linear(model.feature_len, model.num_classes, bias=False).to(self.device)
+            for _ in range(3)
+        ])
+        
+        # Define losses (no label smoothing)
+        criterion_ce = nn.CrossEntropyLoss()
+        criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0)
+        criterion_bs = BalancedSoftmaxLoss(self.cls_num_list)
+        criteria = [criterion_ce, criterion_la, criterion_bs]
+        
+        optimizer = optim.SGD(
+            model.parameters(),
+            lr=self.cfg.learning_rate,
+            momentum=self.cfg.momentum,
+            weight_decay=self.cfg.weight_decay
+        )
+        
+        for epoch in range(self.cfg.epochs):
+            self.adjust_learning_rate(optimizer, epoch)
+            model.train()
+            for images, targets in self.train_loader:
+                images = images.to(self.device, non_blocking=True)
+                targets = targets.to(self.device, non_blocking=True)
                 
-            optimizer = optim.SGD(
-                model.parameters(), 
-                lr=self.cfg.learning_rate, 
-                momentum=self.cfg.momentum, 
-                weight_decay=self.cfg.weight_decay
-            )
+                optimizer.zero_grad()
+                logits_list, _ = model(images)  # list of 3 logits
+                loss = sum(criterion(logits, targets) for criterion, logits in zip(criteria, logits_list)) / 3
+                loss.backward()
+                optimizer.step()
             
-            for epoch in range(self.cfg.epochs):
-                self.adjust_learning_rate(optimizer, epoch)
-                self.train_one_epoch(model, optimizer, self.losses[i], epoch, expert_name)
-                
-            save_path = os.path.join(self.cfg.root_model, f"expert_{i}.pth")
-            torch.save({'state_dict': model.state_dict()}, save_path)
-            print(f"[INFO] Expert {i} saved to {save_path}")
-            
-            del model
-            del optimizer
-            torch.cuda.empty_cache()
-            
-        print("[INFO] All experts trained.")
+            # Optionally print loss/accuracy every few epochs
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch} completed")
+        
+        save_path = os.path.join(self.cfg.root_model, 'expert_shared.pth')
+        torch.save({'state_dict': model.state_dict()}, save_path)
+        print(f"[INFO] Shared expert model saved to {save_path}")
 
     def eval_best_model(self):
         pass

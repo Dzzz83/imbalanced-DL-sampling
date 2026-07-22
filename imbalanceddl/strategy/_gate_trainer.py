@@ -125,7 +125,11 @@ class GateTrainer(BaseTrainer):
         return None
 
     def get_adjusted_probs(self, logits_list):
-        return [F.softmax(logits, dim=1) for logits in logits_list]
+        return [
+            F.softmax(logits_list[0], dim=1),
+            F.softmax(logits_list[1], dim=1),
+            F.softmax(logits_list[2], dim=1)
+        ]
 
     def train_one_epoch(self, epoch):
         self.gate.train()
