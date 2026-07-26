@@ -1,7 +1,9 @@
 import os
+import copy
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 import numpy as np
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset, DataLoader
@@ -9,6 +11,7 @@ from .base import BaseTrainer
 from ..loss import LogitAdjustedLoss, BalancedSoftmaxLoss
 from ..net.network import build_model
 from ..utils.utils import AverageMeter
+from ..utils.metrics import shot_acc
 
 class ExpertsTrainer(BaseTrainer):
     def __init__(self, cfg, dataset, **kwargs):
@@ -16,47 +19,13 @@ class ExpertsTrainer(BaseTrainer):
         self.device = torch.device(cfg.device if torch.cuda.is_available() else 'cpu')
         self.cfg = cfg
         self.cls_num_list = cfg.cls_num_list
-
-        self.criterion_ce = torch.nn.CrossEntropyLoss().to(self.device)
-        self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
-        self.criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
-        self.losses = [self.criterion_ce, self.criterion_la, self.criterion_bs]
-        self.loss_names = ['CE', 'LA', 'BS']
-
-        self.experts_to_train = getattr(cfg, 'experts_to_train', [0, 1, 2])
-        if not isinstance(self.experts_to_train, (list, tuple)):
-            self.experts_to_train = [self.experts_to_train]
-        self.experts_to_train = [int(i) for i in self.experts_to_train]
-
-        self.expert_bias = [True, True, True]
-        self.expert_lr = self._parse_list_typed(
-            getattr(cfg, 'expert_lr', [cfg.lr] * 3), float
-        )
-        self.expert_weight_decay = self._parse_list_typed(
-            getattr(cfg, 'expert_weight_decay', [cfg.weight_decay] * 3), float
-        )
-
+        
         self.gate_split_ratio = getattr(cfg, 'gate_split_ratio', 0.9)
         self._split_dataset()
         self.logger.info(f"[INFO] ExpertsTrainer initialized. Expert train size: {len(self.train_loader.dataset)}, Gate size: {len(self.gate_dataset)}")
 
         self.debug = getattr(cfg, 'debug', False)
         self.grad_clip_value = getattr(cfg, 'grad_clip_value', 5.0)
-        self.check_freq = getattr(cfg, 'check_freq', 10)
-
-        self.logger.info(f"[INFO] Training experts: {self.experts_to_train} ({[self.loss_names[i] for i in self.experts_to_train]})")
-        for i in self.experts_to_train:
-            self.logger.info(
-                f"[EXPERT {i} ({self.loss_names[i]})] bias={self.expert_bias[i]}, "
-                f"lr={self.expert_lr[i]}, weight_decay={self.expert_weight_decay[i]}"
-            )
-
-    def _parse_list_typed(self, value, dtype):
-        if not isinstance(value, (list, tuple)):
-            value = [value] * 3
-        while len(value) < 3:
-            value.append(value[-1] if len(value) > 0 else dtype(0))
-        return [dtype(v) for v in value]
 
     def _split_dataset(self):
         targets = np.array(self.train_dataset.targets)
@@ -87,26 +56,6 @@ class ExpertsTrainer(BaseTrainer):
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
-    def _check_logits(self, logits, epoch, step):
-        if torch.isnan(logits).any() or torch.isinf(logits).any():
-            self.logger.error(f"[Epoch {epoch}, Step {step}] NaN/Inf detected in logits!")
-            return True
-        return False
-
-    def _check_gradients(self, model, epoch):
-        total_norm = 0.0
-        for p in model.parameters():
-            if p.grad is not None:
-                param_norm = p.grad.data.norm(2)
-                total_norm += param_norm.item() ** 2
-                if torch.isnan(p.grad).any() or torch.isinf(p.grad).any():
-                    self.logger.error(f"[Epoch {epoch}] NaN/Inf gradient in parameter {p.shape}!")
-                    return True
-        total_norm = total_norm ** 0.5
-        if self.grad_clip_value is not None:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip_value)
-        return False
-
     def train_one_epoch(self, model, optimizer, criterion, epoch):
         model.train()
         losses = AverageMeter('Loss', ':.4f')
@@ -118,18 +67,17 @@ class ExpertsTrainer(BaseTrainer):
             optimizer.zero_grad()
             logits, _ = model(images)
 
-            if self._check_logits(logits, epoch, batch_idx):
-                raise RuntimeError("Logit explosion detected. Aborting training.")
+            if torch.isnan(logits).any() or torch.isinf(logits).any():
+                raise RuntimeError(f"Logit explosion detected at epoch {epoch}, step {batch_idx}.")
 
             loss = criterion(logits, targets)
             if torch.isnan(loss) or torch.isinf(loss):
-                self.logger.error(f"Loss is NaN/Inf at epoch {epoch}, step {batch_idx}: {loss.item()}")
-                raise RuntimeError("Loss became NaN/Inf.")
+                raise RuntimeError(f"Loss is NaN/Inf at epoch {epoch}, step {batch_idx}")
 
             loss.backward()
-
-            if self._check_gradients(model, epoch):
-                raise RuntimeError("Gradient explosion detected. Aborting training.")
+            
+            if self.grad_clip_value is not None:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip_value)
 
             optimizer.step()
 
@@ -141,72 +89,177 @@ class ExpertsTrainer(BaseTrainer):
         self.logger.info(f"[Train] Epoch {epoch}: loss={losses.avg:.4f}, acc={top1.avg*100:.2f}%")
         return top1.avg
 
-    def validate(self, model, epoch, expert_idx):
+    def validate(self, model):
         model.eval()
         top1 = AverageMeter('Acc@1', ':6.2f')
-        
-        # CE requires subtraction of log_prior for balanced validation
-        # LA (tau=1.0) and BS raw logits are already balanced
-        log_prior = self.criterion_la.log_prior.to(self.device)
-        correction = -log_prior if expert_idx == 0 else 0.0
+        all_preds = []
+        all_targets = []
+        all_probs = []
 
         with torch.no_grad():
             for images, targets in self.val_loader:
                 images = images.to(self.device)
                 targets = targets.to(self.device)
                 logits, _ = model(images)
-                if torch.isnan(logits).any() or torch.isinf(logits).any():
-                    self.logger.error(f"[Val Epoch {epoch}] NaN/Inf in logits during validation!")
-                    return 0.0
+                probs = F.softmax(logits, dim=1)
                 
-                adjusted_logits = logits + correction
-                _, pred = adjusted_logits.max(1)
+                _, pred = logits.max(1)
                 acc = pred.eq(targets).sum().item() / targets.size(0)
                 top1.update(acc, targets.size(0))
                 
-        self.logger.info(f"[Val] Epoch {epoch}: acc={top1.avg*100:.2f}%")
-        return top1.avg
+                all_preds.extend(pred.cpu().numpy())
+                all_targets.extend(targets.cpu().numpy())
+                all_probs.append(probs.cpu().numpy())
+
+        all_preds = np.array(all_preds)
+        all_targets = np.array(all_targets)
+        all_probs = np.concatenate(all_probs, axis=0)
+
+        many_acc, median_acc, low_acc = shot_acc(
+            self.cfg, all_preds, all_targets, self.train_dataset, acc_per_cls=False
+        )
+        
+        # Compute NLL for calibration-aware expert selection
+        nll = -np.mean(np.log(all_probs[np.arange(len(all_targets)), all_targets] + 1e-8))
+
+        return {
+            'acc': top1.avg * 100,
+            'many': many_acc * 100,
+            'med': median_acc * 100,
+            'low': low_acc * 100,
+            'nll': nll
+        }
 
     def do_train_val(self):
-        for i in self.experts_to_train:
-            self.logger.info(f"\n{'='*50}\n[INFO] Training Independent Expert {i} ({self.loss_names[i]})\n{'='*50}")
+        os.makedirs(self.cfg.root_model, exist_ok=True)
+        
+        sweep_taus = [1.0, 1.5, 2.0]
+        sweep_biases = [False, True]
+        sweep_ls = [0.0, 0.1]
+        
+        sweep_results = []
 
-            bias = self.expert_bias[i]
-            lr = self.expert_lr[i]
-            wd = self.expert_weight_decay[i]
+        for bias in sweep_biases:
+            for ls in sweep_ls:
+                # 1. Train CE Expert
+                run_name = f"CE_bias{bias}_ls{ls}"
+                self.logger.info(f"\n{'='*50}\n[INFO] Training Independent Expert: {run_name}\n{'='*50}")
+                model = build_model(self.cfg)
+                actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+                actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=bias).to(self.device)
+                model = model.to(self.device)
+                
+                optimizer = optim.SGD(model.parameters(), lr=self.cfg.lr, momentum=self.cfg.momentum, weight_decay=self.cfg.weight_decay)
+                criterion_ce = torch.nn.CrossEntropyLoss(label_smoothing=ls).to(self.device)
+                
+                best_metric = 1e9
+                best_epoch = 0
+                best_state_dict = None
+                
+                for epoch in range(self.cfg.epochs):
+                    self.adjust_learning_rate(optimizer, epoch, base_lr=self.cfg.lr)
+                    self.train_one_epoch(model, optimizer, criterion_ce, epoch)
+                    metrics = self.validate(model)
+                    
+                    if metrics['nll'] < best_metric:
+                        best_metric = metrics['nll']
+                        best_epoch = epoch
+                        best_state_dict = copy.deepcopy(model.state_dict())
+                
+                best_save_path = os.path.join(self.cfg.root_model, f"expert_CE_bias{bias}_ls{ls}_best.pth")
+                torch.save({'state_dict': best_state_dict, 'bias': bias, 'tau': None, 'label_smoothing': ls}, best_save_path)
+                
+                metrics['name'] = run_name
+                metrics['best_metric'] = best_metric
+                sweep_results.append(metrics)
+                self.logger.info(f"[INFO] Expert {run_name} saved to {best_save_path}")
+                del model, optimizer, best_state_dict
+                torch.cuda.empty_cache()
 
-            model = build_model(self.cfg)
-            model.classifier = nn.Linear(model.feature_len, model.num_classes, bias=bias).to(self.device)
-            model = model.to(self.device)
+                # 2. Train BS Expert
+                run_name = f"BS_bias{bias}_ls{ls}"
+                self.logger.info(f"\n{'='*50}\n[INFO] Training Independent Expert: {run_name}\n{'='*50}")
+                model = build_model(self.cfg)
+                actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+                actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=bias).to(self.device)
+                model = model.to(self.device)
+                
+                optimizer = optim.SGD(model.parameters(), lr=self.cfg.lr, momentum=self.cfg.momentum, weight_decay=self.cfg.weight_decay)
+                criterion_bs = BalancedSoftmaxLoss(self.cls_num_list, label_smoothing=ls).to(self.device)
+                
+                best_metric = 1e9
+                best_epoch = 0
+                best_state_dict = None
+                
+                for epoch in range(self.cfg.epochs):
+                    self.adjust_learning_rate(optimizer, epoch, base_lr=self.cfg.lr)
+                    self.train_one_epoch(model, optimizer, criterion_bs, epoch)
+                    metrics = self.validate(model)
+                    
+                    if metrics['nll'] < best_metric:
+                        best_metric = metrics['nll']
+                        best_epoch = epoch
+                        best_state_dict = copy.deepcopy(model.state_dict())
+                
+                best_save_path = os.path.join(self.cfg.root_model, f"expert_BS_bias{bias}_ls{ls}_best.pth")
+                torch.save({'state_dict': best_state_dict, 'bias': bias, 'tau': None, 'label_smoothing': ls}, best_save_path)
+                
+                metrics['name'] = run_name
+                metrics['best_metric'] = best_metric
+                sweep_results.append(metrics)
+                self.logger.info(f"[INFO] Expert {run_name} saved to {best_save_path}")
+                del model, optimizer, best_state_dict
+                torch.cuda.empty_cache()
 
-            optimizer = optim.SGD(model.parameters(), lr=lr, momentum=self.cfg.momentum, weight_decay=wd)
+                # 3. Train LA Expert for all taus
+                for tau in sweep_taus:
+                    run_name = f"LA_bias{bias}_ls{ls}_t{tau}"
+                    self.logger.info(f"\n{'='*50}\n[INFO] Training Independent Expert: {run_name}\n{'='*50}")
+                    model = build_model(self.cfg)
+                    actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+                    actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=bias).to(self.device)
+                    model = model.to(self.device)
+                    
+                    criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=tau, label_smoothing=ls).to(self.device)
+                    optimizer = optim.SGD(model.parameters(), lr=self.cfg.lr, momentum=self.cfg.momentum, weight_decay=self.cfg.weight_decay)
+                    
+                    best_metric = 1e9
+                    best_epoch = 0
+                    best_state_dict = None
+                    
+                    for epoch in range(self.cfg.epochs):
+                        self.adjust_learning_rate(optimizer, epoch, base_lr=self.cfg.lr)
+                        self.train_one_epoch(model, optimizer, criterion_la, epoch)
+                        metrics = self.validate(model)
+                        
+                        if metrics['nll'] < best_metric:
+                            best_metric = metrics['nll']
+                            best_epoch = epoch
+                            best_state_dict = copy.deepcopy(model.state_dict())
+                    
+                    best_save_path = os.path.join(self.cfg.root_model, f"expert_LA_bias{bias}_ls{ls}_t{tau}_best.pth")
+                    torch.save({'state_dict': best_state_dict, 'bias': bias, 'tau': tau, 'label_smoothing': ls}, best_save_path)
+                    
+                    metrics['name'] = run_name
+                    metrics['best_metric'] = best_metric
+                    sweep_results.append(metrics)
+                    self.logger.info(f"[INFO] Expert {run_name} saved to {best_save_path}")
+                    del model, optimizer, best_state_dict
+                    torch.cuda.empty_cache()
 
-            best_acc = 0.0
-            for epoch in range(self.cfg.epochs):
-                self.adjust_learning_rate(optimizer, epoch, base_lr=lr)
-                try:
-                    train_acc = self.train_one_epoch(model, optimizer, self.losses[i], epoch)
-                except RuntimeError as e:
-                    self.logger.error(f"Training failed: {e}")
-                    break
-
-                if (epoch + 1) % 10 == 0:
-                    val_acc = self.validate(model, epoch, i)
-                    if val_acc > best_acc:
-                        best_acc = val_acc
-
-            if best_acc == 0.0:
-                self.logger.error(f"Expert {i} training failed or no validation improvement.")
-            else:
-                save_path = os.path.join(self.cfg.root_model, f"expert_{i}.pth")
-                os.makedirs(self.cfg.root_model, exist_ok=True)
-                torch.save({'state_dict': model.state_dict(), 'bias': bias}, save_path)
-                self.logger.info(f"[INFO] Expert {i} saved to {save_path} (best val acc: {best_acc*100:.2f}%)")
-
-        self.logger.info("[INFO] All requested experts trained.")
+        self.logger.info("\n" + "="*100)
+        self.logger.info("STAGE 1 SWEEP SUMMARY TABLE")
+        self.logger.info("="*100)
+        header = f"{'Run Name':<30} | {'Bal Acc':<8} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<6}"
+        self.logger.info(header)
+        self.logger.info("-"*100)
+        for r in sweep_results:
+            row = f"{r['name']:<30} | {r['acc']:<8.2f} | {r['many']:<6.2f} | {r['med']:<6.2f} | {r['low']:<6.2f} | {r['nll']:<6.3f}"
+            self.logger.info(row)
+        self.logger.info("="*100)
 
     def eval_best_model(self):
         pass
 
     def get_criterion(self):
-        return self.criterion_ce
+        return torch.nn.CrossEntropyLoss()

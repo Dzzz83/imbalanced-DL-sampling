@@ -29,7 +29,7 @@ epochs: 256
 start_epoch: 0
 print_freq: 10
 batch_size: 128
-lr: 0.4                    # Changed from learning_rate to lr
+lr: 0.4
 momentum: 0.9
 weight_decay: 1e-4
 gamma: 0.1
@@ -39,18 +39,18 @@ optimizer: sgd
 
 # Logging & Checkpoints
 root_log: results/experts_cifar100
-root_model: checkpoint/experts_cifar100
+root_model: checkpoint/experts_sweep_cifar100
 store_name: cifar100_exp0.01_Experts_seed42
 cifar_root: ./data
 
 # Hardware
 device: cuda
-gpu: 0
+gpu: 1
 
 # Seed
 seed: 42
 
 # Debug and safety checks
 debug: true
-grad_clip_value: 10.0      # Max gradient norm (set to null to disable)
-check_freq: 10             # Print detailed stats every N epochs
+grad_clip_value: 10.0
+check_freq: 10

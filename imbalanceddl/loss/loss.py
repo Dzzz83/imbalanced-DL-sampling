@@ -43,30 +43,31 @@ class LDAMLoss(nn.Module):
         return F.cross_entropy(self.s * output, target, weight=self.weight)
 
 class LogitAdjustedLoss(nn.Module):
-    def __init__(self, cls_num_list, tau=1.0, reduction='mean'):
+    def __init__(self, cls_num_list, tau=1.0, reduction='mean', label_smoothing=0.0):
         super(LogitAdjustedLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
         probs = cls_num_list / cls_num_list.sum()
-        # 1e-12 strictly matches official TF implementation
         self.register_buffer('log_prior', torch.log(probs + 1e-12))
         self.tau = tau
         self.reduction = reduction
+        self.label_smoothing = label_smoothing
 
     def forward(self, logits, targets):
         log_prior = self.log_prior.to(logits.device)
         adjusted_logits = logits + self.tau * log_prior
-        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
+        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction, label_smoothing=self.label_smoothing)
         return loss
 
 class BalancedSoftmaxLoss(nn.Module):
-    def __init__(self, cls_num_list, reduction='mean'):
+    def __init__(self, cls_num_list, reduction='mean', label_smoothing=0.0):
         super(BalancedSoftmaxLoss, self).__init__()
         cls_num_list = torch.FloatTensor(cls_num_list)
         self.register_buffer('log_spc', cls_num_list.log())
         self.reduction = reduction
+        self.label_smoothing = label_smoothing
 
     def forward(self, logits, targets):
         log_spc = self.log_spc.to(logits.device)
         adjusted_logits = logits + log_spc
-        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
+        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction, label_smoothing=self.label_smoothing)
         return loss

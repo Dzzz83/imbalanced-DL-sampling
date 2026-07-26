@@ -27,7 +27,7 @@ def get_args():
                     choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW',
                             'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE', 
                             'DeepSMOTE_LAVA', 'LAVA_Reweight', 'ClassBalanced_ERM', 
-                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW', 'SAVA_Mixup_DRW', 'Experts'],
+                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW', 'SAVA_Mixup_DRW', 'Experts', 'Gate'],
                         help='select strategy for trainer')
     parser.add_argument('--base_strategy', default='ERM', type=str,
                     choices=['ERM', 'Mixup', 'DRW', 'LDAM_DRW', 'Reweight_CB'],
@@ -149,6 +149,18 @@ def get_args():
     # For ultra_debug.py
     parser.add_argument('--experts_dir', type=str, default=None, help='Directory containing expert_0.pth, expert_1.pth, expert_2.pth')
     parser.add_argument('--gate_ckpt', type=str, default=None, help='Path to gate checkpoint file')
+
+    # FIX: Added gate_dropout and the expert specific loading parameters
+    parser.add_argument('--gate_dropout', default=0.0, type=float, help='Dropout rate for gate MLP')
+    parser.add_argument('--ce_bias', default=False, type=bool, help='Bias setting for CE expert')
+    parser.add_argument('--la_bias', default=False, type=bool, help='Bias setting for LA expert')
+    parser.add_argument('--la_tau', default=1.5, type=float, help='Tau setting for LA expert')
+    parser.add_argument('--bs_bias', default=False, type=bool, help='Bias setting for BS expert')
+
+    # FIX: Added sweep parameters
+    parser.add_argument('--gate_batch_sizes', nargs='+', type=int, default=[128], help='List of batch sizes to sweep for the gate')
+    parser.add_argument('--gate_temperatures', nargs='+', type=float, default=[1.0], help='List of temperatures to sweep for the gate')
+    parser.add_argument('--eval_interval', default=10, type=int, help='Evaluate gate every N epochs to find the best one')
     
     # update config from command line
     parser.set_defaults(**config)
