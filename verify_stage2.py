@@ -88,8 +88,20 @@ def get_accs(probs, labels, cfg, train_dataset):
 def get_calib(probs, labels, cfg):
     preds = np.argmax(probs, axis=1)
     conf = np.max(probs, axis=1)
-    nll = -np.mean(np.log(probs[np.arange(len(labels)), labels] + 1e-8))
-    brier = np.mean(np.sum((probs - np.eye(cfg.num_classes)[labels])**2, axis=1))
+    
+    # L2R/CRISP Protocol: Re-weight the balanced test set to mimic the long-tailed training distribution
+    cls_num_list = np.array(cfg.cls_num_list)
+    priors = cls_num_list / cls_num_list.sum()
+    sample_weights = priors[labels]
+    sample_weights = sample_weights / sample_weights.sum()
+
+    true_probs = probs[np.arange(len(labels)), labels]
+    nll = -np.sum(sample_weights * np.log(true_probs + 1e-8))
+    
+    one_hot = np.zeros_like(probs)
+    one_hot[np.arange(len(labels)), labels] = 1.0
+    brier = np.sum(sample_weights * np.sum((probs - one_hot)**2, axis=1))
+    
     ece = compute_ece(conf, preds, labels)
     return nll, brier, ece
 
@@ -191,9 +203,12 @@ def main():
             print(f"  Evaluated {clean_name:<25} | Bal Acc: {accs_mix[0]:.2f}% | {beats_unif}")
 
     print("\n" + "="*130)
-    print("STAGE 2 METRICS SUMMARY (Gate Sweep vs Uniform Baseline)")
+    print("STAGE 2 METRICS SUMMARY (Gate Sweep vs Uniform Baseline) vs. PAPER (TABLE 3)")
     print("="*130)
     print(f"{'Checkpoint':<25} | {'Bal Acc':<7} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<8} | {'Brier':<8} | {'ECE':<8} | {'Beats Unif?':<12}")
+    print("-"*130)
+    
+    print(f"{'PAPER CRISP (ours)':<25} | {'N/A':<7} | {'N/A':<6} | {'N/A':<6} | {'N/A':<6} | {'1.18':<8} | {'0.403':<8} | {'0.088':<8} | {'N/A':<12}")
     print("-"*130)
     
     print(f"{'UNIFORM BASELINE':<25} | {accs_unif[0]:<7.2f} | {accs_unif[1]:<6.2f} | {accs_unif[2]:<6.2f} | {accs_unif[3]:<6.2f} | {cal_unif[0]:<8.3f} | {cal_unif[1]:<8.3f} | {cal_unif[2]:<8.3f} | {'---':<12}")

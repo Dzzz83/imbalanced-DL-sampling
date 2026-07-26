@@ -20,12 +20,12 @@ class ExpertEnsemble(nn.Module):
         expert_dir = getattr(cfg, 'expert_ckpt_dir', cfg.root_model)
 
         ce_bias = getattr(cfg, 'ce_bias', False)
-        ce_ls = getattr(cfg, 'ce_ls', 0.1)
+        ce_ls = getattr(cfg, 'ce_ls', 0.0)       # Read ls from config
         la_bias = getattr(cfg, 'la_bias', False)
-        la_ls = getattr(cfg, 'la_ls', 0.1)
+        la_ls = getattr(cfg, 'la_ls', 0.0)       # Read ls from config
         la_tau = getattr(cfg, 'la_tau', 1.5)
         bs_bias = getattr(cfg, 'bs_bias', False)
-        bs_ls = getattr(cfg, 'bs_ls', 0.1)
+        bs_ls = getattr(cfg, 'bs_ls', 0.0)       # Read ls from config
 
         ckpt_names = [
             f"expert_CE_bias{ce_bias}_ls{ce_ls}_best.pth",

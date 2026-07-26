@@ -99,21 +99,32 @@ def compute_chow_aurc(p_tune, labels_tune, p_test, labels_test, group_ids, mode=
     risks = np.array(risks)[sort_idx]
     if coverages[0] > 0:
         coverages = np.insert(coverages, 0, 0.0)
-        risks = np.insert(risks, 0, 0.0)
+        # FIX: Risk at 0 coverage is 1.0 (or undefined, but 1.0 prevents AURC deflation)
+        risks = np.insert(risks, 0, 1.0) 
     return np.trapz(risks, coverages)
 
 def compute_all_metrics(probs, labels, logits=None, cfg=None, train_dataset=None):
-    """Helper to compute all calibration and accuracy metrics."""
+    """Helper to compute all calibration and accuracy metrics with LT re-weighting."""
     preds = np.argmax(probs, axis=1)
     confidences = np.max(probs, axis=1)
     
     bal_acc = np.mean([np.mean(preds[labels == c] == c) for c in range(cfg.num_classes) if np.sum(labels == c) > 0]) * 100
     many, med, low = shot_acc(cfg, preds, labels, train_dataset, acc_per_cls=False)
     
-    nll = -np.mean(np.log(probs[np.arange(len(labels)), labels] + 1e-8))
-    brier = np.mean(np.sum((probs - np.eye(cfg.num_classes)[labels])**2, axis=1))
+    # L2R/CRISP Protocol: Re-weight the balanced test set to mimic the long-tailed training distribution
+    cls_num_list = np.array(cfg.cls_num_list)
+    priors = cls_num_list / cls_num_list.sum()
+    sample_weights = priors[labels]
+    sample_weights = sample_weights / sample_weights.sum()
+
+    true_probs = probs[np.arange(len(labels)), labels]
+    nll = -np.sum(sample_weights * np.log(true_probs + 1e-8))
     
-    # ECE
+    one_hot = np.zeros_like(probs)
+    one_hot[np.arange(len(labels)), labels] = 1.0
+    brier = np.sum(sample_weights * np.sum((probs - one_hot)**2, axis=1))
+    
+    # Overall ECE
     accs = (preds == labels)
     bin_lowers = np.linspace(0, 1, 16)[:-1]
     bin_uppers = np.linspace(0, 1, 16)[1:]
@@ -126,9 +137,24 @@ def compute_all_metrics(probs, labels, logits=None, cfg=None, train_dataset=None
             avg_conf_in_bin = np.mean(confidences[in_bin])
             ece += np.abs(avg_conf_in_bin - acc_in_bin) * prop_in_bin
 
+    # Tail-ECE (Matches Paper Table 3)
+    group_ids = define_groups_2(cfg.cls_num_list)
+    label_groups = group_ids[labels]
+    tail_mask = (label_groups == 1)
+    tail_conf = confidences[tail_mask]
+    tail_correct = accs[tail_mask]
+    tail_ece = 0.0
+    for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
+        in_bin = (tail_conf > bin_lower) & (tail_conf <= bin_upper)
+        prop_in_bin = np.mean(in_bin)
+        if prop_in_bin > 0:
+            acc_in_bin = np.mean(tail_correct[in_bin])
+            avg_conf_in_bin = np.mean(tail_conf[in_bin])
+            tail_ece += np.abs(avg_conf_in_bin - acc_in_bin) * prop_in_bin
+
     metrics = {
         'bal_acc': bal_acc, 'many': many * 100, 'med': med * 100, 'low': low * 100,
-        'nll': nll, 'brier': brier, 'ece': ece * 100
+        'nll': nll, 'brier': brier, 'ece': ece, 'tail_ece': tail_ece
     }
     
     if logits is not None:
@@ -170,6 +196,10 @@ def main():
     gate.load_state_dict(gate_ckpt['gate_state_dict'])
     gate.eval()
 
+    # FIX: Extract the exact Temperature used during gate training from the checkpoint
+    T = gate_ckpt.get('temperature', 1.0)
+    print(f"[INFO] Using Temperature T={T} extracted from gate checkpoint")
+
     def extract_data(loader):
         all_logits = [[], [], []]
         all_labels = []
@@ -185,8 +215,6 @@ def main():
                 
             all_logits = [torch.cat(l, dim=0) for l in all_logits]
             labels = torch.cat(all_labels, dim=0)
-            
-            T = getattr(cfg, 'gate_temperature', 2.0) # Use the T from config or default to 2.0
             
             adj_probs = [
                 F.softmax(all_logits[0] / T, dim=1),
@@ -237,14 +265,14 @@ def main():
     chow_bal = compute_chow_aurc(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, mode='bal')
     chow_wst = compute_chow_aurc(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, mode='worst')
     
-    la_bal = compute_aurc_metrics(p_la_tune, labels_tune, p_la_test, labels_test, group_ids_2, mode='bal')
-    la_wst = compute_aurc_metrics(p_la_tune, labels_tune, p_la_test, labels_test, group_ids_2, mode='worst')
+    la_bal = compute_aurc_metrics(p_la_tune, labels_tune, p_la_test, labels_test, group_ids_2, cls_num_list=cfg.cls_num_list, mode='bal')
+    la_wst = compute_aurc_metrics(p_la_tune, labels_tune, p_la_test, labels_test, group_ids_2, cls_num_list=cfg.cls_num_list, mode='worst')
     
-    unif_bal = compute_aurc_metrics(p_unif_tune, labels_tune, p_unif_test, labels_test, group_ids_2, mode='bal')
-    unif_wst = compute_aurc_metrics(p_unif_tune, labels_tune, p_unif_test, labels_test, group_ids_2, mode='worst')
+    unif_bal = compute_aurc_metrics(p_unif_tune, labels_tune, p_unif_test, labels_test, group_ids_2, cls_num_list=cfg.cls_num_list, mode='bal')
+    unif_wst = compute_aurc_metrics(p_unif_tune, labels_tune, p_unif_test, labels_test, group_ids_2, cls_num_list=cfg.cls_num_list, mode='worst')
     
-    crisp_bal = compute_aurc_metrics(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, mode='bal')
-    crisp_wst = compute_aurc_metrics(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, mode='worst')
+    crisp_bal = compute_aurc_metrics(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, cls_num_list=cfg.cls_num_list, mode='bal')
+    crisp_wst = compute_aurc_metrics(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, cls_num_list=cfg.cls_num_list, mode='worst')
 
     # Diagnostic Metric Calculations
     m_ce = compute_all_metrics(p_ce_test, labels_test, l_ce_test, cfg, train_dataset)
@@ -274,25 +302,25 @@ def main():
     print("-"*70)
     print(f"{'CRISP NLL':<25} | {'1.18':<20} | {m_crisp['nll']:<20.4f}")
     print(f"{'CRISP Brier':<25} | {'0.403':<20} | {m_crisp['brier']:<20.4f}")
-    print(f"{'CRISP tail-ECE':<25} | {'0.088':<20} | {m_crisp['ece']:<20.4f}")
+    print(f"{'CRISP tail-ECE':<25} | {'0.088':<20} | {m_crisp['tail_ece']:<20.4f}")
     print("="*100)
 
     # --- Print Table 2: Full Diagnostic Breakdown ---
-    print("\n" + "="*130)
+    print("\n" + "="*140)
     print("TABLE 2: FULL DIAGNOSTIC BREAKDOWN (TEST SET)")
-    print("="*130)
-    print(f"{'Method':<10} | {'Bal Acc':<7} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<8} | {'Brier':<8} | {'ECE':<8} | {'Mean Logit':<10} | {'%>10':<6} | {'%>20':<6}")
-    print("-"*130)
+    print("="*140)
+    print(f"{'Method':<10} | {'Bal Acc':<7} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<8} | {'Brier':<8} | {'ECE':<8} | {'Tail ECE':<8} | {'Mean Logit':<10} | {'%>10':<6} | {'%>20':<6}")
+    print("-"*140)
     
     def print_row(name, m):
-        print(f"{name:<10} | {m['bal_acc']:<7.2f} | {m['many']:<6.2f} | {m['med']:<6.2f} | {m['low']:<6.2f} | {m['nll']:<8.3f} | {m['brier']:<8.3f} | {m['ece']:<8.2f} | {m.get('mean_logit', 0):<10.2f} | {m.get('sat_10', 0):<6.1f} | {m.get('sat_20', 0):<6.1f}")
+        print(f"{name:<10} | {m['bal_acc']:<7.2f} | {m['many']:<6.2f} | {m['med']:<6.2f} | {m['low']:<6.2f} | {m['nll']:<8.3f} | {m['brier']:<8.3f} | {m['ece']:<8.3f} | {m['tail_ece']:<8.3f} | {m.get('mean_logit', 0):<10.2f} | {m.get('sat_10', 0):<6.1f} | {m.get('sat_20', 0):<6.1f}")
 
     print_row("CE", m_ce)
     print_row("LA", m_la)
     print_row("BS", m_bs)
     print_row("Uniform", m_unif)
     print_row("CRISP", m_crisp)
-    print("="*130)
+    print("="*140)
 
     # --- Print Table 3: Gate Routing ---
     print("\n" + "="*80)

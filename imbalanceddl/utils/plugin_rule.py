@@ -33,8 +33,8 @@ def power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho, max_iter=20, 
         if rho >= 1.0:
             reject = np.ones(N, dtype=bool)
         else:
-            c = np.percentile(margin, 100.0 * rho)
-            reject = margin < c
+            c = np.percentile(margin, 100.0 * (1.0 - rho))
+            reject = margin > c  # FIX: Flipped from < to >
         
         alpha_new = np.zeros(K)
         for k in range(K):
@@ -64,7 +64,8 @@ def tune_plugin_for_rho(p_mix, labels, group_ids, rho, mode='bal', cls_num_list=
                 mu[1:] = mu_delta
             
             alpha = power_iteration_alpha(p_mix, labels, group_ids, beta_init, mu, rho=rho)
-            _, risk, _ = evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta_init, mode=mode)
+            # FIX: Only unpack 2 values
+            _, risk = evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta_init, mode=mode)
             if risk < best_risk:
                 best_risk = risk
                 best_alpha = alpha
@@ -87,12 +88,14 @@ def tune_plugin_for_rho(p_mix, labels, group_ids, rho, mode='bal', cls_num_list=
                 if K > 1:
                     mu[1:] = mu_delta
                 alpha = power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho=rho)
-                _, risk, _ = evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta, mode='worst')
+                # FIX: Only unpack 2 values
+                _, risk = evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta, mode='worst')
                 if risk < inner_best_risk:
                     inner_best_risk = risk
                     inner_alpha, inner_mu = alpha, mu
                     
-            _, _, risks_k = evaluate_plugin_for_rho(p_mix, labels, group_ids, inner_alpha, inner_mu, rho, beta, mode='worst')
+            # FIX: Request risks_k explicitly using return_risks=True
+            _, _, risks_k = evaluate_plugin_for_rho(p_mix, labels, group_ids, inner_alpha, inner_mu, rho, beta, mode='worst', return_risks=True)
             beta = beta * np.exp(1.0 * np.array(risks_k))
             beta = beta / (beta.sum() + 1e-12)
             
@@ -124,8 +127,8 @@ def evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta=None,
     elif rho >= 1.0:
         accepted = np.zeros(N, dtype=bool)
     else:
-        c = np.percentile(margin, 100.0 * rho)
-        accepted = margin >= c
+        c = np.percentile(margin, 100.0 * (1.0 - rho))
+        accepted = margin <= c  # FIX: Accepted is the opposite of rejected
     
     coverage = np.mean(accepted)
     risks_k = []
@@ -169,11 +172,22 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
     aurc = np.trapz(risks, coverages)
     
     true_probs = p_mix_test[np.arange(N_test), labels_test]
-    nll = -np.mean(np.log(true_probs + 1e-8))
+    
+    # L2R/CRISP Protocol: Re-weight the balanced test set to mimic the long-tailed training distribution
+    # for NLL and Brier score calculations.
+    if cls_num_list is not None:
+        cls_num_list = np.array(cls_num_list)
+        priors = cls_num_list / cls_num_list.sum()
+        sample_weights = priors[labels_test]
+        sample_weights = sample_weights / sample_weights.sum()
+    else:
+        sample_weights = np.ones(N_test) / N_test
+        
+    nll = -np.sum(sample_weights * np.log(true_probs + 1e-8))
     
     one_hot = np.zeros_like(p_mix_test)
     one_hot[np.arange(N_test), labels_test] = 1.0
-    brier = np.mean(np.sum((p_mix_test - one_hot)**2, axis=1))
+    brier = np.sum(sample_weights * np.sum((p_mix_test - one_hot)**2, axis=1))
     
     confidences = np.max(p_mix_test, axis=1)
     preds = np.argmax(p_mix_test, axis=1)

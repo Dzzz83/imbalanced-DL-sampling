@@ -8,8 +8,14 @@ import torch.nn.functional as F
 import numpy as np
 import glob
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# 1. Parse our custom arguments FIRST and remove them from sys.argv
+custom_parser = argparse.ArgumentParser(add_help=False)
+custom_parser.add_argument('--ckpt_dir', type=str, default='checkpoint/experts_sweep_cifar100', help="Directory containing expert checkpoints")
+custom_args, remaining_argv = custom_parser.parse_known_args()
+sys.argv = [sys.argv[0]] + remaining_argv
 
+# 2. NOW import and call get_args()
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from imbalanceddl.utils.config import get_args
 from imbalanceddl.net.network import build_model
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
@@ -34,21 +40,25 @@ def load_expert(cfg, ckpt_path, device):
     ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
     has_bias = ckpt.get('bias', False)
     
+    # Force the model to build on cuda:0 without DataParallel
+    cfg.gpu = 0
     model = build_model(cfg)
+    
+    # Unwrap DataParallel just in case
     actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
-    actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=has_bias).to(device)
-    model = model.to(device)
-    model.load_state_dict(ckpt['state_dict'])
-    model.eval()
-    return model
+    actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=has_bias)
+    
+    # Load weights and move to the single target device
+    actual_model.load_state_dict(ckpt['state_dict'])
+    actual_model = actual_model.to(device)
+    actual_model.eval()
+    
+    return actual_model
 
 def main():
     cfg = get_args()
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--ckpt_dir', type=str, default='checkpoint/experts_sweep_cifar100', help="Directory containing expert checkpoints")
-    args, _ = parser.parse_known_args()
-    
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # Force evaluation to happen on cuda:0
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     print("="*100)
     print("CRISP STAGE 1 EXPERT VERIFICATION (FOLDER SCAN vs PAPER)")
@@ -58,9 +68,9 @@ def main():
     train_dataset, val_dataset = dataset.train_val_sets
     val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=4)
 
-    ckpt_files = sorted(glob.glob(os.path.join(args.ckpt_dir, "*.pth")))
+    ckpt_files = sorted(glob.glob(os.path.join(custom_args.ckpt_dir, "*.pth")))
     if not ckpt_files:
-        print(f"[ERROR] No checkpoints found in {args.ckpt_dir}")
+        print(f"[ERROR] No checkpoints found in {custom_args.ckpt_dir}")
         sys.exit(1)
 
     print(f"[INFO] Found {len(ckpt_files)} checkpoints to evaluate.")
@@ -76,6 +86,12 @@ def main():
 
     train_targets = np.array(train_dataset.targets)
     cls_counts = np.bincount(train_targets, minlength=cfg.num_classes)
+    
+    # L2R/CRISP Protocol: Re-weight the balanced test set to match the long-tailed training distribution
+    priors = cls_counts / cls_counts.sum()
+    sample_weights = priors[all_labels]
+    sample_weights = sample_weights / sample_weights.sum()
+
     head_mask = cls_counts > 100
     tail_mask = cls_counts < 20
     test_head_mask = head_mask[all_labels]
@@ -106,8 +122,9 @@ def main():
             bal_acc = np.mean([np.mean(preds[all_labels == c] == c) for c in range(cfg.num_classes) if np.sum(all_labels == c) > 0]) * 100
             many, med, low = shot_acc(cfg, preds, all_labels, train_dataset, acc_per_cls=False)
             
-            nll = -np.mean(np.log(probs[np.arange(len(all_labels)), all_labels] + 1e-8))
-            brier = np.mean(np.sum((probs - np.eye(cfg.num_classes)[all_labels])**2, axis=1))
+            # Apply sample weights to NLL and Brier to mimic long-tailed test set
+            nll = -np.sum(sample_weights * np.log(probs[np.arange(len(all_labels)), all_labels] + 1e-8))
+            brier = np.sum(sample_weights * np.sum((probs - np.eye(cfg.num_classes)[all_labels])**2, axis=1))
             
             ece_overall = compute_ece(confidences, preds, all_labels)
             ece_head = compute_ece(confidences[test_head_mask], preds[test_head_mask], all_labels[test_head_mask])
@@ -137,7 +154,7 @@ def main():
         torch.cuda.empty_cache()
 
     print("\n" + "="*150)
-    print("STAGE 1 METRICS SUMMARY (Raw Logits) vs. PAPER BASELINE (TABLE 3)")
+    print("STAGE 1 METRICS SUMMARY (LT-Weighted) vs. PAPER BASELINE (TABLE 3)")
     print("="*150)
     header = f"{'Expert Config':<20} | {'Bal Acc':<7} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<6} | {'Brier':<6} | {'ECE All':<7} | {'ECE Head':<8} | {'ECE Tail':<8} | {'Mean Logit':<10} | {'%>10':<5} | {'%>20':<5}"
     print(header)

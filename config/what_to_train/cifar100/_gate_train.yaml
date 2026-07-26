@@ -24,9 +24,14 @@ gate_dropout: 0.0         # no dropout
 routing_sparsity: 2
 
 ce_bias: false
+ce_ls: 0.0
+
 la_bias: false
-la_tau: 1.0
+la_ls: 0.0
+la_tau: 1.5
+
 bs_bias: false
+bs_ls: 0.0
 
 # FIX: Define the sweep lists for Stage 2
 gate_batch_sizes: [64, 128, 256]
