@@ -67,6 +67,17 @@ class Network(nn.Module):
                 raise NotImplementedError
         raise ValueError("=> No classifier is specified !")
 
+class MultiHeadClassifier(nn.Module):
+    def __init__(self, in_features, out_features, num_heads=3, bias=False):
+        super().__init__()
+        self.heads = nn.ModuleList([
+            nn.Linear(in_features, out_features, bias=bias) for _ in range(num_heads)
+        ])
+
+    def forward(self, x):
+        # x: (batch, in_features)
+        return [head(x) for head in self.heads]   # list of (batch, out_features)
+
 def build_model(cfg):
     model = Network(cfg)
     if cfg.gpu is not None:

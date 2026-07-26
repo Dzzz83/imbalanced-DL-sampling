@@ -10,6 +10,7 @@ from .base import BaseTrainer
 from ..loss import LogitAdjustedLoss, BalancedSoftmaxLoss
 from ..net.network import build_model
 from ..utils.debug_logger import get_debug_logger
+from ..net.network import build_model, MultiHeadClassifier
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -38,17 +39,14 @@ class ExpertsTrainer(BaseTrainer):
         self.cls_num_list = cfg.cls_num_list
         
         # FIX: Label Smoothing on CE to prevent logit explosion
-        self.criterion_ce = torch.nn.CrossEntropyLoss(label_smoothing=0.1).to(self.device)
+        self.criterion_ce = nn.CrossEntropyLoss()
         self.criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
         self.criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
-        
-        self.losses = [self.criterion_ce, self.criterion_la, self.criterion_bs]
-        self.loss_names = ['CE', 'LA', 'BS']
         
         self.gate_split_ratio = getattr(cfg, 'gate_split_ratio', 0.9)
         self._split_dataset()
         self._init_file_logger()
-        print("[INFO] ExpertsTrainer initialized to train 3 independent models.")
+        print("[INFO] Trained to train a shared‑backbone model with 3 heads")
 
     def _init_file_logger(self):
         os.makedirs(self.cfg.root_log, exist_ok=True)
@@ -159,15 +157,17 @@ class ExpertsTrainer(BaseTrainer):
         
         model = build_model(self.cfg)
         # Replace single classifier with ModuleList of 3 heads
-        model.classifier = nn.ModuleList([
-            nn.Linear(model.feature_len, model.num_classes, bias=False).to(self.device)
-            for _ in range(3)
-        ])
+        model.classifier = MultiHeadClassifier(
+            in_features=model.feature_len,
+            out_features=model.num_classes,
+            num_heads=3,
+            bias=False
+        ).to(self.device)
         
         # Define losses (no label smoothing)
         criterion_ce = nn.CrossEntropyLoss()
-        criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0)
-        criterion_bs = BalancedSoftmaxLoss(self.cls_num_list)
+        criterion_la = LogitAdjustedLoss(self.cls_num_list, tau=1.0).to(self.device)
+        criterion_bs = BalancedSoftmaxLoss(self.cls_num_list).to(self.device)
         criteria = [criterion_ce, criterion_la, criterion_bs]
         
         optimizer = optim.SGD(

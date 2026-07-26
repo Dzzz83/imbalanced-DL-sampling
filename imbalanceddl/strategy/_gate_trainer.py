@@ -19,9 +19,23 @@ from ..net.network import build_model
 class ExpertEnsemble(nn.Module):
     def __init__(self, cfg, device):
         super().__init__()
+        # Build the base model (single classifier)
         self.model = build_model(cfg)
-        checkpoint = torch.load(os.path.join(cfg.expert_ckpt_dir, 'expert_shared.pth'), map_location=device)
+        # Replace with multi‑head classifier to match the saved checkpoint
+        from ..net.network import MultiHeadClassifier
+        self.model.classifier = MultiHeadClassifier(
+            in_features=self.model.feature_len,
+            out_features=self.model.num_classes,
+            num_heads=3,
+            bias=False
+        ).to(device)
+
+        # Load the shared expert checkpoint
+        checkpoint_path = os.path.join(cfg.expert_ckpt_dir, 'expert_shared.pth')
+        checkpoint = torch.load(checkpoint_path, map_location=device)
         self.model.load_state_dict(checkpoint['state_dict'])
+
+        # Freeze all parameters
         for param in self.model.parameters():
             param.requires_grad = False
         self.model.eval()
