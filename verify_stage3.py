@@ -80,7 +80,8 @@ def chows_rule_risk_balanced(p_tune, labels_tune, p_test, labels_test, group_ids
     for k in range(K):
         mask = (label_groups == k) & accepted
         if np.sum(mask) == 0:
-            risks_k.append(0.0)
+            # BUG FIX: Changed from 0.0 to 1.0 to match `plugin_rule.py` and correctly penalize zero coverage
+            risks_k.append(1.0)
         else:
             err = np.sum(preds[mask] != labels_test[mask])
             risks_k.append(err / np.sum(mask))

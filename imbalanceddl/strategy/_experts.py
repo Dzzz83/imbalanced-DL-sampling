@@ -119,8 +119,12 @@ class ExpertsTrainer(BaseTrainer):
             self.cfg, all_preds, all_targets, self.train_dataset, acc_per_cls=False
         )
         
-        # Compute NLL for calibration-aware expert selection
-        nll = -np.mean(np.log(all_probs[np.arange(len(all_targets)), all_targets] + 1e-8))
+        # Compute LT-weighted NLL for calibration-aware expert selection
+        cls_num_list = np.array(self.cls_num_list)
+        priors = cls_num_list / cls_num_list.sum()
+        sample_weights = priors[all_targets]
+        sample_weights = sample_weights / sample_weights.sum()
+        nll = -np.sum(sample_weights * np.log(all_probs[np.arange(len(all_targets)), all_targets] + 1e-8))
 
         return {
             'acc': top1.avg * 100,
@@ -166,7 +170,7 @@ class ExpertsTrainer(BaseTrainer):
                         best_epoch = epoch
                         best_state_dict = copy.deepcopy(model.state_dict())
                 
-                best_save_path = os.path.join(self.cfg.root_model, f"expert_CE_bias{bias}_ls{ls}_best.pth")
+                best_save_path = os.path.join(self.cfg.root_model, f"expert_CE_bias{bias}_ls{ls}_epoch{best_epoch}.pth")
                 torch.save({'state_dict': best_state_dict, 'bias': bias, 'tau': None, 'label_smoothing': ls}, best_save_path)
                 
                 metrics['name'] = run_name
@@ -201,7 +205,7 @@ class ExpertsTrainer(BaseTrainer):
                         best_epoch = epoch
                         best_state_dict = copy.deepcopy(model.state_dict())
                 
-                best_save_path = os.path.join(self.cfg.root_model, f"expert_BS_bias{bias}_ls{ls}_best.pth")
+                best_save_path = os.path.join(self.cfg.root_model, f"expert_BS_bias{bias}_ls{ls}_epoch{best_epoch}.pth")
                 torch.save({'state_dict': best_state_dict, 'bias': bias, 'tau': None, 'label_smoothing': ls}, best_save_path)
                 
                 metrics['name'] = run_name
@@ -237,7 +241,7 @@ class ExpertsTrainer(BaseTrainer):
                             best_epoch = epoch
                             best_state_dict = copy.deepcopy(model.state_dict())
                     
-                    best_save_path = os.path.join(self.cfg.root_model, f"expert_LA_bias{bias}_ls{ls}_t{tau}_best.pth")
+                    best_save_path = os.path.join(self.cfg.root_model, f"expert_LA_bias{bias}_ls{ls}_t{tau}_epoch{best_epoch}.pth")
                     torch.save({'state_dict': best_state_dict, 'bias': bias, 'tau': tau, 'label_smoothing': ls}, best_save_path)
                     
                     metrics['name'] = run_name

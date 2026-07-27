@@ -89,7 +89,6 @@ def get_calib(probs, labels, cfg):
     preds = np.argmax(probs, axis=1)
     conf = np.max(probs, axis=1)
     
-    # L2R/CRISP Protocol: Re-weight the balanced test set to mimic the long-tailed training distribution
     cls_num_list = np.array(cfg.cls_num_list)
     priors = cls_num_list / cls_num_list.sum()
     sample_weights = priors[labels]
@@ -136,11 +135,6 @@ def main():
             
     all_logits = [torch.cat(l, dim=0) for l in all_logits]
     labels = torch.cat(all_labels, dim=0).numpy()
-    
-    print("[INFO] Computing Uniform Ensemble baseline...")
-    probs_unif = (F.softmax(all_logits[0], dim=1) + F.softmax(all_logits[1], dim=1) + F.softmax(all_logits[2], dim=1)) / 3.0
-    accs_unif = get_accs(probs_unif.numpy(), labels, cfg, train_dataset)
-    cal_unif = get_calib(probs_unif.numpy(), labels, cfg)
 
     gate_files = sorted(glob.glob(os.path.join(custom_args.gate_dir, "*.pth")))
     if not gate_files:
@@ -148,6 +142,15 @@ def main():
         sys.exit(1)
         
     print(f"[INFO] Found {len(gate_files)} gate checkpoints to evaluate.")
+    
+    first_fname = os.path.basename(gate_files[0])
+    match = re.search(r'T([\d\.]+)', first_fname)
+    T_unif = float(match.group(1)) if match else 1.0
+    
+    print(f"[INFO] Computing Uniform Ensemble baseline (T={T_unif})...")
+    probs_unif = (F.softmax(all_logits[0] / T_unif, dim=1) + F.softmax(all_logits[1] / T_unif, dim=1) + F.softmax(all_logits[2] / T_unif, dim=1)) / 3.0
+    accs_unif = get_accs(probs_unif.numpy(), labels, cfg, train_dataset)
+    cal_unif = get_calib(probs_unif.numpy(), labels, cfg)
     
     results = []
 
@@ -188,9 +191,15 @@ def main():
                 p_mix += w * expert_probs
                 
             p_mix_np = p_mix.cpu().numpy()
+            weights_np = weights.cpu().numpy()
             
             accs_mix = get_accs(p_mix_np, labels, cfg, train_dataset)
             cal_mix = get_calib(p_mix_np, labels, cfg)
+            
+            # Calculate average raw weights across the test set
+            avg_w_ce = np.mean(weights_np[:, 0])
+            avg_w_la = np.mean(weights_np[:, 1])
+            avg_w_bs = np.mean(weights_np[:, 2])
             
             beats_unif = "✅" if accs_mix[0] >= accs_unif[0] else "❌"
             
@@ -198,27 +207,28 @@ def main():
                 'name': clean_name,
                 'bal_acc': accs_mix[0], 'many': accs_mix[1], 'med': accs_mix[2], 'low': accs_mix[3],
                 'nll': cal_mix[0], 'brier': cal_mix[1], 'ece': cal_mix[2],
+                'w_ce': avg_w_ce, 'w_la': avg_w_la, 'w_bs': avg_w_bs,
                 'beats_unif': beats_unif
             })
             print(f"  Evaluated {clean_name:<25} | Bal Acc: {accs_mix[0]:.2f}% | {beats_unif}")
 
-    print("\n" + "="*130)
+    print("\n" + "="*160)
     print("STAGE 2 METRICS SUMMARY (Gate Sweep vs Uniform Baseline) vs. PAPER (TABLE 3)")
-    print("="*130)
-    print(f"{'Checkpoint':<25} | {'Bal Acc':<7} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<8} | {'Brier':<8} | {'ECE':<8} | {'Beats Unif?':<12}")
-    print("-"*130)
+    print("="*160)
+    print(f"{'Checkpoint':<25} | {'Bal Acc':<7} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<8} | {'Brier':<8} | {'ECE':<8} | {'w_CE':<6} | {'w_LA':<6} | {'w_BS':<6} | {'Beats Unif?':<12}")
+    print("-"*160)
     
-    print(f"{'PAPER CRISP (ours)':<25} | {'N/A':<7} | {'N/A':<6} | {'N/A':<6} | {'N/A':<6} | {'1.18':<8} | {'0.403':<8} | {'0.088':<8} | {'N/A':<12}")
-    print("-"*130)
+    print(f"{'PAPER CRISP (ours)':<25} | {'N/A':<7} | {'N/A':<6} | {'N/A':<6} | {'N/A':<6} | {'1.18':<8} | {'0.403':<8} | {'0.088':<8} | {'N/A':<6} | {'N/A':<6} | {'N/A':<6} | {'N/A':<12}")
+    print("-"*160)
     
-    print(f"{'UNIFORM BASELINE':<25} | {accs_unif[0]:<7.2f} | {accs_unif[1]:<6.2f} | {accs_unif[2]:<6.2f} | {accs_unif[3]:<6.2f} | {cal_unif[0]:<8.3f} | {cal_unif[1]:<8.3f} | {cal_unif[2]:<8.3f} | {'---':<12}")
-    print("-"*130)
+    print(f"{'UNIFORM BASELINE':<25} | {accs_unif[0]:<7.2f} | {accs_unif[1]:<6.2f} | {accs_unif[2]:<6.2f} | {accs_unif[3]:<6.2f} | {cal_unif[0]:<8.3f} | {cal_unif[1]:<8.3f} | {cal_unif[2]:<8.3f} | {'0.33':<6} | {'0.33':<6} | {'0.34':<6} | {'---':<12}")
+    print("-"*160)
     
     results.sort(key=lambda x: -x['bal_acc'])
     
     for r in results:
-        print(f"{r['name']:<25} | {r['bal_acc']:<7.2f} | {r['many']:<6.2f} | {r['med']:<6.2f} | {r['low']:<6.2f} | {r['nll']:<8.3f} | {r['brier']:<8.3f} | {r['ece']:<8.3f} | {r['beats_unif']:<12}")
-    print("="*130)
+        print(f"{r['name']:<25} | {r['bal_acc']:<7.2f} | {r['many']:<6.2f} | {r['med']:<6.2f} | {r['low']:<6.2f} | {r['nll']:<8.3f} | {r['brier']:<8.3f} | {r['ece']:<8.3f} | {r['w_ce']:<6.3f} | {r['w_la']:<6.3f} | {r['w_bs']:<6.3f} | {r['beats_unif']:<12}")
+    print("="*160)
 
 if __name__ == "__main__":
     main()

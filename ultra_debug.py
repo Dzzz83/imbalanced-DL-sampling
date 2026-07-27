@@ -99,7 +99,6 @@ def compute_chow_aurc(p_tune, labels_tune, p_test, labels_test, group_ids, mode=
     risks = np.array(risks)[sort_idx]
     if coverages[0] > 0:
         coverages = np.insert(coverages, 0, 0.0)
-        # FIX: Risk at 0 coverage is 1.0 (or undefined, but 1.0 prevents AURC deflation)
         risks = np.insert(risks, 0, 1.0) 
     return np.trapz(risks, coverages)
 
@@ -111,7 +110,6 @@ def compute_all_metrics(probs, labels, logits=None, cfg=None, train_dataset=None
     bal_acc = np.mean([np.mean(preds[labels == c] == c) for c in range(cfg.num_classes) if np.sum(labels == c) > 0]) * 100
     many, med, low = shot_acc(cfg, preds, labels, train_dataset, acc_per_cls=False)
     
-    # L2R/CRISP Protocol: Re-weight the balanced test set to mimic the long-tailed training distribution
     cls_num_list = np.array(cfg.cls_num_list)
     priors = cls_num_list / cls_num_list.sum()
     sample_weights = priors[labels]
@@ -124,7 +122,6 @@ def compute_all_metrics(probs, labels, logits=None, cfg=None, train_dataset=None
     one_hot[np.arange(len(labels)), labels] = 1.0
     brier = np.sum(sample_weights * np.sum((probs - one_hot)**2, axis=1))
     
-    # Overall ECE
     accs = (preds == labels)
     bin_lowers = np.linspace(0, 1, 16)[:-1]
     bin_uppers = np.linspace(0, 1, 16)[1:]
@@ -137,7 +134,6 @@ def compute_all_metrics(probs, labels, logits=None, cfg=None, train_dataset=None
             avg_conf_in_bin = np.mean(confidences[in_bin])
             ece += np.abs(avg_conf_in_bin - acc_in_bin) * prop_in_bin
 
-    # Tail-ECE (Matches Paper Table 3)
     group_ids = define_groups_2(cfg.cls_num_list)
     label_groups = group_ids[labels]
     tail_mask = (label_groups == 1)
@@ -167,8 +163,10 @@ def compute_all_metrics(probs, labels, logits=None, cfg=None, train_dataset=None
 
 def main():
     cfg = get_args()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+    # FIX: Explicitly use cuda:0 and set the device
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    if torch.cuda.is_available():
+        torch.cuda.set_device(device)
     print("\n" + "="*80)
     print("ULTRA DEBUG: CRISP PIPELINE & PAPER COMPARISON")
     print("="*80)
@@ -176,7 +174,6 @@ def main():
     dataset = ImbalancedDataset(cfg, cfg.dataset, augmentation='none')
     train_dataset, val_dataset = dataset.train_val_sets
     
-    # Paper Protocol: 80/20 split of the test set for tuning and evaluation
     val_targets = np.array(val_dataset.targets)
     val_indices = np.arange(len(val_targets))
     tune_idx, test_idx = train_test_split(val_indices, test_size=0.8, stratify=val_targets, random_state=cfg.seed)
@@ -196,7 +193,6 @@ def main():
     gate.load_state_dict(gate_ckpt['gate_state_dict'])
     gate.eval()
 
-    # FIX: Extract the exact Temperature used during gate training from the checkpoint
     T = gate_ckpt.get('temperature', 1.0)
     print(f"[INFO] Using Temperature T={T} extracted from gate checkpoint")
 
@@ -222,7 +218,6 @@ def main():
                 F.softmax(all_logits[2] / T, dim=1)
             ]
             
-            # Gate routing
             phi = compute_gate_features(all_logits, adj_probs)
             gate_logits = gate(phi)
             weights = F.softmax(gate_logits, dim=1)
@@ -261,7 +256,6 @@ def main():
     group_ids_2 = define_groups_2(cfg.cls_num_list)
     
     print("\n[INFO] Computing AURC & Calibration metrics...")
-    # AURC Calculations
     chow_bal = compute_chow_aurc(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, mode='bal')
     chow_wst = compute_chow_aurc(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, mode='worst')
     
@@ -274,7 +268,6 @@ def main():
     crisp_bal = compute_aurc_metrics(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, cls_num_list=cfg.cls_num_list, mode='bal')
     crisp_wst = compute_aurc_metrics(p_mix_tune, labels_tune, p_mix_test, labels_test, group_ids_2, cls_num_list=cfg.cls_num_list, mode='worst')
 
-    # Diagnostic Metric Calculations
     m_ce = compute_all_metrics(p_ce_test, labels_test, l_ce_test, cfg, train_dataset)
     m_la = compute_all_metrics(p_la_test, labels_test, l_la_test, cfg, train_dataset)
     m_bs = compute_all_metrics(p_bs_test, labels_test, l_bs_test, cfg, train_dataset)
@@ -285,19 +278,19 @@ def main():
     print("\n" + "="*100)
     print("TABLE 1: CRISP PAPER vs. YOUR IMPLEMENTATION (CIFAR-100-LT)")
     print("="*100)
-    print(f"{'Metric':<25} | {'Paper (Top)':<20} | {'Yours (Bottom)':<20}")
+    print(f"{'Metric':<25} | {'Paper (Value)':<20} | {'Yours (Value)':<20}")
     print("-"*70)
     
     print(f"{'Chow Bal AURC':<25} | {'0.509':<20} | {chow_bal:<20.4f}")
     print(f"{'Chow Wst AURC':<25} | {'0.883':<20} | {chow_wst:<20.4f}")
     print("-"*70)
-    print(f"{'Single LA Bal AURC':<25} | {'0.287':<20} | {la_bal['AURC']:<20.4f}")
-    print(f"{'Single LA Wst AURC':<25} | {'0.321':<20} | {la_wst['AURC']:<20.4f}")
+    print(f"{'Single LA Bal AURC':<25} | {'0.256':<20} | {la_bal['AURC']:<20.4f}")
+    print(f"{'Single LA Wst AURC':<25} | {'0.263':<20} | {la_wst['AURC']:<20.4f}")
     print("-"*70)
     print(f"{'Uniform Bal AURC':<25} | {'0.254':<20} | {unif_bal['AURC']:<20.4f}")
     print(f"{'Uniform Wst AURC':<25} | {'0.261':<20} | {unif_wst['AURC']:<20.4f}")
     print("-"*70)
-    print(f"{'CRISP Bal AURC':<25} | {'0.253':<20} | {crisp_bal['AURC']:<20.4f}")
+    print(f"{'CRISP Bal AURC':<25} | {'0.233':<20} | {crisp_bal['AURC']:<20.4f}")
     print(f"{'CRISP Wst AURC':<25} | {'0.248':<20} | {crisp_wst['AURC']:<20.4f}")
     print("-"*70)
     print(f"{'CRISP NLL':<25} | {'1.18':<20} | {m_crisp['nll']:<20.4f}")
@@ -307,19 +300,25 @@ def main():
 
     # --- Print Table 2: Full Diagnostic Breakdown ---
     print("\n" + "="*140)
-    print("TABLE 2: FULL DIAGNOSTIC BREAKDOWN (TEST SET)")
+    print("TABLE 2: FULL DIAGNOSTIC BREAKDOWN (TEST SET) - PAPER BASELINES INCLUDED")
     print("="*140)
-    print(f"{'Method':<10} | {'Bal Acc':<7} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<8} | {'Brier':<8} | {'ECE':<8} | {'Tail ECE':<8} | {'Mean Logit':<10} | {'%>10':<6} | {'%>20':<6}")
+    print(f"{'Method':<15} | {'Bal Acc':<7} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<8} | {'Brier':<8} | {'ECE':<8} | {'Tail ECE':<8} | {'Mean Logit':<10} | {'%>10':<6} | {'%>20':<6}")
     print("-"*140)
     
     def print_row(name, m):
-        print(f"{name:<10} | {m['bal_acc']:<7.2f} | {m['many']:<6.2f} | {m['med']:<6.2f} | {m['low']:<6.2f} | {m['nll']:<8.3f} | {m['brier']:<8.3f} | {m['ece']:<8.3f} | {m['tail_ece']:<8.3f} | {m.get('mean_logit', 0):<10.2f} | {m.get('sat_10', 0):<6.1f} | {m.get('sat_20', 0):<6.1f}")
+        print(f"{name:<15} | {m['bal_acc']:<7.2f} | {m['many']:<6.2f} | {m['med']:<6.2f} | {m['low']:<6.2f} | {m['nll']:<8.3f} | {m['brier']:<8.3f} | {m['ece']:<8.3f} | {m['tail_ece']:<8.3f} | {m.get('mean_logit', 0):<10.2f} | {m.get('sat_10', 0):<6.1f} | {m.get('sat_20', 0):<6.1f}")
 
-    print_row("CE", m_ce)
-    print_row("LA", m_la)
-    print_row("BS", m_bs)
-    print_row("Uniform", m_unif)
-    print_row("CRISP", m_crisp)
+    def print_paper_row(name, bal, many, med, low, nll, brier, ece, tail_ece):
+        print(f"{name:<15} | {bal:<7} | {many:<6} | {med:<6} | {low:<6} | {nll:<8} | {brier:<8} | {ece:<8} | {tail_ece:<8} | {'N/A':<10} | {'N/A':<6} | {'N/A':<6}")
+
+    print_paper_row("PAPER CRISP", "N/A", "N/A", "N/A", "N/A", "1.18", "0.403", "N/A", "0.088")
+    print_paper_row("PAPER UNIF", "N/A", "N/A", "N/A", "N/A", "1.30", "0.442", "N/A", "0.171")
+    print("-"*140)
+    print_row("YOUR CE", m_ce)
+    print_row("YOUR LA", m_la)
+    print_row("YOUR BS", m_bs)
+    print_row("YOUR Uniform", m_unif)
+    print_row("YOUR CRISP", m_crisp)
     print("="*140)
 
     # --- Print Table 3: Gate Routing ---

@@ -40,8 +40,10 @@ def load_expert(cfg, ckpt_path, device):
     ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
     has_bias = ckpt.get('bias', False)
     
-    # Force the model to build on cuda:0 without DataParallel
-    cfg.gpu = 0
+    # Set the default GPU to the requested device before building the model
+    if 'cuda' in str(device):
+        torch.cuda.set_device(device)
+        
     model = build_model(cfg)
     
     # Unwrap DataParallel just in case
@@ -57,8 +59,12 @@ def load_expert(cfg, ckpt_path, device):
 
 def main():
     cfg = get_args()
-    # Force evaluation to happen on cuda:0
+    # FIX: Use cuda:0 because CUDA_VISIBLE_DEVICES=1 remaps physical GPU 1 to logical cuda:0
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    
+    # Explicitly set the default device for PyTorch
+    if torch.cuda.is_available():
+        torch.cuda.set_device(device)
 
     print("="*100)
     print("CRISP STAGE 1 EXPERT VERIFICATION (FOLDER SCAN vs PAPER)")

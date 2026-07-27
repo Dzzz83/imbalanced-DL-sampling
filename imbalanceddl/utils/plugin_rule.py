@@ -14,9 +14,14 @@ def define_groups_2(cls_num_list):
     group_ids[cls_num_list <= 20] = 1
     return group_ids
 
-def power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho, max_iter=20, damp=0.5, kappa=1e-4):
+def power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho, sample_weights=None, max_iter=20, damp=0.5, kappa=1e-4):
     K = len(beta)
     N = len(labels)
+    
+    if sample_weights is None:
+        sample_weights = np.ones(N) / N
+    total_weight = np.sum(sample_weights)
+    
     alpha = np.ones(K) / K * (1.0 - rho)
     label_groups = group_ids[labels]
     
@@ -34,20 +39,21 @@ def power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho, max_iter=20, 
             reject = np.ones(N, dtype=bool)
         else:
             c = np.percentile(margin, 100.0 * (1.0 - rho))
-            reject = margin > c  # FIX: Flipped from < to >
+            reject = margin > c
         
         alpha_new = np.zeros(K)
         for k in range(K):
             mask = (label_groups == k)
             accepted = mask & (~reject)
-            alpha_new[k] = np.sum(accepted) / N
+            # FIX: Use sample weights to calculate acceptance mass
+            alpha_new[k] = np.sum(sample_weights[accepted]) / total_weight
             
         alpha_new = np.clip(alpha_new, kappa, 1.0)
         alpha = damp * alpha + (1 - damp) * alpha_new
         alpha = np.clip(alpha, kappa, 1.0)
     return alpha
 
-def tune_plugin_for_rho(p_mix, labels, group_ids, rho, mode='bal', cls_num_list=None):
+def tune_plugin_for_rho(p_mix, labels, group_ids, rho, mode='bal', cls_num_list=None, sample_weights=None):
     K = len(np.unique(group_ids))
     beta_init = np.ones(K) / K
     
@@ -63,9 +69,8 @@ def tune_plugin_for_rho(p_mix, labels, group_ids, rho, mode='bal', cls_num_list=
             if K > 1:
                 mu[1:] = mu_delta
             
-            alpha = power_iteration_alpha(p_mix, labels, group_ids, beta_init, mu, rho=rho)
-            # FIX: Only unpack 2 values
-            _, risk = evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta_init, mode=mode)
+            alpha = power_iteration_alpha(p_mix, labels, group_ids, beta_init, mu, rho=rho, sample_weights=sample_weights)
+            _, risk = evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta_init, mode=mode, sample_weights=sample_weights)
             if risk < best_risk:
                 best_risk = risk
                 best_alpha = alpha
@@ -87,15 +92,13 @@ def tune_plugin_for_rho(p_mix, labels, group_ids, rho, mode='bal', cls_num_list=
                 mu[0] = 0
                 if K > 1:
                     mu[1:] = mu_delta
-                alpha = power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho=rho)
-                # FIX: Only unpack 2 values
-                _, risk = evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta, mode='worst')
+                alpha = power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho=rho, sample_weights=sample_weights)
+                _, risk = evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta, mode='worst', sample_weights=sample_weights)
                 if risk < inner_best_risk:
                     inner_best_risk = risk
                     inner_alpha, inner_mu = alpha, mu
                     
-            # FIX: Request risks_k explicitly using return_risks=True
-            _, _, risks_k = evaluate_plugin_for_rho(p_mix, labels, group_ids, inner_alpha, inner_mu, rho, beta, mode='worst', return_risks=True)
+            _, _, risks_k = evaluate_plugin_for_rho(p_mix, labels, group_ids, inner_alpha, inner_mu, rho, beta, mode='worst', return_risks=True, sample_weights=sample_weights)
             beta = beta * np.exp(1.0 * np.array(risks_k))
             beta = beta / (beta.sum() + 1e-12)
             
@@ -105,11 +108,15 @@ def tune_plugin_for_rho(p_mix, labels, group_ids, rho, mode='bal', cls_num_list=
                 
         return best_alpha, best_mu
 
-def evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta=None, mode='bal', return_risks=False):
+def evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta=None, mode='bal', return_risks=False, sample_weights=None):
     N, _ = p_mix.shape
     K = len(alpha)
     if beta is None:
         beta = np.ones(K) / K
+        
+    if sample_weights is None:
+        sample_weights = np.ones(N) / N
+    total_weight = np.sum(sample_weights)
         
     label_groups = group_ids[labels]
     alpha_safe = np.clip(alpha, 1e-6, 1.0)
@@ -128,17 +135,20 @@ def evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta=None,
         accepted = np.zeros(N, dtype=bool)
     else:
         c = np.percentile(margin, 100.0 * (1.0 - rho))
-        accepted = margin <= c  # FIX: Accepted is the opposite of rejected
+        accepted = margin <= c  
     
-    coverage = np.mean(accepted)
+    # FIX: Calculate coverage and risk using sample weights
+    coverage = np.sum(sample_weights[accepted]) / total_weight
     risks_k = []
     for k in range(K):
         mask = (label_groups == k) & accepted
-        if np.sum(mask) == 0:
+        group_total_weight = np.sum(sample_weights[(label_groups == k) & accepted])
+        if group_total_weight == 0:
             risks_k.append(1.0)
         else:
-            err_k = np.sum((preds[mask] != labels[mask]))
-            risks_k.append(err_k / np.sum(mask))
+            err_mask = mask & (preds != labels)
+            err_weight = np.sum(sample_weights[err_mask])
+            risks_k.append(err_weight / group_total_weight)
     
     risk = np.max(risks_k) if mode == 'worst' else np.mean(risks_k)
     
@@ -152,12 +162,25 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
     beta = np.ones(K) / K
     rho_grid = np.arange(0.0, 1.1, 0.1)
     
+    # FIX: Compute LT sample weights for both val and test sets
+    if cls_num_list is not None:
+        cls_num_list = np.array(cls_num_list)
+        priors = cls_num_list / cls_num_list.sum()
+        sample_weights_val = priors[labels_val]
+        sample_weights_val = sample_weights_val / sample_weights_val.sum()
+        
+        sample_weights_test = priors[labels_test]
+        sample_weights_test = sample_weights_test / sample_weights_test.sum()
+    else:
+        sample_weights_val = None
+        sample_weights_test = None
+    
     coverages = []
     risks = []
     
     for rho in rho_grid:
-        alpha, mu = tune_plugin_for_rho(p_mix_val, labels_val, group_ids, rho, mode=mode)
-        coverage, risk = evaluate_plugin_for_rho(p_mix_test, labels_test, group_ids, alpha, mu, rho, beta, mode=mode)
+        alpha, mu = tune_plugin_for_rho(p_mix_val, labels_val, group_ids, rho, mode=mode, sample_weights=sample_weights_val)
+        coverage, risk = evaluate_plugin_for_rho(p_mix_test, labels_test, group_ids, alpha, mu, rho, beta, mode=mode, sample_weights=sample_weights_test)
         coverages.append(coverage)
         risks.append(risk)
     
@@ -171,12 +194,9 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
         
     aurc = np.trapz(risks, coverages)
     
+    # NLL and Brier remain the same
     true_probs = p_mix_test[np.arange(N_test), labels_test]
-    
-    # L2R/CRISP Protocol: Re-weight the balanced test set to mimic the long-tailed training distribution
-    # for NLL and Brier score calculations.
     if cls_num_list is not None:
-        cls_num_list = np.array(cls_num_list)
         priors = cls_num_list / cls_num_list.sum()
         sample_weights = priors[labels_test]
         sample_weights = sample_weights / sample_weights.sum()

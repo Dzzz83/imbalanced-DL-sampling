@@ -12,6 +12,7 @@ from ..utils.gate_features import compute_gate_features
 from ..utils.debug_logger import get_debug_logger
 from ..utils.plugin_rule import define_groups, define_groups_2, compute_aurc_metrics
 from ..net.network import build_model
+import glob
 
 class ExpertEnsemble(nn.Module):
     def __init__(self, cfg, device):
@@ -20,23 +21,34 @@ class ExpertEnsemble(nn.Module):
         expert_dir = getattr(cfg, 'expert_ckpt_dir', cfg.root_model)
 
         ce_bias = getattr(cfg, 'ce_bias', False)
-        ce_ls = getattr(cfg, 'ce_ls', 0.0)       # Read ls from config
+        ce_ls = getattr(cfg, 'ce_ls', 0.0)
         la_bias = getattr(cfg, 'la_bias', False)
-        la_ls = getattr(cfg, 'la_ls', 0.0)       # Read ls from config
+        la_ls = getattr(cfg, 'la_ls', 0.0)
         la_tau = getattr(cfg, 'la_tau', 1.5)
         bs_bias = getattr(cfg, 'bs_bias', False)
-        bs_ls = getattr(cfg, 'bs_ls', 0.0)       # Read ls from config
+        bs_ls = getattr(cfg, 'bs_ls', 0.0)
 
-        ckpt_names = [
-            f"expert_CE_bias{ce_bias}_ls{ce_ls}_best.pth",
-            f"expert_LA_bias{la_bias}_ls{la_ls}_t{la_tau}_best.pth",
-            f"expert_BS_bias{bs_bias}_ls{bs_ls}_best.pth",
+        # Use glob patterns to find files ending with _epoch*.pth
+        ckpt_patterns = [
+            f"expert_CE_bias{ce_bias}_ls{ce_ls}_epoch*.pth",
+            f"expert_LA_bias{la_bias}_ls{la_ls}_t{la_tau}_epoch*.pth",
+            f"expert_BS_bias{bs_bias}_ls{bs_ls}_epoch*.pth",
         ]
 
-        for i, name in enumerate(ckpt_names):
-            ckpt_path = os.path.join(expert_dir, name)
-            if not os.path.isfile(ckpt_path):
-                raise FileNotFoundError(f"[ERROR] Expert checkpoint not found: {ckpt_path}")
+        for i, pattern in enumerate(ckpt_patterns):
+            files = glob.glob(os.path.join(expert_dir, pattern))
+            if not files:
+                # Fallback to old naming just in case it was trained before the update
+                fallback_name = pattern.replace("_epoch*", "_best")
+                fallback_path = os.path.join(expert_dir, fallback_name)
+                if os.path.isfile(fallback_path):
+                    ckpt_path = fallback_path
+                else:
+                    raise FileNotFoundError(f"[ERROR] Expert checkpoint not found for pattern: {pattern}")
+            else:
+                # If multiple epoch files exist, sort to get the latest one
+                ckpt_path = sorted(files)[-1]
+            
             print(f"[INFO] Loading expert {i} from {ckpt_path}")
             ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
 
@@ -101,8 +113,9 @@ class GateTrainer(BaseTrainer):
             dropout=dropout
         ).to(self.device)
 
-        self.lambda_ent = getattr(cfg, 'lambda_ent', 0.01)
-        self.lambda_bal = getattr(cfg, 'lambda_bal', 0.05)
+        # FIX: Increased regularizer defaults to prevent gradient drowning
+        self.lambda_ent = getattr(cfg, 'lambda_ent', 0.1)
+        self.lambda_bal = getattr(cfg, 'lambda_bal', 1.0)
         self.gate_epochs = cfg.gate_epochs
         self.eval_interval = getattr(cfg, 'eval_interval', 10)
         self.best_gate_acc = 0.0
@@ -116,9 +129,14 @@ class GateTrainer(BaseTrainer):
             stratify=targets, random_state=self.cfg.seed
         )
         self.gate_dataset = Subset(self.train_dataset, gate_idx)
+        
+        # Reverted to standard shuffle to maintain long-tailed distribution for Stage 3
         self.gate_loader = DataLoader(
-            self.gate_dataset, batch_size=self.cfg.batch_size,
-            shuffle=True, num_workers=self.cfg.workers, pin_memory=True
+            self.gate_dataset, 
+            batch_size=self.cfg.batch_size,
+            shuffle=True,
+            num_workers=self.cfg.workers, 
+            pin_memory=True
         )
         
         val_targets = np.array(self.val_dataset.targets)
@@ -134,7 +152,7 @@ class GateTrainer(BaseTrainer):
         self.tune_loader = DataLoader(self.tune_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
         self.test_loader = DataLoader(self.test_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
         
-        self.logger.info(f"[INFO] Gating split size: {len(self.gate_dataset)}")
+        self.logger.info(f"[INFO] Gating split size: {len(self.gate_dataset)} (Standard Shuffle Enabled)")
         self.logger.info(f"[INFO] Plugin Tune size: {len(self.tune_dataset)} | Final Test size: {len(self.test_dataset)}")
 
     def get_criterion(self):
@@ -271,10 +289,15 @@ class GateTrainer(BaseTrainer):
                 for epoch in range(self.gate_epochs):
                     loss, acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
                     
+                    # We MUST evaluate on the tune set to prevent test set leakage!
+                    # We also MUST pass cls_num_list so NLL/Brier are weighted correctly.
                     p_mix_tune, labels_tune = self.extract_posteriors(self.tune_loader, T)
 
                     group_ids_2 = define_groups_2(self.cfg.cls_num_list)
-                    metrics_bal_2 = compute_aurc_metrics(p_mix_tune, labels_tune, p_mix_tune, labels_tune, group_ids_2, mode='bal')
+                    metrics_bal_2 = compute_aurc_metrics(
+                        p_mix_tune, labels_tune, p_mix_tune, labels_tune, 
+                        group_ids_2, cls_num_list=self.cfg.cls_num_list, mode='bal'
+                    )
                     current_aurc = metrics_bal_2['AURC']
 
                     if (epoch + 1) % 10 == 0 or epoch == 0:
@@ -301,7 +324,7 @@ class GateTrainer(BaseTrainer):
 
     def save_gate_checkpoint(self, epoch, bs, T, is_best=False):
         os.makedirs(self.cfg.root_model, exist_ok=True)
-        path = os.path.join(self.cfg.root_model, f"gate_checkpoint_bs{bs}_T{T}_best.pth")
+        path = os.path.join(self.cfg.root_model, f"gate_checkpoint_bs{bs}_T{T}_epoch{epoch}.pth")
         state = {
             'epoch': epoch,
             'batch_size': bs,
