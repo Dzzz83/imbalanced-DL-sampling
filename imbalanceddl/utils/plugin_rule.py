@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.metrics import roc_auc_score
 
 def define_groups(cls_num_list, num_groups=3):
     cls_num_list = np.array(cls_num_list)
@@ -173,8 +174,6 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
     
     true_probs = p_mix_test[np.arange(N_test), labels_test]
     
-    # L2R/CRISP Protocol: Re-weight the balanced test set to mimic the long-tailed training distribution
-    # for NLL and Brier score calculations.
     if cls_num_list is not None:
         cls_num_list = np.array(cls_num_list)
         priors = cls_num_list / cls_num_list.sum()
@@ -192,8 +191,14 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
     confidences = np.max(p_mix_test, axis=1)
     preds = np.argmax(p_mix_test, axis=1)
     correct = (preds == labels_test).astype(int)
+    
+    # AUROC-corr
+    auroc_corr = roc_auc_score(correct, confidences)
+    
+    # tail-ECE: only on tail group (group 1 when using define_groups_2)
     label_groups = group_ids[labels_test]
-    tail_mask = (label_groups == 2) | (label_groups == 1)
+    # With define_groups_2, tail is group 1, head is group 0
+    tail_mask = (label_groups == 1)
     tail_conf = confidences[tail_mask]
     tail_correct = correct[tail_mask]
     
@@ -213,5 +218,6 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
         'AURC': aurc,
         'NLL': nll,
         'Brier': brier,
-        'tail-ECE': ece
+        'tail-ECE': ece,
+        'AUROC-corr': auroc_corr
     }

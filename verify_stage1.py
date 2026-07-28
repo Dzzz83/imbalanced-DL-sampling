@@ -68,6 +68,9 @@ def main():
     train_dataset, val_dataset = dataset.train_val_sets
     val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=4)
 
+    train_targets = np.array(train_dataset.targets)
+    cfg.num_classes = len(np.unique(train_targets))
+
     ckpt_files = sorted(glob.glob(os.path.join(custom_args.ckpt_dir, "*.pth")))
     if not ckpt_files:
         print(f"[ERROR] No checkpoints found in {custom_args.ckpt_dir}")

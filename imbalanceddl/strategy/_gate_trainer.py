@@ -109,6 +109,7 @@ class GateTrainer(BaseTrainer):
         self.logger.info("[INFO] GateTrainer initialization complete.")
 
     def _split_dataset(self):
+        # Split training data into 90% expert training and 10% gating split
         targets = np.array(self.train_dataset.targets)
         indices = np.arange(len(targets))
         train_idx, gate_idx = train_test_split(
@@ -116,26 +117,39 @@ class GateTrainer(BaseTrainer):
             stratify=targets, random_state=self.cfg.seed
         )
         self.gate_dataset = Subset(self.train_dataset, gate_idx)
+
+        # Further split the gating split into train_gate (80%) and val_gate (20%)
+        # REMOVE STRATIFICATION to avoid "least populated class" error
+        gate_indices = np.arange(len(gate_idx))
+        gate_train_idx, gate_val_idx = train_test_split(
+            gate_indices, test_size=0.2,
+            random_state=self.cfg.seed   # <-- removed stratify
+        )
+
+        self.gate_train_dataset = Subset(self.gate_dataset, gate_train_idx)
+        self.gate_val_dataset = Subset(self.gate_dataset, gate_val_idx)
+
+        self.gate_train_loader = DataLoader(
+            self.gate_train_dataset, batch_size=self.cfg.batch_size,
+            shuffle=True, num_workers=self.cfg.workers, pin_memory=True
+        )
+        self.gate_val_loader = DataLoader(
+            self.gate_val_dataset, batch_size=self.cfg.batch_size,
+            shuffle=False, num_workers=self.cfg.workers, pin_memory=True
+        )
         self.gate_loader = DataLoader(
             self.gate_dataset, batch_size=self.cfg.batch_size,
             shuffle=True, num_workers=self.cfg.workers, pin_memory=True
         )
-        
-        val_targets = np.array(self.val_dataset.targets)
-        val_indices = np.arange(len(val_targets))
-        tune_idx, test_idx = train_test_split(
-            val_indices, test_size=0.8, 
-            stratify=val_targets, random_state=self.cfg.seed
+
+        self.val_loader = DataLoader(
+            self.val_dataset, batch_size=self.cfg.batch_size,
+            shuffle=False, num_workers=self.cfg.workers, pin_memory=True
         )
-        
-        self.tune_dataset = Subset(self.val_dataset, tune_idx)
-        self.test_dataset = Subset(self.val_dataset, test_idx)
-        
-        self.tune_loader = DataLoader(self.tune_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
-        self.test_loader = DataLoader(self.test_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
-        
-        self.logger.info(f"[INFO] Gating split size: {len(self.gate_dataset)}")
-        self.logger.info(f"[INFO] Plugin Tune size: {len(self.tune_dataset)} | Final Test size: {len(self.test_dataset)}")
+
+        self.logger.info(f"[INFO] Gate train size: {len(self.gate_train_dataset)}")
+        self.logger.info(f"[INFO] Gate val size:   {len(self.gate_val_dataset)}")
+        self.logger.info(f"[INFO] Final test size: {len(self.val_dataset)}")
 
     def get_criterion(self):
         return None
@@ -180,6 +194,7 @@ class GateTrainer(BaseTrainer):
         for name, m, s in zip(feat_names, mean_phi, std_phi):
             self.logger.info(f"{name:<15} | {m:<10.4f} | {s:<10.4f}")
         self.logger.info("="*80 + "\n")
+        pass
 
     def train_one_epoch(self, epoch, T, gate_loader, optimizer, scheduler):
         self.gate.train()
@@ -240,20 +255,21 @@ class GateTrainer(BaseTrainer):
             self.logger.info(log_line)
             
         return avg_loss, avg_acc
+        pass
 
     def do_train_val(self):
         self.log_feature_statistics()
-        
+
         batch_sizes = getattr(self.cfg, 'gate_batch_sizes', [128])
         temperatures = getattr(self.cfg, 'gate_temperatures', [1.0])
-        
+
         self.logger.info(f"\n[INFO] Starting Gate Sweep. Batch Sizes: {batch_sizes}, Temperatures: {temperatures}")
-        
+
         sweep_results = []
 
         for bs in batch_sizes:
-            gate_loader = DataLoader(
-                self.gate_dataset, batch_size=bs,
+            gate_train_loader = DataLoader(
+                self.gate_train_dataset, batch_size=bs,
                 shuffle=True, num_workers=self.cfg.workers, pin_memory=True
             )
 
@@ -264,36 +280,40 @@ class GateTrainer(BaseTrainer):
                 self.logger.info(f"SWEEP: Batch Size={bs}, Temp={T}")
 
                 self._reset_gate_and_optimizer()
-                
+
                 best_bal_aurc = 1e9
                 best_epoch = -1
 
                 for epoch in range(self.gate_epochs):
-                    loss, acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
-                    
-                    p_mix_tune, labels_tune = self.extract_posteriors(self.tune_loader, T)
+                    loss, acc = self.train_one_epoch(epoch, T, gate_train_loader, self.optimizer, self.scheduler)
 
-                    group_ids_2 = define_groups_2(self.cfg.cls_num_list)
-                    metrics_bal_2 = compute_aurc_metrics(p_mix_tune, labels_tune, p_mix_tune, labels_tune, group_ids_2, mode='bal')
-                    current_aurc = metrics_bal_2['AURC']
+                    # Compute AURC on the gate validation set (gate_val_loader)
+                    p_mix_val, labels_val = self.extract_posteriors(self.gate_val_loader, T)
+                    group_ids = define_groups_2(self.cfg.cls_num_list)
+                    # Use validation set for both tuning and evaluation to get AURC
+                    metrics_val = compute_aurc_metrics(
+                        p_mix_val, labels_val, p_mix_val, labels_val,
+                        group_ids, cls_num_list=self.cfg.cls_num_list, mode='bal'
+                    )
+                    current_aurc = metrics_val['AURC']
 
                     if (epoch + 1) % 10 == 0 or epoch == 0:
-                        print(f"  Epoch {epoch+1}/{self.gate_epochs}: loss={loss:.4f}, gate_acc={acc:.2f}%, Tune Bal AURC: {current_aurc:.4f}")
+                        print(f"  Epoch {epoch+1}/{self.gate_epochs}: loss={loss:.4f}, gate_acc={acc:.2f}%, Val Bal AURC: {current_aurc:.4f}")
 
                     if current_aurc < best_bal_aurc:
                         best_bal_aurc = current_aurc
                         best_epoch = epoch
                         self.save_gate_checkpoint(epoch, bs, T, is_best=True)
-                        
+
                 sweep_results.append({
                     'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1, 'best_aurc': best_bal_aurc
                 })
-                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with Tune Bal AURC: {best_bal_aurc:.4f}")
+                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with Val Bal AURC: {best_bal_aurc:.4f}")
 
         print("\n" + "="*100)
         print("GATE SWEEP FINAL SUMMARY")
         print("="*100)
-        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best Tune Bal AURC':<20}")
+        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best Val Bal AURC':<20}")
         print("-"*50)
         for r in sweep_results:
             print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_aurc']:<20.4f}")
@@ -362,5 +382,52 @@ class GateTrainer(BaseTrainer):
             all_labels.append(labels.numpy())
         return np.concatenate(all_p_mix, axis=0), np.concatenate(all_labels, axis=0)
 
+    def evaluate_stage3(self, gate_checkpoint_path=None):
+        """
+        Stage 3: Use the full gating split for plug-in tuning,
+        and the original validation set (CIFAR-100 test set) for final evaluation.
+        """
+        if gate_checkpoint_path is not None:
+            ckpt = torch.load(gate_checkpoint_path, map_location=self.device)
+            self.gate.load_state_dict(ckpt['gate_state_dict'])
+            T = ckpt.get('temperature', 1.0)
+            self.logger.info(f"[INFO] Loaded gate checkpoint from {gate_checkpoint_path}, T={T}")
+        else:
+            T = 1.0
+            self.logger.info("[INFO] No gate checkpoint provided; using current gate.")
+
+        # Extract posteriors from the full gating split (for tuning)
+        p_mix_gate, labels_gate = self.extract_posteriors(self.gate_loader, T)
+        # Extract posteriors from the original validation set (final test)
+        p_mix_test, labels_test = self.extract_posteriors(self.val_loader, T)
+
+        group_ids = define_groups_2(self.cfg.cls_num_list)
+
+        # Compute metrics for balanced and worst-case plug-in
+        metrics_bal = compute_aurc_metrics(
+            p_mix_gate, labels_gate, p_mix_test, labels_test,
+            group_ids, cls_num_list=self.cfg.cls_num_list, mode='bal'
+        )
+        metrics_wst = compute_aurc_metrics(
+            p_mix_gate, labels_gate, p_mix_test, labels_test,
+            group_ids, cls_num_list=self.cfg.cls_num_list, mode='worst'
+        )
+
+        print("\n" + "="*90)
+        print("STAGE 3 PLUG-IN EVALUATION (TEST SET)")
+        print("="*90)
+        print(f"{'Method':<25} | {'AURCbal':<10} | {'AURCwst':<10} | {'NLL':<10} | {'Brier':<10} | {'tail-ECE':<10} | {'AUROC-corr':<10}")
+        print("-"*90)
+        print(f"{'CRISP+Plug-in[Bal]':<25} | {metrics_bal['AURC']:<10.4f} | {metrics_wst['AURC']:<10.4f} | {metrics_bal['NLL']:<10.4f} | {metrics_bal['Brier']:<10.4f} | {metrics_bal['tail-ECE']:<10.4f} | {metrics_bal['AUROC-corr']:<10.4f}")
+        print("="*90)
+        # Paper reference values for CIFAR-100-LT (Table 5)
+        print("Paper Reference (CRISP):    | 0.253      | 0.302      | 1.18       | 0.403      | 0.088      | 0.902      ")
+        print("Paper Reference (CRISP):    | 0.233      | 0.248      | 1.18       | 0.403      | 0.088      | 0.902      ")
+        print("="*90)
+
     def eval_best_model(self):
-        pass
+        if self.cfg.best_model is not None:
+            self.evaluate_stage3(gate_checkpoint_path=self.cfg.best_model)
+        else:
+            self.logger.info("[INFO] No best_model specified; evaluating current gate.")
+            self.evaluate_stage3()

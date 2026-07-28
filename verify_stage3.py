@@ -99,16 +99,21 @@ def main():
     dataset = ImbalancedDataset(cfg, cfg.dataset, augmentation='none')
     train_dataset, val_dataset = dataset.train_val_sets
     
-    val_targets = np.array(val_dataset.targets)
-    val_indices = np.arange(len(val_targets))
-    tune_idx, test_idx = train_test_split(val_indices, test_size=0.8, stratify=val_targets, random_state=cfg.seed)
-    
-    tune_dataset = Subset(val_dataset, tune_idx)
-    test_dataset = Subset(val_dataset, test_idx)
-    
-    tune_loader = DataLoader(tune_dataset, batch_size=128, shuffle=False, num_workers=4)
-    test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
+    train_targets = np.array(train_dataset.targets)
+    train_indices = np.arange(len(train_targets))
+    _, gate_idx = train_test_split(
+        train_indices,
+        test_size=1 - cfg.gate_split_ratio,   # 0.1 (10%)
+        stratify=train_targets,
+        random_state=cfg.seed
+    )
+    gate_dataset = Subset(train_dataset, gate_idx)
+    gate_loader = DataLoader(gate_dataset, batch_size=128, shuffle=False, num_workers=4)
 
+    # ---- Use the full validation set as test set ----
+    test_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=4)
+
+    # Load experts and gate
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
     
@@ -118,7 +123,6 @@ def main():
     gate.load_state_dict(gate_ckpt['gate_state_dict'])
     gate.eval()
 
-    # Extract temperature from gate checkpoint to ensure consistent posterior scaling
     T = gate_ckpt.get('temperature', 1.0)
     print(f"[INFO] Using Temperature T={T} from gate checkpoint")
 
@@ -152,8 +156,8 @@ def main():
         return np.concatenate(all_p_mix, axis=0), np.concatenate(all_labels, axis=0)
 
     print("\n[INFO] Extracting posteriors...")
-    p_tune, labels_tune = extract_posteriors(tune_loader)
-    p_test, labels_test = extract_posteriors(test_loader)
+    p_tune, labels_tune = extract_posteriors(gate_loader)   # tuning on gating split
+    p_test, labels_test = extract_posteriors(test_loader)   # test on full validation set
 
     group_ids = define_groups_2(cfg.cls_num_list)
     
