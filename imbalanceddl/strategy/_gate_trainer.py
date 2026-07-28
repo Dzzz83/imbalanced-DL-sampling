@@ -28,7 +28,6 @@ class ExpertEnsemble(nn.Module):
         bs_bias = getattr(cfg, 'bs_bias', False)
         bs_ls = getattr(cfg, 'bs_ls', 0.0)
 
-        # Use glob patterns to find files ending with _epoch*.pth
         ckpt_patterns = [
             f"expert_CE_bias{ce_bias}_ls{ce_ls}_epoch*.pth",
             f"expert_LA_bias{la_bias}_ls{la_ls}_t{la_tau}_epoch*.pth",
@@ -38,7 +37,6 @@ class ExpertEnsemble(nn.Module):
         for i, pattern in enumerate(ckpt_patterns):
             files = glob.glob(os.path.join(expert_dir, pattern))
             if not files:
-                # Fallback to old naming just in case it was trained before the update
                 fallback_name = pattern.replace("_epoch*", "_best")
                 fallback_path = os.path.join(expert_dir, fallback_name)
                 if os.path.isfile(fallback_path):
@@ -46,7 +44,6 @@ class ExpertEnsemble(nn.Module):
                 else:
                     raise FileNotFoundError(f"[ERROR] Expert checkpoint not found for pattern: {pattern}")
             else:
-                # If multiple epoch files exist, sort to get the latest one
                 ckpt_path = sorted(files)[-1]
             
             print(f"[INFO] Loading expert {i} from {ckpt_path}")
@@ -113,13 +110,14 @@ class GateTrainer(BaseTrainer):
             dropout=dropout
         ).to(self.device)
 
-        # FIX: Increased regularizer defaults to prevent gradient drowning
-        self.lambda_ent = getattr(cfg, 'lambda_ent', 0.1)
-        self.lambda_bal = getattr(cfg, 'lambda_bal', 1.0)
+        # REVERTED: Paper-exact regularizer defaults
+        self.lambda_ent = getattr(cfg, 'lambda_ent', 0.01)
+        self.lambda_bal = getattr(cfg, 'lambda_bal', 0.05)
         self.gate_epochs = cfg.gate_epochs
         self.eval_interval = getattr(cfg, 'eval_interval', 10)
         self.best_gate_acc = 0.0
-        self.logger.info("[INFO] GateTrainer initialization complete.")
+        
+        self.logger.info("[INFO] GateTrainer initialization complete (Standard NLL Enabled).")
 
     def _split_dataset(self):
         targets = np.array(self.train_dataset.targets)
@@ -130,7 +128,6 @@ class GateTrainer(BaseTrainer):
         )
         self.gate_dataset = Subset(self.train_dataset, gate_idx)
         
-        # Reverted to standard shuffle to maintain long-tailed distribution for Stage 3
         self.gate_loader = DataLoader(
             self.gate_dataset, 
             batch_size=self.cfg.batch_size,
@@ -223,6 +220,8 @@ class GateTrainer(BaseTrainer):
 
             prob_true = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
             mix_prob = (weights * prob_true).sum(dim=1)
+            
+            # REVERTED: Standard NLL mean
             mix_nll = -torch.log(mix_prob + 1e-8).mean()
 
             ent_reg = -(weights * torch.log(weights + 1e-8)).sum(dim=1).mean()
@@ -289,8 +288,6 @@ class GateTrainer(BaseTrainer):
                 for epoch in range(self.gate_epochs):
                     loss, acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
                     
-                    # We MUST evaluate on the tune set to prevent test set leakage!
-                    # We also MUST pass cls_num_list so NLL/Brier are weighted correctly.
                     p_mix_tune, labels_tune = self.extract_posteriors(self.tune_loader, T)
 
                     group_ids_2 = define_groups_2(self.cfg.cls_num_list)

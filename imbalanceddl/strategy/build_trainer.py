@@ -86,7 +86,4 @@ def build_trainer(cfg, imbalance_dataset, model=None, strategy=None):
         
     else:
         raise NotImplementedError
-    
-    
-
     return trainer

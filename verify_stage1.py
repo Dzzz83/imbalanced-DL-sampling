@@ -121,7 +121,24 @@ def main():
                 logits_list.append(logits.cpu())
             
             logits = torch.cat(logits_list, dim=0)
-            probs = F.softmax(logits, dim=1).numpy()
+            
+            # --- ADD THIS BLOCK ---
+            # Parse expert type and apply inverse adjustments to match LT test space
+            expert_name = clean_name.upper()
+            log_prior = torch.log(torch.tensor(priors, device=logits.device) + 1e-12)
+            
+            if "LA" in expert_name:
+                # Parse tau from filename (e.g., "LA_bFalse_ls0.0_t1.5_epoch98")
+                tau = float(expert_name.split('T')[1].split('_')[0])
+                adj_logits = logits + tau * log_prior
+            elif "BS" in expert_name:
+                log_spc = torch.log(torch.tensor(cls_counts, device=logits.device, dtype=torch.float32) + 1e-12)
+                adj_logits = logits + log_spc
+            else: # CE
+                adj_logits = logits
+                
+            probs = F.softmax(adj_logits, dim=1).numpy()
+            # ----------------------
             preds = np.argmax(probs, axis=1)
             confidences = np.max(probs, axis=1)
             
