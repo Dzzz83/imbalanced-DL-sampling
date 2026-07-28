@@ -59,10 +59,8 @@ def load_expert(cfg, ckpt_path, device):
 
 def main():
     cfg = get_args()
-    # FIX: Use cuda:0 because CUDA_VISIBLE_DEVICES=1 remaps physical GPU 1 to logical cuda:0
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     
-    # Explicitly set the default device for PyTorch
     if torch.cuda.is_available():
         torch.cuda.set_device(device)
 
@@ -93,7 +91,6 @@ def main():
     train_targets = np.array(train_dataset.targets)
     cls_counts = np.bincount(train_targets, minlength=cfg.num_classes)
     
-    # L2R/CRISP Protocol: Re-weight the balanced test set to match the long-tailed training distribution
     priors = cls_counts / cls_counts.sum()
     sample_weights = priors[all_labels]
     sample_weights = sample_weights / sample_weights.sum()
@@ -122,14 +119,20 @@ def main():
             
             logits = torch.cat(logits_list, dim=0)
             
-            # --- ADD THIS BLOCK ---
-            # Parse expert type and apply inverse adjustments to match LT test space
+            # --- FIXED PARSING & ADJUSTMENT BLOCK ---
             expert_name = clean_name.upper()
             log_prior = torch.log(torch.tensor(priors, device=logits.device) + 1e-12)
             
             if "LA" in expert_name:
-                # Parse tau from filename (e.g., "LA_bFalse_ls0.0_t1.5_epoch98")
-                tau = float(expert_name.split('T')[1].split('_')[0])
+                # Safely parse tau from filename parts
+                tau = 1.0
+                parts = clean_name.split('_')
+                for p in parts:
+                    if p.startswith('t'):
+                        try:
+                            tau = float(p[1:])
+                        except ValueError:
+                            pass
                 adj_logits = logits + tau * log_prior
             elif "BS" in expert_name:
                 log_spc = torch.log(torch.tensor(cls_counts, device=logits.device, dtype=torch.float32) + 1e-12)
@@ -138,14 +141,13 @@ def main():
                 adj_logits = logits
                 
             probs = F.softmax(adj_logits, dim=1).numpy()
-            # ----------------------
+            # ----------------------------------------
             preds = np.argmax(probs, axis=1)
             confidences = np.max(probs, axis=1)
             
             bal_acc = np.mean([np.mean(preds[all_labels == c] == c) for c in range(cfg.num_classes) if np.sum(all_labels == c) > 0]) * 100
             many, med, low = shot_acc(cfg, preds, all_labels, train_dataset, acc_per_cls=False)
             
-            # Apply sample weights to NLL and Brier to mimic long-tailed test set
             nll = -np.sum(sample_weights * np.log(probs[np.arange(len(all_labels)), all_labels] + 1e-8))
             brier = np.sum(sample_weights * np.sum((probs - np.eye(cfg.num_classes)[all_labels])**2, axis=1))
             
