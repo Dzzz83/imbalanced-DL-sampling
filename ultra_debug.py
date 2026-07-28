@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import re
 from sklearn.model_selection import train_test_split
 
 # 1. Parse our custom arguments FIRST and remove them from sys.argv
@@ -42,11 +43,16 @@ class ExpertEnsemble(nn.Module):
             model = build_model(cfg)
             actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=has_bias).to(device)
-            model.load_state_dict(ckpt['state_dict'])
-            for param in model.parameters():
+            
+            # FIX: Robustly load state_dict
+            state_dict = ckpt['state_dict']
+            new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+            actual_model.load_state_dict(new_state_dict)
+            
+            for param in actual_model.parameters():
                 param.requires_grad = False
-            model.eval()
-            self.experts.append(model.to(device))
+            actual_model.eval()
+            self.experts.append(actual_model.to(device))
 
     @torch.no_grad()
     def forward(self, x):
@@ -87,7 +93,7 @@ def compute_chow_aurc(p_tune, labels_tune, p_test, labels_test, group_ids, mode=
         for k in range(K):
             mask = (label_groups == k) & accepted
             if np.sum(mask) == 0:
-                risks_k.append(0.0)
+                risks_k.append(1.0) # Fix: penalize zero coverage
             else:
                 err = np.sum(preds[mask] != labels_test[mask])
                 risks_k.append(err / np.sum(mask))
@@ -163,7 +169,11 @@ def compute_all_metrics(probs, labels, logits=None, cfg=None, train_dataset=None
 
 def main():
     cfg = get_args()
-    # FIX: Explicitly use cuda:0 and set the device
+    
+    # FIX: Explicitly map dataset to num_classes and populate cls_num_list
+    if cfg.dataset == 'cifar100':
+        cfg.num_classes = 100
+        
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     if torch.cuda.is_available():
         torch.cuda.set_device(device)
@@ -173,6 +183,9 @@ def main():
 
     dataset = ImbalancedDataset(cfg, cfg.dataset, augmentation='none')
     train_dataset, val_dataset = dataset.train_val_sets
+    
+    train_targets = np.array(train_dataset.targets)
+    cfg.cls_num_list = np.bincount(train_targets, minlength=cfg.num_classes).tolist()
     
     val_targets = np.array(val_dataset.targets)
     val_indices = np.arange(len(val_targets))
@@ -196,6 +209,17 @@ def main():
     T = gate_ckpt.get('temperature', 1.0)
     print(f"[INFO] Using Temperature T={T} extracted from gate checkpoint")
 
+    # FIX: Parse tau and create adjustment terms
+    la_tau = 1.5
+    match_tau = re.search(r't([\d\.]+)', os.path.basename(custom_args.la_path))
+    if match_tau:
+        la_tau = float(match_tau.group(1))
+    print(f"[INFO] Using LA Tau = {la_tau} parsed from filename")
+    
+    cls_num_list = torch.tensor(cfg.cls_num_list, device=device, dtype=torch.float32)
+    log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
+    log_spc = torch.log(cls_num_list + 1e-12)
+
     def extract_data(loader):
         all_logits = [[], [], []]
         all_labels = []
@@ -212,11 +236,11 @@ def main():
             all_logits = [torch.cat(l, dim=0) for l in all_logits]
             labels = torch.cat(all_labels, dim=0)
             
-            adj_probs = [
-                F.softmax(all_logits[0] / T, dim=1),
-                F.softmax(all_logits[1] / T, dim=1),
-                F.softmax(all_logits[2] / T, dim=1)
-            ]
+            # FIX: Apply inverse adjustments to LA and BS to match LT test space
+            p_ce = F.softmax(all_logits[0] / T, dim=1)
+            p_la = F.softmax((all_logits[1] + la_tau * log_prior) / T, dim=1)
+            p_bs = F.softmax((all_logits[2] + log_spc) / T, dim=1)
+            adj_probs = [p_ce, p_la, p_bs]
             
             phi = compute_gate_features(all_logits, adj_probs)
             gate_logits = gate(phi)
@@ -336,6 +360,24 @@ def main():
     print("1. If CRISP Bal AURC < Uniform Bal AURC, the Gate is successfully adding value.")
     print("2. If CRISP NLL/ECE < CE NLL/ECE, the posterior is successfully repaired.")
     print("3. If Mean Logit > 15.0 or %>20 > 50%, Stage 1 suffers from logit saturation.")
+
+    print("\n" + "="*80)
+    print("EXPERT CORRELATION & SHARPENING CHECK")
+    print("="*80)
+    
+    # 1. Check Expert Agreement
+    ce_preds = np.argmax(p_ce_test, axis=1)
+    la_preds = np.argmax(p_la_test, axis=1)
+    bs_preds = np.argmax(p_bs_test, axis=1)
+    agreement = np.mean((ce_preds == la_preds) & (la_preds == bs_preds))
+    print(f"Expert Prediction Agreement: {agreement*100:.2f}%  (If >90%, experts are too similar)")
+    
+    # 2. Check Confidence Sharpening
+    unif_max_conf = np.max(p_unif_test, axis=1)
+    crisp_max_conf = np.max(p_mix_test, axis=1)
+    print(f"Uniform Avg Max Confidence:  {np.mean(unif_max_conf):.4f}")
+    print(f"CRISP Avg Max Confidence:    {np.mean(crisp_max_conf):.4f}  (If > Uniform, gate is sharpening)")
+    print("="*80)
 
 if __name__ == "__main__":
     main()

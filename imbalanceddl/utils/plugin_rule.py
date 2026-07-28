@@ -45,7 +45,6 @@ def power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho, sample_weight
         for k in range(K):
             mask = (label_groups == k)
             accepted = mask & (~reject)
-            # FIX: Use sample weights to calculate acceptance mass
             alpha_new[k] = np.sum(sample_weights[accepted]) / total_weight
             
         alpha_new = np.clip(alpha_new, kappa, 1.0)
@@ -137,12 +136,11 @@ def evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta=None,
         c = np.percentile(margin, 100.0 * (1.0 - rho))
         accepted = margin <= c  
     
-    # FIX: Calculate coverage and risk using sample weights
     coverage = np.sum(sample_weights[accepted]) / total_weight
     risks_k = []
     for k in range(K):
         mask = (label_groups == k) & accepted
-        group_total_weight = np.sum(sample_weights[(label_groups == k) & accepted])
+        group_total_weight = np.sum(sample_weights[mask])
         if group_total_weight == 0:
             risks_k.append(1.0)
         else:
@@ -162,7 +160,6 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
     beta = np.ones(K) / K
     rho_grid = np.arange(0.0, 1.1, 0.1)
     
-    # FIX: Compute LT sample weights for both val and test sets
     if cls_num_list is not None:
         cls_num_list = np.array(cls_num_list)
         priors = cls_num_list / cls_num_list.sum()
@@ -194,7 +191,6 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
         
     aurc = np.trapz(risks, coverages)
     
-    # NLL and Brier remain the same
     true_probs = p_mix_test[np.arange(N_test), labels_test]
     if cls_num_list is not None:
         priors = cls_num_list / cls_num_list.sum()

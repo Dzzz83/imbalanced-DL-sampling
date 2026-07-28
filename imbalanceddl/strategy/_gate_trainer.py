@@ -54,11 +54,16 @@ class ExpertEnsemble(nn.Module):
             
             actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=has_bias).to(device)
-            model.load_state_dict(ckpt['state_dict'])
-            for param in model.parameters():
+            
+            # FIX: Robustly load state_dict by stripping 'module.' prefix if present
+            state_dict = ckpt['state_dict']
+            new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+            actual_model.load_state_dict(new_state_dict)
+            
+            for param in actual_model.parameters():
                 param.requires_grad = False
-            model.eval()
-            self.experts.append(model.to(device))
+            actual_model.eval()
+            self.experts.append(actual_model.to(device))
 
     @torch.no_grad()
     def forward(self, x):
@@ -110,7 +115,6 @@ class GateTrainer(BaseTrainer):
             dropout=dropout
         ).to(self.device)
 
-        # REVERTED: Paper-exact regularizer defaults
         self.lambda_ent = getattr(cfg, 'lambda_ent', 0.01)
         self.lambda_bal = getattr(cfg, 'lambda_bal', 0.05)
         self.gate_epochs = cfg.gate_epochs
@@ -156,9 +160,17 @@ class GateTrainer(BaseTrainer):
         return None
 
     def get_probs(self, logits_list, T):
+        # FIX: Apply inverse logit adjustments to LA and BS to ensure they output 
+        # Long-Tailed (LT) probabilities, matching the CE expert and the CRISP evaluation protocol.
         p_ce = F.softmax(logits_list[0] / T, dim=1)
-        p_la = F.softmax(logits_list[1] / T, dim=1)
-        p_bs = F.softmax(logits_list[2] / T, dim=1)
+        
+        cls_num_list = torch.tensor(self.cfg.cls_num_list, device=self.device, dtype=torch.float32)
+        log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
+        p_la = F.softmax((logits_list[1] + self.cfg.la_tau * log_prior) / T, dim=1)
+        
+        log_spc = torch.log(cls_num_list + 1e-12)
+        p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
+        
         return [p_ce, p_la, p_bs]
 
     @torch.no_grad()
@@ -221,7 +233,6 @@ class GateTrainer(BaseTrainer):
             prob_true = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
             mix_prob = (weights * prob_true).sum(dim=1)
             
-            # REVERTED: Standard NLL mean
             mix_nll = -torch.log(mix_prob + 1e-8).mean()
 
             ent_reg = -(weights * torch.log(weights + 1e-8)).sum(dim=1).mean()
@@ -282,41 +293,40 @@ class GateTrainer(BaseTrainer):
 
                 self._reset_gate_and_optimizer()
                 
-                best_bal_aurc = 1e9
+                best_gate_nll = 1e9
                 best_epoch = -1
 
                 for epoch in range(self.gate_epochs):
                     loss, acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
                     
-                    p_mix_tune, labels_tune = self.extract_posteriors(self.tune_loader, T)
-
-                    group_ids_2 = define_groups_2(self.cfg.cls_num_list)
-                    metrics_bal_2 = compute_aurc_metrics(
-                        p_mix_tune, labels_tune, p_mix_tune, labels_tune, 
-                        group_ids_2, cls_num_list=self.cfg.cls_num_list, mode='bal'
-                    )
-                    current_aurc = metrics_bal_2['AURC']
+                    # FIX: Evaluate gate on the GATE SPLIT (or simply use training loss) to prevent double-dipping
+                    p_mix_gate, labels_gate = self.extract_posteriors(self.gate_loader, T)
+                    
+                    # Compute pure NLL on the gate split
+                    true_probs = p_mix_gate[np.arange(len(labels_gate)), labels_gate]
+                    current_nll = -np.mean(np.log(true_probs + 1e-8))
 
                     if (epoch + 1) % 10 == 0 or epoch == 0:
-                        print(f"  Epoch {epoch+1}/{self.gate_epochs}: loss={loss:.4f}, gate_acc={acc:.2f}%, Tune Bal AURC: {current_aurc:.4f}")
+                        print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={loss:.4f}, gate_acc={acc:.2f}%, Gate NLL: {current_nll:.4f}")
 
-                    if current_aurc < best_bal_aurc:
-                        best_bal_aurc = current_aurc
+                    # Save based on best NLL, NOT AURC
+                    if current_nll < best_gate_nll:
+                        best_gate_nll = current_nll
                         best_epoch = epoch
                         self.save_gate_checkpoint(epoch, bs, T, is_best=True)
                         
                 sweep_results.append({
-                    'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1, 'best_aurc': best_bal_aurc
+                    'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1, 'best_nll': best_gate_nll
                 })
-                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with Tune Bal AURC: {best_bal_aurc:.4f}")
+                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with Gate NLL: {best_gate_nll:.4f}")
 
         print("\n" + "="*100)
         print("GATE SWEEP FINAL SUMMARY")
         print("="*100)
-        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best Tune Bal AURC':<20}")
+        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best Gate NLL':<20}")
         print("-"*50)
         for r in sweep_results:
-            print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_aurc']:<20.4f}")
+            print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_nll']:<20.4f}")
         print("="*100)
 
     def save_gate_checkpoint(self, epoch, bs, T, is_best=False):

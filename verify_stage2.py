@@ -37,11 +37,16 @@ class ExpertEnsemble(nn.Module):
             model = build_model(cfg)
             actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=has_bias).to(device)
-            model.load_state_dict(ckpt['state_dict'])
-            for param in model.parameters():
+            
+            # FIX: Robustly load state_dict by stripping 'module.' prefix if present
+            state_dict = ckpt['state_dict']
+            new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+            actual_model.load_state_dict(new_state_dict)
+            
+            for param in actual_model.parameters():
                 param.requires_grad = False
-            model.eval()
-            self.experts.append(model.to(device))
+            actual_model.eval()
+            self.experts.append(actual_model.to(device))
 
     @torch.no_grad()
     def forward(self, x):
@@ -106,6 +111,9 @@ def get_calib(probs, labels, cfg):
 
 def main():
     cfg = get_args()
+    if cfg.dataset == 'cifar100':
+        cfg.num_classes = 100
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     print("="*100)
@@ -114,6 +122,11 @@ def main():
 
     dataset = ImbalancedDataset(cfg, cfg.dataset, augmentation='none')
     train_dataset, val_dataset = dataset.train_val_sets
+    
+    # FIX: Ensure cls_num_list is populated in cfg
+    train_targets = np.array(train_dataset.targets)
+    cfg.cls_num_list = np.bincount(train_targets, minlength=cfg.num_classes).tolist()
+
     val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
@@ -143,12 +156,28 @@ def main():
         
     print(f"[INFO] Found {len(gate_files)} gate checkpoints to evaluate.")
     
+    # FIX: Parse tau and create adjustment terms
+    la_tau = 1.0
+    match_tau = re.search(r't([\d\.]+)', os.path.basename(custom_args.la_path))
+    if match_tau:
+        la_tau = float(match_tau.group(1))
+    print(f"[INFO] Using LA Tau = {la_tau} parsed from filename")
+    
+    cls_num_list = torch.tensor(cfg.cls_num_list, device=device, dtype=torch.float32)
+    log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
+    log_spc = torch.log(cls_num_list + 1e-12)
+
     first_fname = os.path.basename(gate_files[0])
     match = re.search(r'T([\d\.]+)', first_fname)
     T_unif = float(match.group(1)) if match else 1.0
     
     print(f"[INFO] Computing Uniform Ensemble baseline (T={T_unif})...")
-    probs_unif = (F.softmax(all_logits[0] / T_unif, dim=1) + F.softmax(all_logits[1] / T_unif, dim=1) + F.softmax(all_logits[2] / T_unif, dim=1)) / 3.0
+    # FIX: Apply inverse adjustments to LA and BS for the uniform baseline
+    p_ce = F.softmax(all_logits[0] / T_unif, dim=1)
+    p_la = F.softmax((all_logits[1] + la_tau * log_prior.cpu()) / T_unif, dim=1)
+    p_bs = F.softmax((all_logits[2] + log_spc.cpu()) / T_unif, dim=1)
+    probs_unif = (p_ce + p_la + p_bs) / 3.0
+    
     accs_unif = get_accs(probs_unif.numpy(), labels, cfg, train_dataset)
     cal_unif = get_calib(probs_unif.numpy(), labels, cfg)
     
@@ -167,10 +196,11 @@ def main():
         gate.eval()
         
         with torch.no_grad():
+            # FIX: Apply inverse adjustments to LA and BS for gate evaluation
             adj_probs = [
                 F.softmax(all_logits[0] / T, dim=1),
-                F.softmax(all_logits[1] / T, dim=1),
-                F.softmax(all_logits[2] / T, dim=1)
+                F.softmax((all_logits[1] + la_tau * log_prior.cpu()) / T, dim=1),
+                F.softmax((all_logits[2] + log_spc.cpu()) / T, dim=1)
             ]
             
             phi = compute_gate_features(all_logits, adj_probs).to(device)

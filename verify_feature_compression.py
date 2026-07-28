@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# verify_hypothesis.py
-# Diagnostic script to verify Head vs. Tail gate routing and confidence sharpening
+# verify_feature_compression.py
+# Verifies if logit saturation compresses gate features, blinding the gate to Head vs Tail differences.
 
 import os
 import sys
@@ -12,7 +12,6 @@ import numpy as np
 import re
 from sklearn.model_selection import train_test_split
 
-# 1. Parse our custom arguments FIRST and remove them from sys.argv
 custom_parser = argparse.ArgumentParser(add_help=False)
 custom_parser.add_argument('--ce_path', type=str, required=True)
 custom_parser.add_argument('--la_path', type=str, required=True)
@@ -21,7 +20,6 @@ custom_parser.add_argument('--gate_ckpt', type=str, required=True)
 custom_args, remaining_argv = custom_parser.parse_known_args()
 sys.argv = [sys.argv[0]] + remaining_argv
 
-# 2. NOW import and call get_args()
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from imbalanceddl.utils.config import get_args
 from imbalanceddl.net.network import build_model
@@ -84,7 +82,7 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.set_device(device)
     print("\n" + "="*80)
-    print("HYPOTHESIS VERIFICATION: HEAD vs TAIL SHARPENING")
+    print("FEATURE COMPRESSION VERIFICATION (Head vs Tail)")
     print("="*80)
 
     dataset = ImbalancedDataset(cfg, cfg.dataset, augmentation='none')
@@ -116,7 +114,6 @@ def main():
     match_tau = re.search(r't([\d\.]+)', os.path.basename(custom_args.la_path))
     if match_tau:
         la_tau = float(match_tau.group(1))
-    print(f"[INFO] Using LA Tau = {la_tau} parsed from filename")
     
     cls_num_list = torch.tensor(cfg.cls_num_list, device=device, dtype=torch.float32)
     log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
@@ -124,9 +121,10 @@ def main():
 
     all_logits = [[], [], []]
     all_labels = []
+    all_phi = []
     all_weights = []
     
-    print("\n[INFO] Extracting posteriors on test set...")
+    print("\n[INFO] Extracting features on test set...")
     with torch.no_grad():
         for images, labels in test_loader:
             images = images.to(device)
@@ -146,74 +144,63 @@ def main():
         phi = compute_gate_features(all_logits, adj_probs)
         gate_logits = gate(phi)
         weights = F.softmax(gate_logits, dim=1)
+        
+        all_phi.append(phi.cpu().numpy())
         all_weights.append(weights.cpu().numpy())
-        
-        k = getattr(cfg, 'routing_sparsity', 2)
-        topk_weights, topk_indices = torch.topk(weights, k, dim=1)
-        topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
-        
-        stacked_probs = torch.stack(adj_probs, dim=1)
-        p_mix = torch.zeros_like(stacked_probs[:, 0, :])
-        
-        N = stacked_probs.size(0)
-        for i in range(k):
-            idx = topk_indices[:, i]
-            w = topk_weights[:, i].unsqueeze(1)
-            expert_probs = stacked_probs[torch.arange(N), idx, :]
-            p_mix += w * expert_probs
             
-        p_uniform = (adj_probs[0] + adj_probs[1] + adj_probs[2]) / 3.0
-            
-    p_mix_np = p_mix.cpu().numpy()
-    p_unif_np = p_uniform.cpu().numpy()
+    all_phi_np = np.concatenate(all_phi, axis=0)
+    all_weights_np = np.concatenate(all_weights, axis=0)
     labels_np = labels.cpu().numpy()
-    weights_all = np.concatenate(all_weights, axis=0)
+    all_logits_np = [l.cpu().numpy() for l in all_logits]
+    all_probs_np = [p.cpu().numpy() for p in adj_probs]
 
     group_ids_2 = define_groups_2(cfg.cls_num_list)
-    
     tail_mask = (group_ids_2[labels_np] == 1)
     head_mask = ~tail_mask
     
-    def calc_group_nll(probs, labels, mask):
-        p = probs[mask]
-        l = labels[mask]
-        return -np.mean(np.log(p[np.arange(len(l)), l] + 1e-8))
-        
-    def calc_group_conf(probs, mask):
-        return np.mean(np.max(probs[mask], axis=1))
-
-    unif_nll_head = calc_group_nll(p_unif_np, labels_np, head_mask)
-    crisp_nll_head = calc_group_nll(p_mix_np, labels_np, head_mask)
-    unif_nll_tail = calc_group_nll(p_unif_np, labels_np, tail_mask)
-    crisp_nll_tail = calc_group_nll(p_mix_np, labels_np, tail_mask)
+    # 1. Logit and Prob Stats
+    ce_logit_head = np.mean(np.max(all_logits_np[0][head_mask], axis=1))
+    ce_logit_tail = np.mean(np.max(all_logits_np[0][tail_mask], axis=1))
+    ce_prob_head = np.mean(np.max(all_probs_np[0][head_mask], axis=1))
+    ce_prob_tail = np.mean(np.max(all_probs_np[0][tail_mask], axis=1))
     
-    unif_conf_head = calc_group_conf(p_unif_np, head_mask)
-    crisp_conf_head = calc_group_conf(p_mix_np, head_mask)
-    unif_conf_tail = calc_group_conf(p_unif_np, tail_mask)
-    crisp_conf_tail = calc_group_conf(p_mix_np, tail_mask)
+    # 2. Feature Stats
+    phi_head = np.mean(all_phi_np[head_mask], axis=0)
+    phi_tail = np.mean(all_phi_np[tail_mask], axis=0)
     
-    w_head = np.mean(weights_all[head_mask], axis=0)
-    w_tail = np.mean(weights_all[tail_mask], axis=0)
+    # Cosine Similarity (1.0 = identical, 0.0 = orthogonal)
+    cos_sim = np.dot(phi_head, phi_tail) / (np.linalg.norm(phi_head) * np.linalg.norm(phi_tail) + 1e-8)
+    # L2 Distance (0.0 = identical)
+    l2_dist = np.linalg.norm(phi_head - phi_tail)
     
-    print("\n" + "="*100)
-    print("VERIFICATION: HEAD vs TAIL SHARPENING HYPOTHESIS")
-    print("="*100)
-    print(f"{'Metric':<35} | {'Uniform':<12} | {'CRISP':<12} | {'Change':<12}")
+    # 3. Gate Routing Stats
+    w_head = np.mean(all_weights_np[head_mask], axis=0)
+    w_tail = np.mean(all_weights_np[tail_mask], axis=0)
+    w_l2_dist = np.linalg.norm(w_head - w_tail)
+    
+    print("\n" + "="*90)
+    print("VERIFICATION RESULTS: FEATURE COMPRESSION & GATE BLINDNESS")
+    print("="*90)
+    print(f"{'Metric':<45} | {'Head':<12} | {'Tail':<12}")
     print("-"*75)
-    print(f"{'Head NLL':<35} | {unif_nll_head:<12.4f} | {crisp_nll_head:<12.4f} | {crisp_nll_head - unif_nll_head:<+12.4f}")
-    print(f"{'Tail NLL':<35} | {unif_nll_tail:<12.4f} | {crisp_nll_tail:<12.4f} | {crisp_nll_tail - unif_nll_tail:<+12.4f}")
+    print(f"{'CE Expert Mean Max Logit':<45} | {ce_logit_head:<12.2f} | {ce_logit_tail:<12.2f}")
+    print(f"{'CE Expert Mean Max Prob (Softmax)':<45} | {ce_prob_head:<12.4f} | {ce_prob_tail:<12.4f}")
     print("-"*75)
-    print(f"{'Head Avg Max Confidence':<35} | {unif_conf_head:<12.4f} | {crisp_conf_head:<12.4f} | {crisp_conf_head - unif_conf_head:<+12.4f}")
-    print(f"{'Tail Avg Max Confidence':<35} | {unif_conf_tail:<12.4f} | {crisp_conf_tail:<12.4f} | {crisp_conf_tail - unif_conf_tail:<+12.4f}")
-    print("-"*75)
-    print(f"{'Gate Routing (Head) CE/LA/BS':<35} | {'N/A':<12} | {f'{w_head[0]:.2f}/{w_head[1]:.2f}/{w_head[2]:.2f}':<12} | {'N/A':<12}")
-    print(f"{'Gate Routing (Tail) CE/LA/BS':<35} | {'N/A':<12} | {f'{w_tail[0]:.2f}/{w_tail[1]:.2f}/{w_tail[2]:.2f}':<12} | {'N/A':<12}")
-    print("="*100)
+    print(f"{'Gate Routing Weights (CE/LA/BS)':<45} | {f'{w_head[0]:.2f}/{w_head[1]:.2f}/{w_head[2]:.2f}':<12} | {f'{w_tail[0]:.2f}/{w_tail[1]:.2f}/{w_tail[2]:.2f}':<12}")
+    print("="*90)
+    
+    print("\n" + "="*90)
+    print("FEATURE DISTINCTNESS (Head vs Tail)")
+    print("="*90)
+    print(f"{'Cosine Similarity of Mean Feature Vectors':<45} | {cos_sim:<12.4f}  (1.0 = identical/blind)")
+    print(f"{'L2 Distance of Mean Feature Vectors':<45} | {l2_dist:<12.4f}  (0.0 = identical/blind)")
+    print(f"{'L2 Distance of Gate Routing Weights':<45} | {w_l2_dist:<12.4f}  (0.0 = identical/blind)")
+    print("="*90)
 
     print("\n[INFO] Analysis:")
-    print("1. If CRISP Head NLL < Uniform Head NLL, the gate successfully sharpens Head probabilities.")
-    print("2. If CRISP Tail Conf > Uniform Tail Conf, the gate sharpens Tail probabilities (ruining Tail ECE).")
-    print("3. If Gate routes Tail differently than Head, it is selectively using experts.")
+    print("1. If Mean Max Logit is > 10.0, the expert is severely saturated.")
+    print("2. If Cosine Similarity is > 0.95 and L2 Distance is near 0, the features are compressed.")
+    print("3. If features are compressed, the Gate Routing L2 Distance will be near 0, proving the gate is blind to Head vs Tail.")
 
 if __name__ == "__main__":
     main()
