@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-# Prioritize sava's otdd over LAVA's
 sava_root = Path(__file__).parent / 'sava'
 if str(sava_root) not in sys.path:
     sys.path.insert(0, str(sava_root))
@@ -12,13 +11,9 @@ from unittest.mock import MagicMock
 import logging
 
 def silence_torchtext():
-    """Bypasses the C++ linkage error in torchtext for image-only projects."""
     modules_to_mock = [
-        "torchtext", 
-        "torchtext.data", 
-        "torchtext.data.utils", 
-        "torchtext.datasets", 
-        "torchtext.vocab"
+        "torchtext", "torchtext.data", "torchtext.data.utils", 
+        "torchtext.datasets", "torchtext.vocab"
     ]
     for mod in modules_to_mock:
         if mod not in sys.modules:
@@ -40,7 +35,6 @@ from imbalanceddl.dataset.sava_dataset import SavaDataset
 def main():
     config = get_args()
     
-    # Explicitly define num_classes for downstream components
     if config.dataset in ['cifar10', 'cinic10', 'svhn10', 'cifar10_noisy']:
         config.num_classes = 10
     elif config.dataset == 'cifar100':
@@ -50,7 +44,6 @@ def main():
     else:
         raise NotImplementedError(f"Dataset {config.dataset} not mapped to num_classes.")
 
-    # Override batch size if training the 3 experts
     if config.strategy == 'Experts':
         config.batch_size = config.expert_batch_size
         print(f"=> Overriding batch size to {config.batch_size} for Expert training.")
@@ -85,8 +78,15 @@ def main():
     print(f"Creating training dataset with {config.augmentation} augmentation...")
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation=config.augmentation)
 
-    if config.strategy in ["DeepSMOTE_Selection", "RandomOversampling_Selection", "Selection_RandomOversampling", 
-                           "DeepSMOTE_Sava"]:
+    # FIX: Inject cls_num_list into config for global access
+    train_set = imbalance_dataset.train_val_sets[0]
+    if hasattr(train_set, 'get_cls_num_list'):
+        config.cls_num_list = train_set.get_cls_num_list()
+    else:
+        targets = np.array(train_set.targets)
+        config.cls_num_list = np.bincount(targets, minlength=config.num_classes).tolist()
+
+    if config.strategy in ["DeepSMOTE_Selection", "RandomOversampling_Selection", "Selection_RandomOversampling", "DeepSMOTE_Sava"]:
         print(f"=> {config.strategy} handles selection internally. Skipping main script selection.")
     else:
         if config.selection_method == 'sava':
@@ -106,10 +106,7 @@ def main():
         else:
             raise ValueError(f"Unknown selection method: {config.selection_method}. Use 'sava', 'random', or 'none'.")
 
-    trainer = build_trainer(config,
-                            imbalance_dataset,
-                            model=model,
-                            strategy=config.strategy)
+    trainer = build_trainer(config, imbalance_dataset, model=model, strategy=config.strategy)
 
     if config.best_model is not None:
         print("=> Eval with Best Model !")
