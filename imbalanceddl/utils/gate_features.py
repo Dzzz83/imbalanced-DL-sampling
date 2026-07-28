@@ -35,21 +35,15 @@ def compute_gate_features(logits_list, probs_list=None, top_k_mass=5):
         expert_feats = torch.stack([entropy, max_prob, margin, topk_mass, tail_residual, cos_sim, kl], dim=0)
         per_expert_feats.append(expert_feats)
     
-    # Shape: (E, 7, B) -> permute to (B, E, 7) -> reshape to (B, 7*E)
-    # This strictly maintains the paper's concatenation order: [f_1, ..., f_E]
     per_expert_tensor = torch.stack(per_expert_feats, dim=0).permute(2, 0, 1).reshape(per_expert_feats[0].shape[1], -1)
 
     # Global features (3)
-    # 1. mean entropy
     entropies = torch.stack([f[0] for f in per_expert_feats], dim=0) # (E, B)
     mean_entropy = entropies.mean(dim=0) # (B,)
     
-    # 2. class-wise posterior variance: L^{-1} sum_y Var_e[p_e(y|x)]
-    # unbiased=False enforces population variance (dividing by E) matching the paper's mathematical definition
     stacked_probs = torch.stack(probs_list, dim=0) # (E, B, C)
     class_var = torch.var(stacked_probs, dim=0, unbiased=False).mean(dim=1) # (B,)
     
-    # 3. confidence dispersion: Var_e[p_e^max(x)]
     max_probs = torch.stack([f[1] for f in per_expert_feats], dim=0) # (E, B)
     conf_disp = torch.var(max_probs, dim=0, unbiased=False) # (B,)
     
@@ -57,5 +51,12 @@ def compute_gate_features(logits_list, probs_list=None, top_k_mass=5):
     
     # Final concatenation: (B, 7E) + (B, 3) -> (B, 7E+3)
     features = torch.cat([per_expert_tensor, global_feat], dim=1)
+
+    # FIX: Z-score normalize the features across the batch dimension
+    # This prevents the MLP from ignoring the tiny variance features (0.001) 
+    # and saturating on the large entropy features (0.7)
+    mean = features.mean(dim=0, keepdim=True)
+    std = features.std(dim=0, keepdim=True) + 1e-8
+    features = (features - mean) / std
 
     return features

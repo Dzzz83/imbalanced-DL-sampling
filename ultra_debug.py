@@ -65,6 +65,7 @@ class ExpertEnsemble(nn.Module):
 class GateMLP(nn.Module):
     def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3):
         super().__init__()
+        # Reverted: No BatchNorm
         self.fc1 = nn.Linear(input_dim, hidden1)
         self.fc2 = nn.Linear(hidden1, hidden2)
         self.fc3 = nn.Linear(hidden2, num_experts)
@@ -268,7 +269,7 @@ def main():
         return (p_mix.cpu().numpy(), p_uniform.cpu().numpy(), 
                 adj_probs[0].cpu().numpy(), adj_probs[1].cpu().numpy(), adj_probs[2].cpu().numpy(), 
                 all_logits[0].cpu(), all_logits[1].cpu(), all_logits[2].cpu(), 
-                avg_weights, labels.cpu().numpy())
+                np.concatenate(all_weights, axis=0), labels.cpu().numpy())
 
     print("\n[INFO] Extracting posteriors...")
     (p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_bs_tune, 
@@ -345,21 +346,36 @@ def main():
     print_row("YOUR CRISP", m_crisp)
     print("="*140)
 
-    # --- Print Table 3: Gate Routing ---
+    # --- Print Table 3: Gate Routing (Overall and Per-Group) ---
     print("\n" + "="*80)
     print("TABLE 3: GATE ROUTING STATISTICS (TEST SET)")
     print("="*80)
+    
+    # Calculate per-group masks
+    label_groups_test = group_ids_2[labels_test]
+    head_mask = (label_groups_test == 0)
+    tail_mask = (label_groups_test == 1)
+    
     print(f"{'Metric':<25} | {'Value':<20}")
     print("-"*50)
-    print(f"{'Avg Weight CE':<25} | {w_test[0]:<20.4f}")
-    print(f"{'Avg Weight LA':<25} | {w_test[1]:<20.4f}")
-    print(f"{'Avg Weight BS':<25} | {w_test[2]:<20.4f}")
+    print(f"{'Avg Weight CE (All)':<25} | {np.mean(w_test[:, 0]):<20.4f}")
+    print(f"{'Avg Weight LA (All)':<25} | {np.mean(w_test[:, 1]):<20.4f}")
+    print(f"{'Avg Weight BS (All)':<25} | {np.mean(w_test[:, 2]):<20.4f}")
+    print("-"*50)
+    print(f"{'Avg Weight CE (Head)':<25} | {np.mean(w_test[head_mask, 0]):<20.4f}")
+    print(f"{'Avg Weight LA (Head)':<25} | {np.mean(w_test[head_mask, 1]):<20.4f}")
+    print(f"{'Avg Weight BS (Head)':<25} | {np.mean(w_test[head_mask, 2]):<20.4f}")
+    print("-"*50)
+    print(f"{'Avg Weight CE (Tail)':<25} | {np.mean(w_test[tail_mask, 0]):<20.4f}")
+    print(f"{'Avg Weight LA (Tail)':<25} | {np.mean(w_test[tail_mask, 1]):<20.4f}")
+    print(f"{'Avg Weight BS (Tail)':<25} | {np.mean(w_test[tail_mask, 2]):<20.4f}")
     print("="*80)
     
     print("\n[INFO] Analysis:")
     print("1. If CRISP Bal AURC < Uniform Bal AURC, the Gate is successfully adding value.")
     print("2. If CRISP NLL/ECE < CE NLL/ECE, the posterior is successfully repaired.")
     print("3. If Mean Logit > 15.0 or %>20 > 50%, Stage 1 suffers from logit saturation.")
+    print("4. If CE(Head) > CE(Tail) and LA/BS(Tail) > LA/BS(Head), the gate is routing correctly.")
 
     print("\n" + "="*80)
     print("EXPERT CORRELATION & SHARPENING CHECK")

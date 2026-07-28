@@ -55,7 +55,6 @@ class ExpertEnsemble(nn.Module):
             actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=has_bias).to(device)
             
-            # FIX: Robustly load state_dict by stripping 'module.' prefix if present
             state_dict = ckpt['state_dict']
             new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
             actual_model.load_state_dict(new_state_dict)
@@ -124,7 +123,12 @@ class GateTrainer(BaseTrainer):
         self.logger.info("[INFO] GateTrainer initialization complete (Standard NLL Enabled).")
 
     def _split_dataset(self):
-        targets = np.array(self.train_dataset.targets)
+        if isinstance(self.train_dataset, Subset):
+            all_targets = np.array(self.train_dataset.dataset.targets)
+            targets = all_targets[self.train_dataset.indices]
+        else:
+            targets = np.array(self.train_dataset.targets)
+            
         indices = np.arange(len(targets))
         train_idx, gate_idx = train_test_split(
             indices, test_size=1 - self.gate_split_ratio,
@@ -132,15 +136,21 @@ class GateTrainer(BaseTrainer):
         )
         self.gate_dataset = Subset(self.train_dataset, gate_idx)
         
+        gate_bs = getattr(self.cfg, 'gating_batch_size', 128)
         self.gate_loader = DataLoader(
             self.gate_dataset, 
-            batch_size=self.cfg.batch_size,
+            batch_size=gate_bs,
             shuffle=True,
             num_workers=self.cfg.workers, 
             pin_memory=True
         )
         
-        val_targets = np.array(self.val_dataset.targets)
+        if isinstance(self.val_dataset, Subset):
+            all_val_targets = np.array(self.val_dataset.dataset.targets)
+            val_targets = all_val_targets[self.val_dataset.indices]
+        else:
+            val_targets = np.array(self.val_dataset.targets)
+            
         val_indices = np.arange(len(val_targets))
         tune_idx, test_idx = train_test_split(
             val_indices, test_size=0.8, 
@@ -160,8 +170,6 @@ class GateTrainer(BaseTrainer):
         return None
 
     def get_probs(self, logits_list, T):
-        # FIX: Apply inverse logit adjustments to LA and BS to ensure they output 
-        # Long-Tailed (LT) probabilities, matching the CE expert and the CRISP evaluation protocol.
         p_ce = F.softmax(logits_list[0] / T, dim=1)
         
         cls_num_list = torch.tensor(self.cfg.cls_num_list, device=self.device, dtype=torch.float32)
@@ -299,17 +307,15 @@ class GateTrainer(BaseTrainer):
                 for epoch in range(self.gate_epochs):
                     loss, acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
                     
-                    # FIX: Evaluate gate on the GATE SPLIT (or simply use training loss) to prevent double-dipping
                     p_mix_gate, labels_gate = self.extract_posteriors(self.gate_loader, T)
                     
-                    # Compute pure NLL on the gate split
+                    # Reverted to Standard LT-NLL
                     true_probs = p_mix_gate[np.arange(len(labels_gate)), labels_gate]
                     current_nll = -np.mean(np.log(true_probs + 1e-8))
 
                     if (epoch + 1) % 10 == 0 or epoch == 0:
                         print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={loss:.4f}, gate_acc={acc:.2f}%, Gate NLL: {current_nll:.4f}")
 
-                    # Save based on best NLL, NOT AURC
                     if current_nll < best_gate_nll:
                         best_gate_nll = current_nll
                         best_epoch = epoch
@@ -318,16 +324,18 @@ class GateTrainer(BaseTrainer):
                 sweep_results.append({
                     'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1, 'best_nll': best_gate_nll
                 })
-                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with Gate NLL: {best_gate_nll:.4f}")
+                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with NLL: {best_gate_nll:.4f}")
 
         print("\n" + "="*100)
         print("GATE SWEEP FINAL SUMMARY")
         print("="*100)
-        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best Gate NLL':<20}")
+        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best NLL':<20}")
         print("-"*50)
         for r in sweep_results:
             print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_nll']:<20.4f}")
         print("="*100)
+        
+        self.eval_best_model()
 
     def save_gate_checkpoint(self, epoch, bs, T, is_best=False):
         os.makedirs(self.cfg.root_model, exist_ok=True)
@@ -341,7 +349,7 @@ class GateTrainer(BaseTrainer):
         }
         if is_best:
             torch.save(state, path)
-            self.logger.info(f"New Best AURC found! Saved checkpoint: {path}")
+            self.logger.info(f"New Best Gate NLL found! Saved checkpoint: {path}")
 
     def _reset_gate_and_optimizer(self):
         def weight_init(m):
@@ -393,4 +401,52 @@ class GateTrainer(BaseTrainer):
         return np.concatenate(all_p_mix, axis=0), np.concatenate(all_labels, axis=0)
 
     def eval_best_model(self):
-        pass
+        self.logger.info("\n" + "="*80)
+        self.logger.info("STAGE 3: PLUG-IN EVALUATION")
+        self.logger.info("="*80)
+        
+        best_gate_path = None
+        best_nll = 1e9
+        for bs in getattr(self.cfg, 'gate_batch_sizes', [128]):
+            for T in getattr(self.cfg, 'gate_temperatures', [1.0]):
+                pattern = f"gate_checkpoint_bs{bs}_T{T}_epoch*.pth"
+                files = glob.glob(os.path.join(self.cfg.root_model, pattern))
+                for f in files:
+                    pass
+        
+        files = glob.glob(os.path.join(self.cfg.root_model, "gate_checkpoint_*.pth"))
+        if not files:
+            self.logger.error("Best gate checkpoint not found! Run training first.")
+            return
+            
+        best_gate_path = max(files, key=os.path.getmtime)
+            
+        ckpt = torch.load(best_gate_path, map_location='cpu')
+        self.gate.load_state_dict(ckpt['gate_state_dict'])
+        T = ckpt['temperature']
+        self.logger.info(f"Loaded best gate from {best_gate_path} (Epoch {ckpt['epoch']}) with T={T}")
+        
+        self.logger.info("Extracting posteriors for tune (val) and test sets...")
+        p_mix_val, labels_val = self.extract_posteriors(self.tune_loader, T)
+        p_mix_test, labels_test = self.extract_posteriors(self.test_loader, T)
+        
+        group_ids = define_groups_2(self.cfg.cls_num_list)
+        
+        mode = self.cfg.plugin_algo
+        self.logger.info(f"Running Plug-in [{mode}] evaluation...")
+        
+        metrics = compute_aurc_metrics(
+            p_mix_val, labels_val, 
+            p_mix_test, labels_test, 
+            group_ids, 
+            cls_num_list=self.cfg.cls_num_list, 
+            mode=mode
+        )
+        
+        self.logger.info("\n" + "-"*40)
+        self.logger.info(f"AURC: {metrics['AURC']:.4f}")
+        self.logger.info(f"NLL: {metrics['NLL']:.4f}")
+        self.logger.info(f"Brier: {metrics['Brier']:.4f}")
+        self.logger.info(f"tail-ECE: {metrics['tail-ECE']:.4f}")
+        self.logger.info("-"*40 + "\n")
+        print(f"Plug-in [{mode}] Results -> AURC: {metrics['AURC']:.4f} | NLL: {metrics['NLL']:.4f} | Brier: {metrics['Brier']:.4f} | tail-ECE: {metrics['tail-ECE']:.4f}")

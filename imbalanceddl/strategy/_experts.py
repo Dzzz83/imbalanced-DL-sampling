@@ -28,7 +28,12 @@ class ExpertsTrainer(BaseTrainer):
         self.grad_clip_value = getattr(cfg, 'grad_clip_value', 5.0)
 
     def _split_dataset(self):
-        targets = np.array(self.train_dataset.targets)
+        if isinstance(self.train_dataset, Subset):
+            all_targets = np.array(self.train_dataset.dataset.targets)
+            targets = all_targets[self.train_dataset.indices]
+        else:
+            targets = np.array(self.train_dataset.targets)
+            
         indices = np.arange(len(targets))
         train_idx, gate_idx = train_test_split(
             indices, test_size=1 - self.gate_split_ratio,
