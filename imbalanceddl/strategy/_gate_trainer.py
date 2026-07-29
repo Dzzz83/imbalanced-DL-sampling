@@ -309,7 +309,6 @@ class GateTrainer(BaseTrainer):
                     
                     p_mix_gate, labels_gate = self.extract_posteriors(self.gate_loader, T)
                     
-                    # Reverted to Standard LT-NLL
                     true_probs = p_mix_gate[np.arange(len(labels_gate)), labels_gate]
                     current_nll = -np.mean(np.log(true_probs + 1e-8))
 
@@ -404,15 +403,6 @@ class GateTrainer(BaseTrainer):
         self.logger.info("\n" + "="*80)
         self.logger.info("STAGE 3: PLUG-IN EVALUATION")
         self.logger.info("="*80)
-        
-        best_gate_path = None
-        best_nll = 1e9
-        for bs in getattr(self.cfg, 'gate_batch_sizes', [128]):
-            for T in getattr(self.cfg, 'gate_temperatures', [1.0]):
-                pattern = f"gate_checkpoint_bs{bs}_T{T}_epoch*.pth"
-                files = glob.glob(os.path.join(self.cfg.root_model, pattern))
-                for f in files:
-                    pass
         
         files = glob.glob(os.path.join(self.cfg.root_model, "gate_checkpoint_*.pth"))
         if not files:
