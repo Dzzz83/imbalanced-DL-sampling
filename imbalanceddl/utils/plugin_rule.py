@@ -189,7 +189,8 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
         coverages = np.insert(coverages, 0, 0.0)
         risks = np.insert(risks, 0, 1.0)
         
-    aurc = np.trapezoid(risks, coverages)        
+    aurc = np.trapezoid(risks, coverages)
+            
     true_probs = p_mix_test[np.arange(N_test), labels_test]
     if cls_num_list is not None:
         priors = cls_num_list / cls_num_list.sum()
