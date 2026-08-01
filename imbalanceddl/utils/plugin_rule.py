@@ -187,7 +187,8 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
     # Calibration metrics (NLL, Brier, ECE) can still use the LT-weighted priors
     true_probs = p_mix_test[np.arange(N_test), labels_test]
     if cls_num_list is not None:
-        priors = cls_num_list / cls_num_list.sum()
+        cls_num_list_np = np.array(cls_num_list)
+        priors = cls_num_list_np / cls_num_list_np.sum()
         sample_weights = priors[labels_test]
         sample_weights = sample_weights / sample_weights.sum()
     else:
