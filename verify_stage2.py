@@ -126,7 +126,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     print("="*100)
-    print("CRISP STAGE 2 GATE VERIFICATION (FOLDER SCAN) - DENSE ROUTING (k=3)")
+    print("CRISP STAGE 2 GATE VERIFICATION (FOLDER SCAN) - PAPER k=2 ROUTING")
     print("="*100)
 
     dataset = ImbalancedDataset(cfg, cfg.dataset, augmentation='none')
@@ -212,8 +212,8 @@ def main():
             gate_logits = gate(phi)
             weights = F.softmax(gate_logits, dim=1)
             
-            # FIX: Force k=3 (dense routing) to match training conditions
-            k = 3  
+            # REVERTED: Using paper's k=2 routing
+            k = 2  
             topk_weights, topk_indices = torch.topk(weights, k, dim=1)
             topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
             
