@@ -160,24 +160,17 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
     beta = np.ones(K) / K
     rho_grid = np.arange(0.0, 1.1, 0.1)
     
-    if cls_num_list is not None:
-        cls_num_list = np.array(cls_num_list)
-        priors = cls_num_list / cls_num_list.sum()
-        sample_weights_val = priors[labels_val]
-        sample_weights_val = sample_weights_val / sample_weights_val.sum()
-        
-        sample_weights_test = priors[labels_test]
-        sample_weights_test = sample_weights_test / sample_weights_test.sum()
-    else:
-        sample_weights_val = None
-        sample_weights_test = None
+    # FIX: Plug-in rule MUST use uniform sample_weights (None) to track true population acceptance mass.
+    # This prevents alpha_tail from collapsing due to prior-weighting.
+    plugin_sample_weights_val = None
+    plugin_sample_weights_test = None
     
     coverages = []
     risks = []
     
     for rho in rho_grid:
-        alpha, mu = tune_plugin_for_rho(p_mix_val, labels_val, group_ids, rho, mode=mode, sample_weights=sample_weights_val)
-        coverage, risk = evaluate_plugin_for_rho(p_mix_test, labels_test, group_ids, alpha, mu, rho, beta, mode=mode, sample_weights=sample_weights_test)
+        alpha, mu = tune_plugin_for_rho(p_mix_val, labels_val, group_ids, rho, mode=mode, sample_weights=plugin_sample_weights_val)
+        coverage, risk = evaluate_plugin_for_rho(p_mix_test, labels_test, group_ids, alpha, mu, rho, beta, mode=mode, sample_weights=plugin_sample_weights_test)
         coverages.append(coverage)
         risks.append(risk)
     
@@ -190,7 +183,8 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
         risks = np.insert(risks, 0, 1.0)
         
     aurc = np.trapezoid(risks, coverages)
-            
+    
+    # Calibration metrics (NLL, Brier, ECE) can still use the LT-weighted priors
     true_probs = p_mix_test[np.arange(N_test), labels_test]
     if cls_num_list is not None:
         priors = cls_num_list / cls_num_list.sum()
