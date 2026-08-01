@@ -33,7 +33,7 @@ def compute_chow_aurc(p_tune, labels_tune, p_test, labels_test, group_ids, mode=
     if coverages[0] > 0:
         coverages = np.insert(coverages, 0, 0.0)
         risks = np.insert(risks, 0, 1.0) 
-    return np.trapz(risks, coverages)
+    return np.trapezoid(risks, coverages)
 
 def compute_all_metrics(probs, labels, logits=None, cfg=None, train_dataset=None):
     """Helper to compute all calibration and accuracy metrics with LT re-weighting."""
