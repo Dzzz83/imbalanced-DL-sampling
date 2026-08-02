@@ -370,6 +370,72 @@ def main():
         print(f"{i:<6} | {group_name:<5} | {true_label:<4} | {mix_pred:<8} | {ce_pred:<8} | {la_pred:<8} | {bs_pred:<8} | {w[0]:<6.3f} | {w[1]:<6.3f} | {w[2]:<6.3f} | {experts_chosen_str}")
     print("="*100)
 
+    # --- LA 'SAVES THE DAY' ROUTING CHECK ---
+    print("\n" + "="*100)
+    print("LA 'SAVES THE DAY' ROUTING CHECK (Tail Samples where LA is right, CE & BS are wrong)")
+    print("="*100)
+    
+    # Recompute preds just to be safe
+    ce_preds_test = np.argmax(p_ce_test, axis=1)
+    la_preds_test = np.argmax(p_la_test, axis=1)
+    bs_preds_test = np.argmax(p_bs_test, axis=1)
+    
+    # Mask: Tail samples
+    tail_mask_check = (label_groups_test == 1)
+    
+    # Mask: LA is correct
+    la_correct_mask = (la_preds_test == labels_test)
+    
+    # Mask: CE and BS are incorrect
+    ce_bs_wrong_mask = (ce_preds_test != labels_test) & (bs_preds_test != labels_test)
+    
+    # Combined mask
+    la_saves_day_mask = tail_mask_check & la_correct_mask & ce_bs_wrong_mask
+    
+    # Get the indices
+    la_saves_day_indices = np.where(la_saves_day_mask)[0]
+    
+    total_la_saves_day = len(la_saves_day_indices)
+    
+    if total_la_saves_day == 0:
+        print("[INFO] No samples found where LA was the sole correct expert on Tail classes.")
+    else:
+        print(f"[INFO] Found {total_la_saves_day} samples where LA was the sole correct expert on Tail classes.")
+        
+        # Average routing weights for these specific samples
+        avg_w_la_saves = np.mean(w_test[la_saves_day_indices], axis=0)
+        print(f"Average Routing Weights for these samples: CE={avg_w_la_saves[0]:.4f} | LA={avg_w_la_saves[1]:.4f} | BS={avg_w_la_saves[2]:.4f}")
+        
+        # How many times was LA actually chosen in top-k?
+        topk_indices_la_saves = np.argsort(w_test[la_saves_day_indices], axis=1)[:, ::-1][:, :k]
+        la_chosen_count = np.sum(topk_indices_la_saves == 1)
+        print(f"LA was chosen in Top-{k} routing for {la_chosen_count}/{total_la_saves_day} of these samples ({la_chosen_count/total_la_saves_day*100:.1f}%)")
+        
+        # Print a few examples
+        print(f"\n{'Idx':<6} | {'True':<5} | {'CE_Pred':<8} | {'LA_Pred':<8} | {'BS_Pred':<8} | {'w_CE':<6} | {'w_LA':<6} | {'w_BS':<6} | Top-k Chosen")
+        print("-"*100)
+        
+        # Print up to 15 examples
+        for i in la_saves_day_indices[:15]:
+            w = w_test[i]
+            topk_idx = np.argsort(w)[::-1][:k]
+            
+            mix_pred = np.argmax(p_mix_test[i])
+            ce_pred = ce_preds_test[i]
+            la_pred = la_preds_test[i]
+            bs_pred = bs_preds_test[i]
+            
+            true_label = labels_test[i]
+            
+            experts_chosen = []
+            if 0 in topk_idx: experts_chosen.append("CE")
+            if 1 in topk_idx: experts_chosen.append("LA")
+            if 2 in topk_idx: experts_chosen.append("BS")
+            experts_chosen_str = ",".join(experts_chosen)
+            
+            print(f"{i:<6} | {true_label:<5} | {ce_pred:<8} | {la_pred:<8} | {bs_pred:<8} | {w[0]:<6.3f} | {w[1]:<6.3f} | {w[2]:<6.3f} | {experts_chosen_str}")
+    print("="*100)
+
     # --- 3. STAGE 3 PLUG-IN PARAMETERS ---
     print_stage3_plugin_params(p_mix_tune, labels_tune, group_ids_2, cfg)
 
