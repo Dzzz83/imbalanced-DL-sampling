@@ -277,6 +277,42 @@ class GateTrainer(BaseTrainer):
 
             optimizer.zero_grad()
             loss.backward()
+            
+            # --- DIAGNOSTIC LOGGING ---
+            if batch_idx == 0 and ((epoch + 1) % 10 == 0 or epoch == 0):
+                self.logger.info("\n" + "="*80)
+                self.logger.info(f"🔍 DIAGNOSTIC LOG: EPOCH {epoch+1} | BATCH 0")
+                self.logger.info("="*80)
+                
+                # 1. Loss Components
+                self.logger.info(f"Loss Components -> Mix NLL: {mix_nll.item():.4f} | Ent Reg: {ent_reg.item():.4f} | Bal Reg: {bal_reg.item():.4f} | Total: {loss.item():.4f}")
+                
+                # 2. Feature Statistics
+                phi_mean = phi.mean().item()
+                phi_std = phi.std().item()
+                phi_max = phi.max().item()
+                phi_min = phi.min().item()
+                self.logger.info(f"Input Features (phi) -> Mean: {phi_mean:.4f} | Std: {phi_std:.4f} | Max: {phi_max:.4f} | Min: {phi_min:.4f}")
+                
+                # 3. Gate Logits & Weights
+                logits_std = gate_logits.std(dim=0).mean().item()
+                weights_std = weights.std(dim=0).mean().item()
+                avg_weights = weights.mean(dim=0).tolist()
+                self.logger.info(f"Gate Logits (pre-softmax) -> Avg Std across batch: {logits_std:.6f} (If ~0, network is outputting flat constants)")
+                self.logger.info(f"Weights (post-softmax) -> Avg Std across batch: {weights_std:.6f} | Mean: {[f'{w:.4f}' for w in avg_weights]}")
+                
+                # 4. Expert Disagreement
+                diff_ce_la = torch.abs(probs[0] - probs[1]).mean().item()
+                diff_ce_bs = torch.abs(probs[0] - probs[2]).mean().item()
+                diff_la_bs = torch.abs(probs[1] - probs[2]).mean().item()
+                self.logger.info(f"Expert Disagreement (L1) -> CE vs LA: {diff_ce_la:.4f} | CE vs BS: {diff_ce_bs:.4f} | LA vs BS: {diff_la_bs:.4f}")
+                
+                # 5. Gradient Norms
+                grad_norm_fc1 = self.gate.fc1.weight.grad.norm().item() if self.gate.fc1.weight.grad is not None else 0.0
+                grad_norm_fc3 = self.gate.fc3.weight.grad.norm().item() if self.gate.fc3.weight.grad is not None else 0.0
+                self.logger.info(f"Gradient Norms -> FC1 (Input): {grad_norm_fc1:.6f} | FC3 (Output): {grad_norm_fc3:.6f} (If ~0, gradients are vanishing)")
+                self.logger.info("="*80 + "\n")
+
             optimizer.step()
 
             total_loss += loss.item() * images.size(0)
