@@ -436,6 +436,37 @@ def main():
             print(f"{i:<6} | {true_label:<5} | {ce_pred:<8} | {la_pred:<8} | {bs_pred:<8} | {w[0]:<6.3f} | {w[1]:<6.3f} | {w[2]:<6.3f} | {experts_chosen_str}")
     print("="*100)
 
+    # --- RAW PROBABILITY INSPECTION FOR LA 'SAVES THE DAY' SAMPLES ---
+    print("\n" + "="*100)
+    print("RAW PROBABILITY INSPECTION FOR LA 'SAVES THE DAY' SAMPLES")
+    print("="*100)
+    print("[INFO] Inspecting up to 15 samples. Checking if BS/CE are overconfident when wrong, and LA is underconfident when right.")
+    print("-"*100)
+
+    def get_entropy(p):
+        return -np.sum(p * np.log(p + 1e-8))
+
+    print(f"{'Idx':<6} | {'Expert':<7} | {'True Prob':<10} | {'Pred':<8} | {'Max Prob':<10} | {'Entropy':<10} | {'w_Gate':<8}")
+    print("-"*100)
+
+    for i in la_saves_day_indices[:15]:
+        true_label = labels_test[i]
+        
+        for exp_idx, exp_name in enumerate(["CE", "LA", "BS"]):
+            if exp_name == "CE": probs = p_ce_test[i]
+            elif exp_name == "LA": probs = p_la_test[i]
+            else: probs = p_bs_test[i]
+            
+            true_prob = probs[true_label]
+            pred = np.argmax(probs)
+            max_prob = probs[pred]
+            ent = get_entropy(probs)
+            
+            idx_str = str(i) if exp_idx == 0 else ""
+            print(f"{idx_str:<6} | {exp_name:<7} | {true_prob:<10.4f} | {pred:<8} | {max_prob:<10.4f} | {ent:<10.4f} | {w_test[i, exp_idx]:<8.4f}")
+        print("-"*100)
+    print("="*100)
+
     # --- 3. STAGE 3 PLUG-IN PARAMETERS ---
     print_stage3_plugin_params(p_mix_tune, labels_tune, group_ids_2, cfg)
 
