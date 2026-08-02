@@ -14,9 +14,26 @@ def define_groups_2(cls_num_list):
     group_ids[cls_num_list <= 20] = 1
     return group_ids
 
+def _get_per_class_weights(group_ids, beta, alpha, mu, num_classes):
+    """
+    Construct per-class weight matrices W and M of shape (N, C).
+    W[:, y] = beta[group_ids[y]] / alpha[group_ids[y]]
+    M[:, y] = mu[group_ids[y]]
+    """
+    # Create a mapping from class index to group index
+    class_to_group = group_ids  # Shape (C,)
+    
+    # Compute per-class scalars
+    w_per_class = beta[class_to_group] / np.clip(alpha[class_to_group], 1e-6, 1.0)  # Shape (C,)
+    m_per_class = mu[class_to_group]  # Shape (C,)
+    
+    # No need to broadcast to (N, C) explicitly if we rely on numpy broadcasting later,
+    # but for clarity we return the per-class vectors.
+    return w_per_class, m_per_class
+
 def power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho, sample_weights=None, max_iter=20, damp=0.5, kappa=1e-4):
+    N, C = p_mix.shape
     K = len(beta)
-    N = len(labels)
     
     if sample_weights is None:
         sample_weights = np.ones(N) / N
@@ -25,14 +42,24 @@ def power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho, sample_weight
     alpha = np.ones(K) / K * (1.0 - rho)
     label_groups = group_ids[labels]
     
+    # Precompute per-class weight vectors
+    w_per_class, m_per_class = _get_per_class_weights(group_ids, beta, alpha, mu, C)
+    
     for _ in range(max_iter):
         alpha_safe = np.clip(alpha, kappa, 1.0)
-        W = beta[group_ids] / alpha_safe[group_ids]
-        M = mu[group_ids]
-        Wp = p_mix * W
-        S_max = np.max(Wp, axis=1)
-        S_sum = np.sum(p_mix * W, axis=1)
-        mu_p = np.sum(p_mix * M, axis=1)
+        # Update per-class weights with current alpha
+        w_per_class = beta[group_ids] / alpha_safe[group_ids]  # Shape (C,)
+        
+        # Broadcast to (N, C) and multiply
+        Wp = p_mix * w_per_class  # Shape (N, C)
+        S_max = np.max(Wp, axis=1)  # Shape (N,)
+        
+        # S_sum = sum_y (beta_[y]/alpha_[y] * p_y(x))
+        S_sum = np.sum(p_mix * w_per_class, axis=1)  # Shape (N,)
+        
+        # mu_p = sum_y (mu_[y] * p_y(x))
+        mu_p = np.sum(p_mix * m_per_class, axis=1)  # Shape (N,)
+        
         margin = S_sum - S_max - mu_p
         
         if rho >= 1.0:
@@ -50,6 +77,10 @@ def power_iteration_alpha(p_mix, labels, group_ids, beta, mu, rho, sample_weight
         alpha_new = np.clip(alpha_new, kappa, 1.0)
         alpha = damp * alpha + (1 - damp) * alpha_new
         alpha = np.clip(alpha, kappa, 1.0)
+        
+        # Update m_per_class if alpha changed (though mu is fixed in the inner loop)
+        # Actually mu is fixed, only alpha changes, which affects w_per_class
+        # m_per_class remains constant across iterations since mu is fixed
     return alpha
 
 def tune_plugin_for_rho(p_mix, labels, group_ids, rho, mode='bal', cls_num_list=None, sample_weights=None):
@@ -108,7 +139,7 @@ def tune_plugin_for_rho(p_mix, labels, group_ids, rho, mode='bal', cls_num_list=
         return best_alpha, best_mu
 
 def evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta=None, mode='bal', return_risks=False, sample_weights=None):
-    N, _ = p_mix.shape
+    N, C = p_mix.shape
     K = len(alpha)
     if beta is None:
         beta = np.ones(K) / K
@@ -119,12 +150,21 @@ def evaluate_plugin_for_rho(p_mix, labels, group_ids, alpha, mu, rho, beta=None,
         
     label_groups = group_ids[labels]
     alpha_safe = np.clip(alpha, 1e-6, 1.0)
-    W = beta[group_ids] / alpha_safe[group_ids]
-    M = mu[group_ids]
-    Wp = p_mix * W
-    S_max = np.max(Wp, axis=1)
-    S_sum = np.sum(p_mix * W, axis=1)
-    mu_p = np.sum(p_mix * M, axis=1)
+    
+    # FIX: Construct per-class weight vectors of shape (C,)
+    w_per_class = beta[group_ids] / alpha_safe[group_ids]  # Shape (C,)
+    m_per_class = mu[group_ids]  # Shape (C,)
+    
+    # Multiply p_mix (N, C) by per-class weights (C,)
+    Wp = p_mix * w_per_class  # Shape (N, C)
+    S_max = np.max(Wp, axis=1)  # Shape (N,)
+    
+    # S_sum = sum_y (beta_[y]/alpha_[y] * p_y(x))
+    S_sum = np.sum(p_mix * w_per_class, axis=1)  # Shape (N,)
+    
+    # mu_p = sum_y (mu_[y] * p_y(x))
+    mu_p = np.sum(p_mix * m_per_class, axis=1)  # Shape (N,)
+    
     margin = S_sum - S_max - mu_p
     preds = np.argmax(Wp, axis=1)
     
@@ -160,7 +200,6 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
     beta = np.ones(K) / K
     rho_grid = np.arange(0.0, 1.1, 0.1)
     
-    # REVERTED: Restore prior-weighted sample weights for the plug-in rule
     if cls_num_list is not None:
         cls_num_list = np.array(cls_num_list)
         priors = cls_num_list / cls_num_list.sum()
@@ -192,7 +231,6 @@ def compute_aurc_metrics(p_mix_val, labels_val, p_mix_test, labels_test, group_i
         
     aurc = np.trapezoid(risks, coverages)
     
-    # Calibration metrics (NLL, Brier, ECE) also use the LT-weighted priors
     true_probs = p_mix_test[np.arange(N_test), labels_test]
     if cls_num_list is not None:
         priors = cls_num_list / cls_num_list.sum()

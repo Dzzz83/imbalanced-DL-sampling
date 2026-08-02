@@ -125,10 +125,24 @@ class ExpertsTrainer(BaseTrainer):
         )
         
         # Compute LT-weighted NLL for calibration-aware expert selection
+        # Convert training class counts to array (e.g., [100, 10, 1] for head, mid, tail)
         cls_num_list = np.array(self.cls_num_list)
+
+        # Calculate class prior probabilities (e.g., [100, 10, 1] -> [0.90, 0.09, 0.01])
         priors = cls_num_list / cls_num_list.sum()
+
+        # Assign each test sample its true class's prior (e.g., sample with label 1 gets weight 0.09)
         sample_weights = priors[all_targets]
+
+        # Normalize weights to sum to 1.0 so it forms a valid probability distribution
         sample_weights = sample_weights / sample_weights.sum()
+
+        # 1. Extract true class prob: all_probs[indices, true_labels] -> e.g., [0.8, 0.6, 0.9]
+        # 2. Add 1e-8 to prevent log(0) -> e.g., [0.80000001, 0.60000001, 0.90000001]
+        # 3. Take log: np.log(...) -> e.g., [-0.223, -0.511, -0.105]
+        # 4. Multiply by weight: sample_weights * ... -> e.g., [0.8*-0.223, 0.2*-0.511, 0.8*-0.105] = [-0.1784, -0.1022, -0.0840]
+        # 5. Sum: np.sum(...) -> e.g., -0.3646
+        # 6. Negate: - (...) -> e.g., final NLL = 0.3646
         nll = -np.sum(sample_weights * np.log(all_probs[np.arange(len(all_targets)), all_targets] + 1e-8))
 
         return {

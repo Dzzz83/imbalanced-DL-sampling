@@ -75,17 +75,28 @@ class ExpertEnsemble(nn.Module):
 class GateMLP(nn.Module):
     def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
         super().__init__()
+        
+        # Layer 1: Expands 24 input features to 256 numbers
         self.fc1 = nn.Linear(input_dim, hidden1)
+        # Layer 2: Compresses 256 numbers to 128 numbers
         self.fc2 = nn.Linear(hidden1, hidden2)
+        # Layer 3: Outputs exactly 3 raw scores (for CE, LA, BS experts)
         self.fc3 = nn.Linear(hidden2, num_experts)
+        
+        # Activation function: turns negative numbers to 0 to learn complex patterns
         self.relu = nn.ReLU()
+        # Safety mechanism: randomly turns off neurons during training to prevent memorization
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
+    # Defines how data flows through the network
     def forward(self, x):
+        # Pass through Layer 1 and apply ReLU
         x = self.relu(self.fc1(x))
         x = self.dropout(x)
+        # Pass through Layer 2 and apply ReLU
         x = self.relu(self.fc2(x))
         x = self.dropout(x)
+        # Pass through Layer 3 to get the 3 raw routing scores
         x = self.fc3(x)
         return x
 
@@ -170,12 +181,15 @@ class GateTrainer(BaseTrainer):
         return None
 
     def get_probs(self, logits_list, T):
+        # 1. CE Expert: Apply standard Softmax with Temperature scaling to soften logits
         p_ce = F.softmax(logits_list[0] / T, dim=1)
         
+        # 2. LA Expert: Add log-prior back to evaluate on true distribution, then apply Temp scaling
         cls_num_list = torch.tensor(self.cfg.cls_num_list, device=self.device, dtype=torch.float32)
         log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
         p_la = F.softmax((logits_list[1] + self.cfg.la_tau * log_prior) / T, dim=1)
         
+        # 3. BS Expert: Add log-spc (samples per class) back to evaluate on true distribution, then apply Temp scaling
         log_spc = torch.log(cls_num_list + 1e-12)
         p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
         
@@ -239,14 +253,26 @@ class GateTrainer(BaseTrainer):
             B = labels.size(0)
 
             prob_true = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
+            # 1. Calculate the mixture's probability for the *true* class
+            # (weights * prob_true) multiplies each expert's true-class prob by its routing weight, then sums them
             mix_prob = (weights * prob_true).sum(dim=1)
-            
-            mix_nll = -torch.log(mix_prob + 1e-8).mean()
 
+            # 2. Mixture NLL (The main proper scoring rule from Theorem 3.3)
+            # Takes the log of the mixture prob and negates it. Punishes the gate if the mixture is uncertain.
+            mix_nll = -torch.log(mix_prob + 1e-8).mean() 
+
+            # 3. Entropy Regularization (Prevents collapse)
+            # Calculates how "spread out" the routing weights are. High entropy means it isn't just picking one expert.
             ent_reg = -(weights * torch.log(weights + 1e-8)).sum(dim=1).mean()
+
+            # 4. Balance Regularization (Prevents starvation)
+            # Finds the average routing weight across the whole batch
             batch_avg_weights = weights.mean(dim=0)
+            # Punishes the gate if the average weights deviate from perfectly equal (1/3 for each expert)
             bal_reg = ((batch_avg_weights - 1.0 / 3.0) ** 2).sum()
 
+            # 5. Final Loss (Equation 8 from the paper)
+            # Minimize NLL, SUBTRACT entropy (to encourage spreading), ADD balance penalty (to enforce fairness)
             loss = mix_nll - self.lambda_ent * ent_reg + self.lambda_bal * bal_reg
 
             optimizer.zero_grad()
@@ -315,6 +341,7 @@ class GateTrainer(BaseTrainer):
                     if (epoch + 1) % 10 == 0 or epoch == 0:
                         print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={loss:.4f}, gate_acc={acc:.2f}%, Gate NLL: {current_nll:.4f}")
 
+                    # select model with best NLL
                     if current_nll < best_gate_nll:
                         best_gate_nll = current_nll
                         best_epoch = epoch
@@ -383,9 +410,16 @@ class GateTrainer(BaseTrainer):
             gate_logits = self.gate(phi)
             weights = F.softmax(gate_logits, dim=1)
 
+            # 1. Get k from config (defaults to 2, which the paper found is best for 3 experts)
             k = getattr(self.cfg, 'routing_sparsity', 2)
+
+            # 2. Select the top k experts with the highest routing weights for each sample
+            # (e.g., if weights are [0.2, 0.5, 0.3] and k=2, it picks indices 1 and 2 with weights 0.5 and 0.3)
             topk_weights, topk_indices = torch.topk(weights, k, dim=1)
-            topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
+
+            # 3. Renormalize the top k weights so they sum to exactly 1.0 again
+            # (e.g., [0.5, 0.3] becomes [0.625, 0.375]. This drops the worst/noisiest expert entirely)
+            topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True) 
 
             stacked_probs = torch.stack(probs, dim=1)
             mix_prob = torch.zeros_like(stacked_probs[:, 0, :])
