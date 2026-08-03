@@ -36,7 +36,7 @@ class ExpertsTrainer(BaseTrainer):
             targets = np.array(self.train_dataset.targets)
             
         indices = np.arange(len(targets))
-        train_idx, _ = train_test_split(
+        train_idx, gate_idx = train_test_split(
             indices, 
             test_size=1 - self.gate_split_ratio,
             stratify=targets, 
@@ -73,7 +73,7 @@ class ExpertsTrainer(BaseTrainer):
             targets = targets.to(self.device, non_blocking=True)
 
             optimizer.zero_grad()
-            logits, _ = model(images)
+            logits, hidden = model(images)
 
             if torch.isnan(logits).any() or torch.isinf(logits).any():
                 raise RuntimeError(f"Logit explosion detected at epoch {epoch}, step {batch_idx}.")
