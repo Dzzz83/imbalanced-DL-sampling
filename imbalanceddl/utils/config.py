@@ -27,11 +27,7 @@ def get_args():
                     choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW',
                             'Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE', 
                             'DeepSMOTE_LAVA', 'LAVA_Reweight', 'ClassBalanced_ERM', 
-<<<<<<< HEAD
-                            'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW', 'SAVA_Mixup_DRW', 'Experts'],
-=======
                             'ClassBalanced_ERM_DRW', 'SAVA_Reweight_DRW', 'SAVA_Mixup_DRW', 'Experts', 'Gate'],
->>>>>>> expert
                         help='select strategy for trainer')
     parser.add_argument('--base_strategy', default='ERM', type=str,
                     choices=['ERM', 'Mixup', 'DRW', 'LDAM_DRW', 'Reweight_CB'],
