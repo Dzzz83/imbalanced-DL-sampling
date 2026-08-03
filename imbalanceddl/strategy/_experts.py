@@ -100,6 +100,7 @@ class ExpertsTrainer(BaseTrainer):
         all_preds = []
         all_targets = []
         all_probs = []
+        all_max_logits = []
 
         with torch.no_grad():
             for images, targets in self.val_loader:
@@ -115,48 +116,51 @@ class ExpertsTrainer(BaseTrainer):
                 all_preds.extend(pred.cpu().numpy())
                 all_targets.extend(targets.cpu().numpy())
                 all_probs.append(probs.cpu().numpy())
+                all_max_logits.append(logits.max(dim=1)[0].cpu().numpy())
 
         all_preds = np.array(all_preds)
         all_targets = np.array(all_targets)
         all_probs = np.concatenate(all_probs, axis=0)
+        all_max_logits = np.concatenate(all_max_logits)
 
         many_acc, median_acc, low_acc = shot_acc(
             self.cfg, all_preds, all_targets, self.train_dataset, acc_per_cls=False
         )
         
         # Compute LT-weighted NLL for calibration-aware expert selection
-        # Convert training class counts to array (e.g., [100, 10, 1] for head, mid, tail)
         cls_num_list = np.array(self.cls_num_list)
-
-        # Calculate class prior probabilities (e.g., [100, 10, 1] -> [0.90, 0.09, 0.01])
         priors = cls_num_list / cls_num_list.sum()
-
-        # Assign each test sample its true class's prior (e.g., sample with label 1 gets weight 0.09)
         sample_weights = priors[all_targets]
-
-        # Normalize weights to sum to 1.0 so it forms a valid probability distribution
         sample_weights = sample_weights / sample_weights.sum()
-
-        # 1. Extract true class prob: all_probs[indices, true_labels] -> e.g., [0.8, 0.6, 0.9]
-        # 2. Add 1e-8 to prevent log(0) -> e.g., [0.80000001, 0.60000001, 0.90000001]
-        # 3. Take log: np.log(...) -> e.g., [-0.223, -0.511, -0.105]
-        # 4. Multiply by weight: sample_weights * ... -> e.g., [0.8*-0.223, 0.2*-0.511, 0.8*-0.105] = [-0.1784, -0.1022, -0.0840]
-        # 5. Sum: np.sum(...) -> e.g., -0.3646
-        # 6. Negate: - (...) -> e.g., final NLL = 0.3646
         nll = -np.sum(sample_weights * np.log(all_probs[np.arange(len(all_targets)), all_targets] + 1e-8))
+
+        # --- DIAGNOSTIC METRICS ---
+        mean_logit = np.mean(all_max_logits)
+        sat_10 = np.mean(all_max_logits > 10.0) * 100
+        sat_20 = np.mean(all_max_logits > 20.0) * 100
+        
+        confidences = np.max(all_probs, axis=1)
+        correct_mask = (all_preds == all_targets)
+        avg_conf_correct = np.mean(confidences[correct_mask]) if np.sum(correct_mask) > 0 else 0.0
+        avg_conf_incorrect = np.mean(confidences[~correct_mask]) if np.sum(~correct_mask) > 0 else 0.0
 
         return {
             'acc': top1.avg * 100,
             'many': many_acc * 100,
             'med': median_acc * 100,
             'low': low_acc * 100,
-            'nll': nll
+            'nll': nll,
+            'mean_logit': mean_logit,
+            'sat_10': sat_10,
+            'sat_20': sat_20,
+            'conf_cor': avg_conf_correct,
+            'conf_inc': avg_conf_incorrect
         }
 
     def do_train_val(self):
         os.makedirs(self.cfg.root_model, exist_ok=True)
         
-        sweep_taus = [1.0, 1.5, 2.0]
+        sweep_taus = [1.5]
         sweep_biases = [False]
         sweep_ls = [0.0]
         
@@ -183,6 +187,9 @@ class ExpertsTrainer(BaseTrainer):
                     self.adjust_learning_rate(optimizer, epoch, base_lr=self.cfg.lr)
                     self.train_one_epoch(model, optimizer, criterion_ce, epoch)
                     metrics = self.validate(model)
+                    
+                    # Diagnostic Log
+                    self.logger.info(f"  [Val] Epoch {epoch}: Acc={metrics['acc']:.2f}%, NLL={metrics['nll']:.4f}, MeanLogit={metrics['mean_logit']:.2f}, %>10={metrics['sat_10']:.1f}%, ConfCor={metrics['conf_cor']:.3f}, ConfInc={metrics['conf_inc']:.3f}")
                     
                     if metrics['nll'] < best_metric:
                         best_metric = metrics['nll']
@@ -218,6 +225,9 @@ class ExpertsTrainer(BaseTrainer):
                     self.adjust_learning_rate(optimizer, epoch, base_lr=self.cfg.lr)
                     self.train_one_epoch(model, optimizer, criterion_bs, epoch)
                     metrics = self.validate(model)
+                    
+                    # Diagnostic Log
+                    self.logger.info(f"  [Val] Epoch {epoch}: Acc={metrics['acc']:.2f}%, NLL={metrics['nll']:.4f}, MeanLogit={metrics['mean_logit']:.2f}, %>10={metrics['sat_10']:.1f}%, ConfCor={metrics['conf_cor']:.3f}, ConfInc={metrics['conf_inc']:.3f}")
                     
                     if metrics['nll'] < best_metric:
                         best_metric = metrics['nll']
@@ -255,6 +265,9 @@ class ExpertsTrainer(BaseTrainer):
                         self.train_one_epoch(model, optimizer, criterion_la, epoch)
                         metrics = self.validate(model)
                         
+                        # Diagnostic Log
+                        self.logger.info(f"  [Val] Epoch {epoch}: Acc={metrics['acc']:.2f}%, NLL={metrics['nll']:.4f}, MeanLogit={metrics['mean_logit']:.2f}, %>10={metrics['sat_10']:.1f}%, ConfCor={metrics['conf_cor']:.3f}, ConfInc={metrics['conf_inc']:.3f}")
+                        
                         if metrics['nll'] < best_metric:
                             best_metric = metrics['nll']
                             best_epoch = epoch
@@ -273,11 +286,11 @@ class ExpertsTrainer(BaseTrainer):
         self.logger.info("\n" + "="*100)
         self.logger.info("STAGE 1 SWEEP SUMMARY TABLE")
         self.logger.info("="*100)
-        header = f"{'Run Name':<30} | {'Bal Acc':<8} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<6}"
+        header = f"{'Run Name':<30} | {'Bal Acc':<8} | {'Many':<6} | {'Med':<6} | {'Low':<6} | {'NLL':<6} | {'MeanLgt':<7} | {'%>10':<6} | {'ConfCor':<7} | {'ConfInc':<7}"
         self.logger.info(header)
         self.logger.info("-"*100)
         for r in sweep_results:
-            row = f"{r['name']:<30} | {r['acc']:<8.2f} | {r['many']:<6.2f} | {r['med']:<6.2f} | {r['low']:<6.2f} | {r['nll']:<6.3f}"
+            row = f"{r['name']:<30} | {r['acc']:<8.2f} | {r['many']:<6.2f} | {r['med']:<6.2f} | {r['low']:<6.2f} | {r['nll']:<6.3f} | {r['mean_logit']:<7.2f} | {r['sat_10']:<6.1f} | {r['conf_cor']:<7.3f} | {r['conf_inc']:<7.3f}"
             self.logger.info(row)
         self.logger.info("="*100)
 
