@@ -10,7 +10,7 @@ import glob
 
 # 1. Parse our custom arguments FIRST and remove them from sys.argv
 custom_parser = argparse.ArgumentParser(add_help=False)
-custom_parser.add_argument('--ckpt_dir', type=str, default='checkpoint/experts_sweep_cifar100', help="Directory containing expert checkpoints")
+custom_parser.add_argument('--ckpt_dir', type=str, default='checkpoint/experts_sweep_cifar100_ls0.1', help="Directory containing expert checkpoints")
 custom_args, remaining_argv = custom_parser.parse_known_args()
 sys.argv = [sys.argv[0]] + remaining_argv
 
