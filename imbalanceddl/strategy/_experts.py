@@ -160,9 +160,9 @@ class ExpertsTrainer(BaseTrainer):
     def do_train_val(self):
         os.makedirs(self.cfg.root_model, exist_ok=True)
         
-        sweep_taus = [1.5]
+        sweep_taus = [1.0, 1.5, 2.0]
         sweep_biases = [False]
-        sweep_ls = [0.0]
+        sweep_ls = [0.1]
         
         sweep_results = []
 
