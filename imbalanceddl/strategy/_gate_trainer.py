@@ -13,6 +13,7 @@ from ..utils.gate_features import compute_gate_features
 from ..utils.debug_logger import get_debug_logger
 from ..utils.plugin_rule import define_groups, define_groups_2, compute_aurc_metrics
 from ..net.network import build_model
+import glob
 
 class ExpertEnsemble(nn.Module):
     def __init__(self, cfg, device):
@@ -21,23 +22,31 @@ class ExpertEnsemble(nn.Module):
         expert_dir = getattr(cfg, 'expert_ckpt_dir', cfg.root_model)
 
         ce_bias = getattr(cfg, 'ce_bias', False)
-        ce_ls = getattr(cfg, 'ce_ls', 0.0)       # Read ls from config
+        ce_ls = getattr(cfg, 'ce_ls', 0.0)
         la_bias = getattr(cfg, 'la_bias', False)
-        la_ls = getattr(cfg, 'la_ls', 0.0)       # Read ls from config
+        la_ls = getattr(cfg, 'la_ls', 0.0)
         la_tau = getattr(cfg, 'la_tau', 1.5)
         bs_bias = getattr(cfg, 'bs_bias', False)
-        bs_ls = getattr(cfg, 'bs_ls', 0.0)       # Read ls from config
+        bs_ls = getattr(cfg, 'bs_ls', 0.0)
 
-        ckpt_names = [
-            f"expert_CE_bias{ce_bias}_ls{ce_ls}_best.pth",
-            f"expert_LA_bias{la_bias}_ls{la_ls}_t{la_tau}_best.pth",
-            f"expert_BS_bias{bs_bias}_ls{bs_ls}_best.pth",
+        ckpt_patterns = [
+            f"expert_CE_bias{ce_bias}_ls{ce_ls}_epoch*.pth",
+            f"expert_LA_bias{la_bias}_ls{la_ls}_t{la_tau}_epoch*.pth",
+            f"expert_BS_bias{bs_bias}_ls{bs_ls}_epoch*.pth",
         ]
 
-        for i, name in enumerate(ckpt_names):
-            ckpt_path = os.path.join(expert_dir, name)
-            if not os.path.isfile(ckpt_path):
-                raise FileNotFoundError(f"[ERROR] Expert checkpoint not found: {ckpt_path}")
+        for i, pattern in enumerate(ckpt_patterns):
+            files = glob.glob(os.path.join(expert_dir, pattern))
+            if not files:
+                fallback_name = pattern.replace("_epoch*", "_best")
+                fallback_path = os.path.join(expert_dir, fallback_name)
+                if os.path.isfile(fallback_path):
+                    ckpt_path = fallback_path
+                else:
+                    raise FileNotFoundError(f"[ERROR] Expert checkpoint not found for pattern: {pattern}")
+            else:
+                ckpt_path = sorted(files)[-1]
+            
             print(f"[INFO] Loading expert {i} from {ckpt_path}")
             ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
 
@@ -46,11 +55,15 @@ class ExpertEnsemble(nn.Module):
             
             actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=has_bias).to(device)
-            model.load_state_dict(ckpt['state_dict'])
-            for param in model.parameters():
+            
+            state_dict = ckpt['state_dict']
+            new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+            actual_model.load_state_dict(new_state_dict)
+            
+            for param in actual_model.parameters():
                 param.requires_grad = False
-            model.eval()
-            self.experts.append(model.to(device))
+            actual_model.eval()
+            self.experts.append(actual_model.to(device))
 
     @torch.no_grad()
     def forward(self, x):
@@ -63,17 +76,28 @@ class ExpertEnsemble(nn.Module):
 class GateMLP(nn.Module):
     def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
         super().__init__()
+        
+        # Layer 1: Expands 24 input features to 256 numbers
         self.fc1 = nn.Linear(input_dim, hidden1)
+        # Layer 2: Compresses 256 numbers to 128 numbers
         self.fc2 = nn.Linear(hidden1, hidden2)
+        # Layer 3: Outputs exactly 3 raw scores (for CE, LA, BS experts)
         self.fc3 = nn.Linear(hidden2, num_experts)
+        
+        # Activation function: turns negative numbers to 0 to learn complex patterns
         self.relu = nn.ReLU()
+        # Safety mechanism: randomly turns off neurons during training to prevent memorization
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
+    # Defines how data flows through the network
     def forward(self, x):
+        # Pass through Layer 1 and apply ReLU
         x = self.relu(self.fc1(x))
         x = self.dropout(x)
+        # Pass through Layer 2 and apply ReLU
         x = self.relu(self.fc2(x))
         x = self.dropout(x)
+        # Pass through Layer 3 to get the 3 raw routing scores
         x = self.fc3(x)
         return x
 
@@ -107,7 +131,8 @@ class GateTrainer(BaseTrainer):
         self.gate_epochs = cfg.gate_epochs
         self.eval_interval = getattr(cfg, 'eval_interval', 10)
         self.best_gate_acc = 0.0
-        self.logger.info("[INFO] GateTrainer initialization complete.")
+        
+        self.logger.info("[INFO] GateTrainer initialization complete (Standard NLL Enabled).")
 
     def _init_file_logger(self):
         os.makedirs(self.cfg.root_log, exist_ok=True)
@@ -127,55 +152,65 @@ class GateTrainer(BaseTrainer):
         self.file_logger.info(f"Config - LR: {self.cfg.gate_lr}, WD: {self.cfg.gate_weight_decay}, lambda_ent: {self.lambda_ent}, lambda_bal: {self.lambda_bal}")
 
     def _split_dataset(self):
-        # Split training data into 90% expert training and 10% gating split
-        targets = np.array(self.train_dataset.targets)
+        if isinstance(self.train_dataset, Subset):
+            all_targets = np.array(self.train_dataset.dataset.targets)
+            targets = all_targets[self.train_dataset.indices]
+        else:
+            targets = np.array(self.train_dataset.targets)
+            
         indices = np.arange(len(targets))
         train_idx, gate_idx = train_test_split(
             indices, test_size=1 - self.gate_split_ratio,
             stratify=targets, random_state=self.cfg.seed
         )
         self.gate_dataset = Subset(self.train_dataset, gate_idx)
-
-        # Further split the gating split into train_gate (80%) and val_gate (20%)
-        # REMOVE STRATIFICATION to avoid "least populated class" error
-        gate_indices = np.arange(len(gate_idx))
-        gate_train_idx, gate_val_idx = train_test_split(
-            gate_indices, test_size=0.2,
-            random_state=self.cfg.seed   # <-- removed stratify
-        )
-
-        self.gate_train_dataset = Subset(self.gate_dataset, gate_train_idx)
-        self.gate_val_dataset = Subset(self.gate_dataset, gate_val_idx)
-
-        self.gate_train_loader = DataLoader(
-            self.gate_train_dataset, batch_size=self.cfg.batch_size,
-            shuffle=True, num_workers=self.cfg.workers, pin_memory=True
-        )
-        self.gate_val_loader = DataLoader(
-            self.gate_val_dataset, batch_size=self.cfg.batch_size,
-            shuffle=False, num_workers=self.cfg.workers, pin_memory=True
-        )
+        
+        gate_bs = getattr(self.cfg, 'gating_batch_size', 128)
         self.gate_loader = DataLoader(
-            self.gate_dataset, batch_size=self.cfg.batch_size,
-            shuffle=True, num_workers=self.cfg.workers, pin_memory=True
+            self.gate_dataset, 
+            batch_size=gate_bs,
+            shuffle=True,
+            num_workers=self.cfg.workers, 
+            pin_memory=True
         )
-
-        self.val_loader = DataLoader(
-            self.val_dataset, batch_size=self.cfg.batch_size,
-            shuffle=False, num_workers=self.cfg.workers, pin_memory=True
+        
+        if isinstance(self.val_dataset, Subset):
+            all_val_targets = np.array(self.val_dataset.dataset.targets)
+            val_targets = all_val_targets[self.val_dataset.indices]
+        else:
+            val_targets = np.array(self.val_dataset.targets)
+            
+        val_indices = np.arange(len(val_targets))
+        tune_idx, test_idx = train_test_split(
+            val_indices, test_size=0.8, 
+            stratify=val_targets, random_state=self.cfg.seed
         )
-
-        self.logger.info(f"[INFO] Gate train size: {len(self.gate_train_dataset)}")
-        self.logger.info(f"[INFO] Gate val size:   {len(self.gate_val_dataset)}")
-        self.logger.info(f"[INFO] Final test size: {len(self.val_dataset)}")
+        
+        self.tune_dataset = Subset(self.val_dataset, tune_idx)
+        self.test_dataset = Subset(self.val_dataset, test_idx)
+        
+        self.tune_loader = DataLoader(self.tune_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
+        self.test_loader = DataLoader(self.test_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
+        
+        self.logger.info(f"[INFO] Gating split size: {len(self.gate_dataset)} (Standard Shuffle Enabled)")
+        self.logger.info(f"[INFO] Plugin Tune size: {len(self.tune_dataset)} | Final Test size: {len(self.test_dataset)}")
 
     def get_criterion(self):
         return None
 
     def get_probs(self, logits_list, T):
+        # 1. CE Expert: Apply standard Softmax with Temperature scaling to soften logits
         p_ce = F.softmax(logits_list[0] / T, dim=1)
-        p_la = F.softmax(logits_list[1] / T, dim=1)
-        p_bs = F.softmax(logits_list[2] / T, dim=1)
+        
+        # 2. LA Expert: Add log-prior back to evaluate on true distribution, then apply Temp scaling
+        cls_num_list = torch.tensor(self.cfg.cls_num_list, device=self.device, dtype=torch.float32)
+        log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
+        p_la = F.softmax((logits_list[1] + self.cfg.la_tau * log_prior) / T, dim=1)
+        
+        # 3. BS Expert: Add log-spc (samples per class) back to evaluate on true distribution, then apply Temp scaling
+        log_spc = torch.log(cls_num_list + 1e-12)
+        p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
+        
         return [p_ce, p_la, p_bs]
 
     @torch.no_grad()
@@ -237,17 +272,66 @@ class GateTrainer(BaseTrainer):
             B = labels.size(0)
 
             prob_true = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
+            # 1. Calculate the mixture's probability for the *true* class
+            # (weights * prob_true) multiplies each expert's true-class prob by its routing weight, then sums them
             mix_prob = (weights * prob_true).sum(dim=1)
-            mix_nll = -torch.log(mix_prob + 1e-8).mean()
 
+            # 2. Mixture NLL (The main proper scoring rule from Theorem 3.3)
+            # Takes the log of the mixture prob and negates it. Punishes the gate if the mixture is uncertain.
+            mix_nll = -torch.log(mix_prob + 1e-8).mean() 
+
+            # 3. Entropy Regularization (Prevents collapse)
+            # Calculates how "spread out" the routing weights are. High entropy means it isn't just picking one expert.
             ent_reg = -(weights * torch.log(weights + 1e-8)).sum(dim=1).mean()
+
+            # 4. Balance Regularization (Prevents starvation)
+            # Finds the average routing weight across the whole batch
             batch_avg_weights = weights.mean(dim=0)
+            # Punishes the gate if the average weights deviate from perfectly equal (1/3 for each expert)
             bal_reg = ((batch_avg_weights - 1.0 / 3.0) ** 2).sum()
 
+            # 5. Final Loss (Equation 8 from the paper)
+            # Minimize NLL, SUBTRACT entropy (to encourage spreading), ADD balance penalty (to enforce fairness)
             loss = mix_nll - self.lambda_ent * ent_reg + self.lambda_bal * bal_reg
 
             optimizer.zero_grad()
             loss.backward()
+            
+            # --- DIAGNOSTIC LOGGING ---
+            if batch_idx == 0 and ((epoch + 1) % 10 == 0 or epoch == 0):
+                self.logger.info("\n" + "="*80)
+                self.logger.info(f"🔍 DIAGNOSTIC LOG: EPOCH {epoch+1} | BATCH 0")
+                self.logger.info("="*80)
+                
+                # 1. Loss Components
+                self.logger.info(f"Loss Components -> Mix NLL: {mix_nll.item():.4f} | Ent Reg: {ent_reg.item():.4f} | Bal Reg: {bal_reg.item():.4f} | Total: {loss.item():.4f}")
+                
+                # 2. Feature Statistics
+                phi_mean = phi.mean().item()
+                phi_std = phi.std().item()
+                phi_max = phi.max().item()
+                phi_min = phi.min().item()
+                self.logger.info(f"Input Features (phi) -> Mean: {phi_mean:.4f} | Std: {phi_std:.4f} | Max: {phi_max:.4f} | Min: {phi_min:.4f}")
+                
+                # 3. Gate Logits & Weights
+                logits_std = gate_logits.std(dim=0).mean().item()
+                weights_std = weights.std(dim=0).mean().item()
+                avg_weights = weights.mean(dim=0).tolist()
+                self.logger.info(f"Gate Logits (pre-softmax) -> Avg Std across batch: {logits_std:.6f} (If ~0, network is outputting flat constants)")
+                self.logger.info(f"Weights (post-softmax) -> Avg Std across batch: {weights_std:.6f} | Mean: {[f'{w:.4f}' for w in avg_weights]}")
+                
+                # 4. Expert Disagreement
+                diff_ce_la = torch.abs(probs[0] - probs[1]).mean().item()
+                diff_ce_bs = torch.abs(probs[0] - probs[2]).mean().item()
+                diff_la_bs = torch.abs(probs[1] - probs[2]).mean().item()
+                self.logger.info(f"Expert Disagreement (L1) -> CE vs LA: {diff_ce_la:.4f} | CE vs BS: {diff_ce_bs:.4f} | LA vs BS: {diff_la_bs:.4f}")
+                
+                # 5. Gradient Norms
+                grad_norm_fc1 = self.gate.fc1.weight.grad.norm().item() if self.gate.fc1.weight.grad is not None else 0.0
+                grad_norm_fc3 = self.gate.fc3.weight.grad.norm().item() if self.gate.fc3.weight.grad is not None else 0.0
+                self.logger.info(f"Gradient Norms -> FC1 (Input): {grad_norm_fc1:.6f} | FC3 (Output): {grad_norm_fc3:.6f} (If ~0, gradients are vanishing)")
+                self.logger.info("="*80 + "\n")
+
             optimizer.step()
 
             total_loss += loss.item() * images.size(0)
@@ -303,9 +387,10 @@ class GateTrainer(BaseTrainer):
                 best_epoch = -1
 
                 for epoch in range(self.gate_epochs):
+                    # FIX: Use gate_train_loader instead of gate_loader
                     loss, acc = self.train_one_epoch(epoch, T, gate_train_loader, self.optimizer, self.scheduler)
 
-                    # Compute AURC on the gate validation set
+                    # FIX: Use the gate validation set for AURC selection
                     p_mix_val, labels_val = self.extract_posteriors(self.gate_val_loader, T)
                     group_ids = define_groups_2(self.cfg.cls_num_list)
                     metrics_val = compute_aurc_metrics(
@@ -314,6 +399,10 @@ class GateTrainer(BaseTrainer):
                     )
                     current_aurc = metrics_val['AURC']
 
+                    if (epoch + 1) % 10 == 0 or epoch == 0:
+                        print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={loss:.4f}, gate_acc={acc:.2f}%, Val Bal AURC: {current_aurc:.4f}")
+
+                    # FIX: Select model with best AURC (lower is better)
                     if current_aurc < best_bal_aurc:
                         best_bal_aurc = current_aurc
                         best_epoch = epoch
@@ -333,9 +422,11 @@ class GateTrainer(BaseTrainer):
             print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_aurc']:<20.4f}")
         print("="*100)
 
+        self.eval_best_model()
+
     def save_gate_checkpoint(self, epoch, bs, T, is_best=False):
         os.makedirs(self.cfg.root_model, exist_ok=True)
-        path = os.path.join(self.cfg.root_model, f"gate_checkpoint_bs{bs}_T{T}_best.pth")
+        path = os.path.join(self.cfg.root_model, f"gate_checkpoint_bs{bs}_T{T}_epoch{epoch}.pth")
         state = {
             'epoch': epoch,
             'batch_size': bs,
@@ -345,7 +436,7 @@ class GateTrainer(BaseTrainer):
         }
         if is_best:
             torch.save(state, path)
-            self.logger.info(f"New Best AURC found! Saved checkpoint: {path}")
+            self.logger.info(f"New Best Gate NLL found! Saved checkpoint: {path}")
 
     def _reset_gate_and_optimizer(self):
         def weight_init(m):
@@ -380,9 +471,16 @@ class GateTrainer(BaseTrainer):
             gate_logits = self.gate(phi)
             weights = F.softmax(gate_logits, dim=1)
 
+            # 1. Get k from config (defaults to 2, which the paper found is best for 3 experts)
             k = getattr(self.cfg, 'routing_sparsity', 2)
+
+            # 2. Select the top k experts with the highest routing weights for each sample
+            # (e.g., if weights are [0.2, 0.5, 0.3] and k=2, it picks indices 1 and 2 with weights 0.5 and 0.3)
             topk_weights, topk_indices = torch.topk(weights, k, dim=1)
-            topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
+
+            # 3. Renormalize the top k weights so they sum to exactly 1.0 again
+            # (e.g., [0.5, 0.3] becomes [0.625, 0.375]. This drops the worst/noisiest expert entirely)
+            topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True) 
 
             stacked_probs = torch.stack(probs, dim=1)
             mix_prob = torch.zeros_like(stacked_probs[:, 0, :])
@@ -440,8 +538,43 @@ class GateTrainer(BaseTrainer):
         print("="*90)
 
     def eval_best_model(self):
-        if self.cfg.best_model is not None:
-            self.evaluate_stage3(gate_checkpoint_path=self.cfg.best_model)
-        else:
-            self.logger.info("[INFO] No best_model specified; evaluating current gate.")
-            self.evaluate_stage3()
+        self.logger.info("\n" + "="*80)
+        self.logger.info("STAGE 3: PLUG-IN EVALUATION")
+        self.logger.info("="*80)
+        
+        files = glob.glob(os.path.join(self.cfg.root_model, "gate_checkpoint_*.pth"))
+        if not files:
+            self.logger.error("Best gate checkpoint not found! Run training first.")
+            return
+            
+        best_gate_path = max(files, key=os.path.getmtime)
+            
+        ckpt = torch.load(best_gate_path, map_location='cpu')
+        self.gate.load_state_dict(ckpt['gate_state_dict'])
+        T = ckpt['temperature']
+        self.logger.info(f"Loaded best gate from {best_gate_path} (Epoch {ckpt['epoch']}) with T={T}")
+        
+        self.logger.info("Extracting posteriors for tune (val) and test sets...")
+        p_mix_val, labels_val = self.extract_posteriors(self.tune_loader, T)
+        p_mix_test, labels_test = self.extract_posteriors(self.test_loader, T)
+        
+        group_ids = define_groups_2(self.cfg.cls_num_list)
+        
+        mode = self.cfg.plugin_algo
+        self.logger.info(f"Running Plug-in [{mode}] evaluation...")
+        
+        metrics = compute_aurc_metrics(
+            p_mix_val, labels_val, 
+            p_mix_test, labels_test, 
+            group_ids, 
+            cls_num_list=self.cfg.cls_num_list, 
+            mode=mode
+        )
+        
+        self.logger.info("\n" + "-"*40)
+        self.logger.info(f"AURC: {metrics['AURC']:.4f}")
+        self.logger.info(f"NLL: {metrics['NLL']:.4f}")
+        self.logger.info(f"Brier: {metrics['Brier']:.4f}")
+        self.logger.info(f"tail-ECE: {metrics['tail-ECE']:.4f}")
+        self.logger.info("-"*40 + "\n")
+        print(f"Plug-in [{mode}] Results -> AURC: {metrics['AURC']:.4f} | NLL: {metrics['NLL']:.4f} | Brier: {metrics['Brier']:.4f} | tail-ECE: {metrics['tail-ECE']:.4f}")

@@ -40,8 +40,10 @@ def load_expert(cfg, ckpt_path, device):
     ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
     has_bias = ckpt.get('bias', False)
     
-    # Force the model to build on cuda:0 without DataParallel
-    cfg.gpu = 0
+    # Set the default GPU to the requested device before building the model
+    if 'cuda' in str(device):
+        torch.cuda.set_device(device)
+        
     model = build_model(cfg)
     
     # Unwrap DataParallel just in case
@@ -57,8 +59,10 @@ def load_expert(cfg, ckpt_path, device):
 
 def main():
     cfg = get_args()
-    # Force evaluation to happen on cuda:0
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    
+    if torch.cuda.is_available():
+        torch.cuda.set_device(device)
 
     print("="*100)
     print("CRISP STAGE 1 EXPERT VERIFICATION (FOLDER SCAN vs PAPER)")
@@ -90,7 +94,6 @@ def main():
     train_targets = np.array(train_dataset.targets)
     cls_counts = np.bincount(train_targets, minlength=cfg.num_classes)
     
-    # L2R/CRISP Protocol: Re-weight the balanced test set to match the long-tailed training distribution
     priors = cls_counts / cls_counts.sum()
     sample_weights = priors[all_labels]
     sample_weights = sample_weights / sample_weights.sum()
@@ -118,14 +121,36 @@ def main():
                 logits_list.append(logits.cpu())
             
             logits = torch.cat(logits_list, dim=0)
-            probs = F.softmax(logits, dim=1).numpy()
+            
+            # --- FIXED PARSING & ADJUSTMENT BLOCK ---
+            expert_name = clean_name.upper()
+            log_prior = torch.log(torch.tensor(priors, device=logits.device) + 1e-12)
+            
+            if "LA" in expert_name:
+                # Safely parse tau from filename parts
+                tau = 1.0
+                parts = clean_name.split('_')
+                for p in parts:
+                    if p.startswith('t'):
+                        try:
+                            tau = float(p[1:])
+                        except ValueError:
+                            pass
+                adj_logits = logits + tau * log_prior
+            elif "BS" in expert_name:
+                log_spc = torch.log(torch.tensor(cls_counts, device=logits.device, dtype=torch.float32) + 1e-12)
+                adj_logits = logits + log_spc
+            else: # CE
+                adj_logits = logits
+                
+            probs = F.softmax(adj_logits, dim=1).numpy()
+            # ----------------------------------------
             preds = np.argmax(probs, axis=1)
             confidences = np.max(probs, axis=1)
             
             bal_acc = np.mean([np.mean(preds[all_labels == c] == c) for c in range(cfg.num_classes) if np.sum(all_labels == c) > 0]) * 100
             many, med, low = shot_acc(cfg, preds, all_labels, train_dataset, acc_per_cls=False)
             
-            # Apply sample weights to NLL and Brier to mimic long-tailed test set
             nll = -np.sum(sample_weights * np.log(probs[np.arange(len(all_labels)), all_labels] + 1e-8))
             brier = np.sum(sample_weights * np.sum((probs - np.eye(cfg.num_classes)[all_labels])**2, axis=1))
             

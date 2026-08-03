@@ -45,48 +45,34 @@ class LDAMLoss(nn.Module):
 class LogitAdjustedLoss(nn.Module):
     def __init__(self, cls_num_list, tau=1.0, reduction='mean', label_smoothing=0.0):
         super(LogitAdjustedLoss, self).__init__()
-        cls_num_list = torch.FloatTensor(cls_num_list)
-        probs = cls_num_list / cls_num_list.sum()
-        self.register_buffer('log_prior', torch.log(probs + 1e-12))
+        cls_num_list = torch.FloatTensor(cls_num_list) # raw sample counts per class
+        probs = cls_num_list / cls_num_list.sum() # get the probability of each class
+        self.register_buffer('log_prior', torch.log(probs + 1e-12)) # calulate the log prior
         self.tau = tau
         self.reduction = reduction
         self.label_smoothing = label_smoothing
 
     def forward(self, logits, targets):
-<<<<<<< HEAD
-        # log_prior is negative, so this correctly subtracts the penalty
-        adjusted_logits = logits + self.tau * self.log_prior
-        
-        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
-=======
         log_prior = self.log_prior.to(logits.device)
-        adjusted_logits = logits + self.tau * log_prior
-        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction, label_smoothing=self.label_smoothing)
->>>>>>> expert
+        adjusted_logits = logits + self.tau * log_prior # logit adjustment
+        # pass the adjusted logit
+        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction, label_smoothing=self.label_smoothing) 
         return loss
 
 class BalancedSoftmaxLoss(nn.Module):
     def __init__(self, cls_num_list, reduction='mean', label_smoothing=0.0):
         super(BalancedSoftmaxLoss, self).__init__()
+        # Convert the raw sample counts per class (e.g., [500, 100, 5]) into a PyTorch tensor.
         cls_num_list = torch.FloatTensor(cls_num_list)
-<<<<<<< HEAD
-        probs = cls_num_list / cls_num_list.sum()
-        self.register_buffer('log_prior', probs.log())
-=======
+        # Take the natural logarithm of the sample counts (e.g., log([500, 100, 5]) -> [6.21, 4.60, 1.60]).
         self.register_buffer('log_spc', cls_num_list.log())
->>>>>>> expert
         self.reduction = reduction
         self.label_smoothing = label_smoothing
 
     def forward(self, logits, targets):
-<<<<<<< HEAD
-        # Correctly adds negative log_prior
-        adjusted_logits = logits + self.log_prior
-        
-        loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction)
-=======
         log_spc = self.log_spc.to(logits.device)
+        # Add the log sample counts to the network's raw logits.
+        # Head classes get a large addition (e.g., +6.21); tail classes get a small addition (e.g., +1.60).
         adjusted_logits = logits + log_spc
         loss = F.cross_entropy(adjusted_logits, targets, reduction=self.reduction, label_smoothing=self.label_smoothing)
->>>>>>> expert
         return loss
