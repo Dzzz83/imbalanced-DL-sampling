@@ -12,7 +12,7 @@ selection_ratio: 1.0
 strategy: Gate
 
 # Paper-specified hyperparameters
-lambda_ent: 0.01
+lambda_ent: 0.05
 lambda_bal: 0.05
 gate_lr: 0.001
 gate_weight_decay: 0.0001
@@ -35,7 +35,7 @@ bs_ls: 0.0
 
 # FIX: Define the sweep lists for Stage 2
 gate_batch_sizes: [64, 128, 256]
-gate_temperatures: [1.0, 2.0, 5.0]
+gate_temperatures: [1.0]
 
 # Point to the directory where _experts_train_90.yaml saved the checkpoints
 expert_ckpt_dir: checkpoint/experts_sweep_cifar100

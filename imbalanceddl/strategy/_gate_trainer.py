@@ -54,7 +54,10 @@ class ExpertEnsemble(nn.Module):
 
     @torch.no_grad()
     def forward(self, x):
-        logits_list, _ = self.model(x)  # returns list of 3 logits
+        logits_list = []
+        for expert in self.experts:
+            logits, _ = expert(x)
+            logits_list.append(logits)
         return logits_list, None
 
 class GateMLP(nn.Module):
@@ -302,18 +305,14 @@ class GateTrainer(BaseTrainer):
                 for epoch in range(self.gate_epochs):
                     loss, acc = self.train_one_epoch(epoch, T, gate_train_loader, self.optimizer, self.scheduler)
 
-                    # Compute AURC on the gate validation set (gate_val_loader)
+                    # Compute AURC on the gate validation set
                     p_mix_val, labels_val = self.extract_posteriors(self.gate_val_loader, T)
                     group_ids = define_groups_2(self.cfg.cls_num_list)
-                    # Use validation set for both tuning and evaluation to get AURC
                     metrics_val = compute_aurc_metrics(
                         p_mix_val, labels_val, p_mix_val, labels_val,
                         group_ids, cls_num_list=self.cfg.cls_num_list, mode='bal'
                     )
                     current_aurc = metrics_val['AURC']
-
-                    if (epoch + 1) % 10 == 0 or epoch == 0:
-                        print(f"  Epoch {epoch+1}/{self.gate_epochs}: loss={loss:.4f}, gate_acc={acc:.2f}%, Val Bal AURC: {current_aurc:.4f}")
 
                     if current_aurc < best_bal_aurc:
                         best_bal_aurc = current_aurc
