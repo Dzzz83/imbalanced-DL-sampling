@@ -24,21 +24,21 @@ gate_dropout: 0.0         # no dropout
 routing_sparsity: 2
 
 ce_bias: false
-ce_ls: 0.0
+ce_ls: 0.1
 
 la_bias: false
-la_ls: 0.0
-la_tau: 1.5
+la_ls: 0.1
+la_tau: 1.0
 
 bs_bias: false
-bs_ls: 0.0
+bs_ls: 0.1
 
 # FIX: Define the sweep lists for Stage 2
 gate_batch_sizes: [128]
 gate_temperatures: [1.0, 2.0, 5.0, 10.0]
 
 # Point to the directory where _experts_train_90.yaml saved the checkpoints
-expert_ckpt_dir: checkpoint/experts_sweep_cifar100
+expert_ckpt_dir: checkpoint/experts_sweep_cifar100_ls0.1
 gate_split_ratio: 0.9      # 10% gate split
 
 # Backbone training hyperparameters (ignored by gate, but required by config parser)
