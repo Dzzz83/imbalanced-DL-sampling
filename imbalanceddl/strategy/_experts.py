@@ -191,7 +191,7 @@ class ExpertsTrainer(BaseTrainer):
                 
                 for epoch in range(self.cfg.epochs):
                     self.adjust_learning_rate(optimizer, epoch, base_lr=self.cfg.lr)
-                    self.train_one_epoch(model, optimizer, criterion_ce, epoch)
+                    self.train_one_epoch(model, optimizer, criterion_ce, epoch, run_name)
                     metrics = self.validate(model)
                     
                     # Diagnostic Log
@@ -229,7 +229,7 @@ class ExpertsTrainer(BaseTrainer):
                 
                 for epoch in range(self.cfg.epochs):
                     self.adjust_learning_rate(optimizer, epoch, base_lr=self.cfg.lr)
-                    self.train_one_epoch(model, optimizer, criterion_bs, epoch)
+                    self.train_one_epoch(model, optimizer, criterion_bs, epoch, run_name)
                     metrics = self.validate(model)
                     
                     # Diagnostic Log
@@ -268,7 +268,7 @@ class ExpertsTrainer(BaseTrainer):
                     
                     for epoch in range(self.cfg.epochs):
                         self.adjust_learning_rate(optimizer, epoch, base_lr=self.cfg.lr)
-                        self.train_one_epoch(model, optimizer, criterion_la, epoch)
+                        self.train_one_epoch(model, optimizer, criterion_la, epoch, run_name)
                         metrics = self.validate(model)
                         
                         # Diagnostic Log
