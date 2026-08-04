@@ -75,28 +75,17 @@ class ExpertEnsemble(nn.Module):
 class GateMLP(nn.Module):
     def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
         super().__init__()
-        
-        # Layer 1: Expands 24 input features to 256 numbers
         self.fc1 = nn.Linear(input_dim, hidden1)
-        # Layer 2: Compresses 256 numbers to 128 numbers
         self.fc2 = nn.Linear(hidden1, hidden2)
-        # Layer 3: Outputs exactly 3 raw scores (for CE, LA, BS experts)
         self.fc3 = nn.Linear(hidden2, num_experts)
-        
-        # Activation function: turns negative numbers to 0 to learn complex patterns
         self.relu = nn.ReLU()
-        # Safety mechanism: randomly turns off neurons during training to prevent memorization
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
-    # Defines how data flows through the network
     def forward(self, x):
-        # Pass through Layer 1 and apply ReLU
         x = self.relu(self.fc1(x))
         x = self.dropout(x)
-        # Pass through Layer 2 and apply ReLU
         x = self.relu(self.fc2(x))
         x = self.dropout(x)
-        # Pass through Layer 3 to get the 3 raw routing scores
         x = self.fc3(x)
         return x
 
@@ -125,13 +114,11 @@ class GateTrainer(BaseTrainer):
             dropout=dropout
         ).to(self.device)
 
-        self.lambda_ent = getattr(cfg, 'lambda_ent', 0.01)
-        self.lambda_bal = getattr(cfg, 'lambda_bal', 0.05)
         self.gate_epochs = cfg.gate_epochs
         self.eval_interval = getattr(cfg, 'eval_interval', 10)
         self.best_gate_acc = 0.0
         
-        self.logger.info("[INFO] GateTrainer initialization complete (Standard NLL Enabled).")
+        self.logger.info("[INFO] GateTrainer initialization complete (Supervised Routing Enabled).")
 
     def _split_dataset(self):
         if isinstance(self.train_dataset, Subset):
@@ -181,15 +168,12 @@ class GateTrainer(BaseTrainer):
         return None
 
     def get_probs(self, logits_list, T):
-        # 1. CE Expert: Apply standard Softmax with Temperature scaling to soften logits
         p_ce = F.softmax(logits_list[0] / T, dim=1)
         
-        # 2. LA Expert: Add log-prior back to evaluate on true distribution, then apply Temp scaling
         cls_num_list = torch.tensor(self.cfg.cls_num_list, device=self.device, dtype=torch.float32)
         log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
         p_la = F.softmax((logits_list[1] + self.cfg.la_tau * log_prior) / T, dim=1)
         
-        # 3. BS Expert: Add log-spc (samples per class) back to evaluate on true distribution, then apply Temp scaling
         log_spc = torch.log(cls_num_list + 1e-12)
         p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
         
@@ -235,6 +219,7 @@ class GateTrainer(BaseTrainer):
         total_loss = 0.0
         total_correct = 0
         total_samples = 0
+        total_expert_match = 0
         
         total_weights_sum = torch.zeros(3, device=self.device)
 
@@ -249,31 +234,15 @@ class GateTrainer(BaseTrainer):
             phi = compute_gate_features(logits_list, probs)
 
             gate_logits = self.gate(phi)
-            weights = F.softmax(gate_logits, dim=1)
             B = labels.size(0)
 
-            prob_true = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
-            # 1. Calculate the mixture's probability for the *true* class
-            # (weights * prob_true) multiplies each expert's true-class prob by its routing weight, then sums them
-            mix_prob = (weights * prob_true).sum(dim=1)
-
-            # 2. Mixture NLL (The main proper scoring rule from Theorem 3.3)
-            # Takes the log of the mixture prob and negates it. Punishes the gate if the mixture is uncertain.
-            mix_nll = -torch.log(mix_prob + 1e-8).mean() 
-
-            # 3. Entropy Regularization (Prevents collapse)
-            # Calculates how "spread out" the routing weights are. High entropy means it isn't just picking one expert.
-            ent_reg = -(weights * torch.log(weights + 1e-8)).sum(dim=1).mean()
-
-            # 4. Balance Regularization (Prevents starvation)
-            # Finds the average routing weight across the whole batch
-            batch_avg_weights = weights.mean(dim=0)
-            # Punishes the gate if the average weights deviate from perfectly equal (1/3 for each expert)
-            bal_reg = ((batch_avg_weights - 1.0 / 3.0) ** 2).sum()
-
-            # 5. Final Loss (Equation 8 from the paper)
-            # Minimize NLL, SUBTRACT entropy (to encourage spreading), ADD balance penalty (to enforce fairness)
-            loss = mix_nll - self.lambda_ent * ent_reg + self.lambda_bal * bal_reg
+            # --- SUPERVISED ROUTING TARGET ---
+            # Find the expert that assigned the highest probability to the true label
+            true_probs_experts = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1) # Shape: (B, 3)
+            target_expert = torch.argmax(true_probs_experts, dim=1) # Shape: (B,)
+            
+            # --- SUPERVISED LOSS ---
+            loss = F.cross_entropy(gate_logits, target_expert)
 
             optimizer.zero_grad()
             loss.backward()
@@ -284,33 +253,28 @@ class GateTrainer(BaseTrainer):
                 self.logger.info(f"🔍 DIAGNOSTIC LOG: EPOCH {epoch+1} | BATCH 0")
                 self.logger.info("="*80)
                 
-                # 1. Loss Components
-                self.logger.info(f"Loss Components -> Mix NLL: {mix_nll.item():.4f} | Ent Reg: {ent_reg.item():.4f} | Bal Reg: {bal_reg.item():.4f} | Total: {loss.item():.4f}")
+                self.logger.info(f"Loss Components -> CE Loss: {loss.item():.4f}")
                 
-                # 2. Feature Statistics
                 phi_mean = phi.mean().item()
                 phi_std = phi.std().item()
-                phi_max = phi.max().item()
-                phi_min = phi.min().item()
-                self.logger.info(f"Input Features (phi) -> Mean: {phi_mean:.4f} | Std: {phi_std:.4f} | Max: {phi_max:.4f} | Min: {phi_min:.4f}")
+                self.logger.info(f"Input Features (phi) -> Mean: {phi_mean:.4f} | Std: {phi_std:.4f}")
                 
-                # 3. Gate Logits & Weights
+                weights = F.softmax(gate_logits, dim=1)
                 logits_std = gate_logits.std(dim=0).mean().item()
                 weights_std = weights.std(dim=0).mean().item()
                 avg_weights = weights.mean(dim=0).tolist()
-                self.logger.info(f"Gate Logits (pre-softmax) -> Avg Std across batch: {logits_std:.6f} (If ~0, network is outputting flat constants)")
+                self.logger.info(f"Gate Logits (pre-softmax) -> Avg Std across batch: {logits_std:.6f}")
                 self.logger.info(f"Weights (post-softmax) -> Avg Std across batch: {weights_std:.6f} | Mean: {[f'{w:.4f}' for w in avg_weights]}")
                 
-                # 4. Expert Disagreement
-                diff_ce_la = torch.abs(probs[0] - probs[1]).mean().item()
-                diff_ce_bs = torch.abs(probs[0] - probs[2]).mean().item()
-                diff_la_bs = torch.abs(probs[1] - probs[2]).mean().item()
-                self.logger.info(f"Expert Disagreement (L1) -> CE vs LA: {diff_ce_la:.4f} | CE vs BS: {diff_ce_bs:.4f} | LA vs BS: {diff_la_bs:.4f}")
+                # Target distribution
+                target_dist = torch.zeros(3, device=self.device)
+                for i in range(3):
+                    target_dist[i] = (target_expert == i).float().mean()
+                self.logger.info(f"Target Expert Distribution: CE={target_dist[0]:.3f} | LA={target_dist[1]:.3f} | BS={target_dist[2]:.3f}")
                 
-                # 5. Gradient Norms
                 grad_norm_fc1 = self.gate.fc1.weight.grad.norm().item() if self.gate.fc1.weight.grad is not None else 0.0
                 grad_norm_fc3 = self.gate.fc3.weight.grad.norm().item() if self.gate.fc3.weight.grad is not None else 0.0
-                self.logger.info(f"Gradient Norms -> FC1 (Input): {grad_norm_fc1:.6f} | FC3 (Output): {grad_norm_fc3:.6f} (If ~0, gradients are vanishing)")
+                self.logger.info(f"Gradient Norms -> FC1 (Input): {grad_norm_fc1:.6f} | FC3 (Output): {grad_norm_fc3:.6f}")
                 self.logger.info("="*80 + "\n")
 
             optimizer.step()
@@ -318,6 +282,11 @@ class GateTrainer(BaseTrainer):
             total_loss += loss.item() * images.size(0)
             total_weights_sum += weights.sum(dim=0)
 
+            # Track accuracy of the gate predicting the target expert
+            gate_preds = torch.argmax(gate_logits, dim=1)
+            total_expert_match += gate_preds.eq(target_expert).sum().item()
+            
+            # Track final mixture accuracy
             mix_prob_full = torch.zeros_like(probs[0])
             for i in range(3):
                 mix_prob_full += weights[:, i:i+1] * probs[i]
@@ -328,16 +297,17 @@ class GateTrainer(BaseTrainer):
         scheduler.step()
         avg_loss = total_loss / total_samples
         avg_acc = total_correct / total_samples * 100
+        avg_expert_match = total_expert_match / total_samples * 100
         
         epoch_avg_weights = total_weights_sum / total_samples
         
         if (epoch + 1) % 10 == 0 or epoch == 0:
             w_ce, w_la, w_bs = epoch_avg_weights[0].item(), epoch_avg_weights[1].item(), epoch_avg_weights[2].item()
-            log_line = f"  Epoch {epoch+1} Routing -> Avg Weights: CE={w_ce:.3f}, LA={w_la:.3f}, BS={w_bs:.3f}"
+            log_line = f"  Epoch {epoch+1} Routing -> Avg Weights: CE={w_ce:.3f}, LA={w_la:.3f}, BS={w_bs:.3f} | Gate Acc: {avg_expert_match:.2f}%"
             print(log_line)
             self.logger.info(log_line)
             
-        return avg_loss, avg_acc
+        return avg_loss, avg_expert_match
 
     def do_train_val(self):
         self.log_feature_statistics()
@@ -363,38 +333,33 @@ class GateTrainer(BaseTrainer):
 
                 self._reset_gate_and_optimizer()
                 
-                best_gate_nll = 1e9
+                best_gate_acc = 0.0
                 best_epoch = -1
 
                 for epoch in range(self.gate_epochs):
-                    loss, acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
+                    loss, gate_acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
                     
-                    p_mix_gate, labels_gate = self.extract_posteriors(self.gate_loader, T)
-                    
-                    true_probs = p_mix_gate[np.arange(len(labels_gate)), labels_gate]
-                    current_nll = -np.mean(np.log(true_probs + 1e-8))
-
                     if (epoch + 1) % 10 == 0 or epoch == 0:
-                        print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={loss:.4f}, gate_acc={acc:.2f}%, Gate NLL: {current_nll:.4f}")
+                        print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={loss:.4f}, gate_acc={gate_acc:.2f}%")
 
-                    # select model with best NLL
-                    if current_nll < best_gate_nll:
-                        best_gate_nll = current_nll
+                    # select model with best gate accuracy
+                    if gate_acc > best_gate_acc:
+                        best_gate_acc = gate_acc
                         best_epoch = epoch
                         self.save_gate_checkpoint(epoch, bs, T, is_best=True)
                         
                 sweep_results.append({
-                    'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1, 'best_nll': best_gate_nll
+                    'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1, 'best_acc': best_gate_acc
                 })
-                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with NLL: {best_gate_nll:.4f}")
+                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with Gate Acc: {best_gate_acc:.4f}")
 
         print("\n" + "="*100)
         print("GATE SWEEP FINAL SUMMARY")
         print("="*100)
-        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best NLL':<20}")
+        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best Gate Acc':<20}")
         print("-"*50)
         for r in sweep_results:
-            print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_nll']:<20.4f}")
+            print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_acc']:<20.4f}")
         print("="*100)
         
         self.eval_best_model()
@@ -411,7 +376,7 @@ class GateTrainer(BaseTrainer):
         }
         if is_best:
             torch.save(state, path)
-            self.logger.info(f"New Best Gate NLL found! Saved checkpoint: {path}")
+            self.logger.info(f"New Best Gate Acc found! Saved checkpoint: {path}")
 
     def _reset_gate_and_optimizer(self):
         def weight_init(m):
@@ -446,15 +411,8 @@ class GateTrainer(BaseTrainer):
             gate_logits = self.gate(phi)
             weights = F.softmax(gate_logits, dim=1)
 
-            # 1. Get k from config (defaults to 2, which the paper found is best for 3 experts)
             k = getattr(self.cfg, 'routing_sparsity', 2)
-
-            # 2. Select the top k experts with the highest routing weights for each sample
-            # (e.g., if weights are [0.2, 0.5, 0.3] and k=2, it picks indices 1 and 2 with weights 0.5 and 0.3)
             topk_weights, topk_indices = torch.topk(weights, k, dim=1)
-
-            # 3. Renormalize the top k weights so they sum to exactly 1.0 again
-            # (e.g., [0.5, 0.3] becomes [0.625, 0.375]. This drops the worst/noisiest expert entirely)
             topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True) 
 
             stacked_probs = torch.stack(probs, dim=1)
