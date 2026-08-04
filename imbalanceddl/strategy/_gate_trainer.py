@@ -234,6 +234,7 @@ class GateTrainer(BaseTrainer):
             phi = compute_gate_features(logits_list, probs)
 
             gate_logits = self.gate(phi)
+            weights = F.softmax(gate_logits, dim=1)  # FIX: Moved this out of the if block so it exists for all batches
             B = labels.size(0)
 
             # --- SUPERVISED ROUTING TARGET ---
@@ -259,7 +260,6 @@ class GateTrainer(BaseTrainer):
                 phi_std = phi.std().item()
                 self.logger.info(f"Input Features (phi) -> Mean: {phi_mean:.4f} | Std: {phi_std:.4f}")
                 
-                weights = F.softmax(gate_logits, dim=1)
                 logits_std = gate_logits.std(dim=0).mean().item()
                 weights_std = weights.std(dim=0).mean().item()
                 avg_weights = weights.mean(dim=0).tolist()
