@@ -128,6 +128,7 @@ class GateTrainer(BaseTrainer):
 
         self.lambda_ent = getattr(cfg, 'lambda_ent', 0.01)
         self.lambda_bal = getattr(cfg, 'lambda_bal', 0.05)
+        self.lambda_routing = getattr(cfg, 'lambda_routing', 0.1)
         self.gate_epochs = cfg.gate_epochs
         self.eval_interval = getattr(cfg, 'eval_interval', 10)
         self.best_gate_acc = 0.0
@@ -257,6 +258,11 @@ class GateTrainer(BaseTrainer):
         
         total_weights_sum = torch.zeros(3, device=self.device)
 
+        # Hyperparameters for routing penalty
+        target_ce_head = 0.35      # desired weight of CE on head classes
+        target_la_tail = 0.35      # desired weight of LA on tail classes
+        lambda_routing = self.lambda_routing       # strength of routing penalty
+
         for batch_idx, (images, labels) in enumerate(gate_loader):
             images = images.to(self.device, non_blocking=True)
             labels = labels.to(self.device, non_blocking=True)
@@ -290,9 +296,36 @@ class GateTrainer(BaseTrainer):
             # Punishes the gate if the average weights deviate from perfectly equal (1/3 for each expert)
             bal_reg = ((batch_avg_weights - 1.0 / 3.0) ** 2).sum()
 
+            # ---- Routing Penalty (NEW) ----
+            # Determine head/tail groups from class counts
+            cls_num_list = torch.tensor(self.cfg.cls_num_list, device=self.device)
+            # Class 0-99: head if count > 20, tail if count <= 20 (using define_groups_2 logic)
+            group_ids = torch.zeros(cls_num_list.size(0), dtype=torch.long, device=self.device)
+            group_ids[cls_num_list <= 20] = 1  # tail group
+            # Map labels to group IDs
+            label_groups = group_ids[labels]  # (B,)
+            head_mask = (label_groups == 0)
+            tail_mask = (label_groups == 1)
+
+            # Average weights on head and tail
+            if head_mask.sum() > 0:
+                avg_ce_head = weights[head_mask, 0].mean()
+                # Penalize if CE weight is below target on head
+                pen_head = torch.relu(target_ce_head - avg_ce_head)
+            else:
+                pen_head = torch.tensor(0.0, device=self.device)
+
+            if tail_mask.sum() > 0:
+                avg_la_tail = weights[tail_mask, 1].mean()
+                pen_tail = torch.relu(target_la_tail - avg_la_tail)
+            else:
+                pen_tail = torch.tensor(0.0, device=self.device)
+
+            routing_penalty = pen_head + pen_tail
+
             # 5. Final Loss (Equation 8 from the paper)
             # Minimize NLL, SUBTRACT entropy (to encourage spreading), ADD balance penalty (to enforce fairness)
-            loss = mix_nll - self.lambda_ent * ent_reg + self.lambda_bal * bal_reg
+            loss = mix_nll - self.lambda_ent * ent_reg + self.lambda_bal * bal_reg + lambda_routing * routing_penalty
 
             optimizer.zero_grad()
             loss.backward()

@@ -62,6 +62,7 @@ def get_args():
     parser.add_argument('--beta', default=0.999, type=float, help='Hyper-parameter for rejection/sampling')
     parser.add_argument('--step_size', default=0.1, type=float, help='')
     parser.add_argument('--smote', '-s', action='store_true', help='oversampling')
+    parser.add_argument('--lambda_routing', default=0.1, type=float, help='Routing penalty coefficient')
 
     # Log
     parser.add_argument('--root_log', type=str, default='log')
