@@ -8,7 +8,6 @@ import math
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset, DataLoader
 from .base import BaseTrainer
-from ..utils.gate_features import compute_gate_features
 from ..utils.debug_logger import get_debug_logger
 from ..utils.plugin_rule import define_groups, define_groups_2, compute_aurc_metrics
 from ..net.network import build_model
@@ -67,14 +66,19 @@ class ExpertEnsemble(nn.Module):
     @torch.no_grad()
     def forward(self, x):
         logits_list = []
+        embeddings_list = []
         for expert in self.experts:
-            logits, _ = expert(x)
+            logits, hidden = expert(x)
             logits_list.append(logits)
-        return logits_list, None
+            embeddings_list.append(hidden)
+        # Concatenate raw 512-dim embeddings from 3 experts -> 1536-dim
+        embeddings = torch.cat(embeddings_list, dim=1)
+        return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
+    def __init__(self, input_dim=1536, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
         super().__init__()
+        self.norm = nn.LayerNorm(input_dim)
         self.fc1 = nn.Linear(input_dim, hidden1)
         self.fc2 = nn.Linear(hidden1, hidden2)
         self.fc3 = nn.Linear(hidden2, num_experts)
@@ -82,6 +86,7 @@ class GateMLP(nn.Module):
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
     def forward(self, x):
+        x = self.norm(x)
         x = self.relu(self.fc1(x))
         x = self.dropout(x)
         x = self.relu(self.fc2(x))
@@ -107,7 +112,7 @@ class GateTrainer(BaseTrainer):
 
         dropout = getattr(cfg, 'gate_dropout', 0.0)
         self.gate = GateMLP(
-            input_dim=24,
+            input_dim=1536,  # Updated to 512 * 3
             hidden1=cfg.gate_hidden_size,
             hidden2=cfg.gate_hidden_size2,
             num_experts=3,
@@ -115,7 +120,7 @@ class GateTrainer(BaseTrainer):
         ).to(self.device)
 
         self.gate_epochs = cfg.gate_epochs
-        self.eval_interval = getattr(cfg, 'eval_interval', 10)
+        self.eval_interval = getattr(cfg, 'eval_interval', 1)
         self.best_gate_acc = 0.0
         
         self.logger.info("[INFO] GateTrainer initialization complete (Supervised Routing Enabled).")
@@ -180,38 +185,61 @@ class GateTrainer(BaseTrainer):
         return [p_ce, p_la, p_bs]
 
     @torch.no_grad()
+    def validate(self, T):
+        self.gate.eval()
+        self.model.eval()
+        
+        all_preds = []
+        all_labels = []
+        
+        for images, labels in self.tune_loader:
+            images = images.to(self.device, non_blocking=True)
+            labels = labels.to(self.device, non_blocking=True)
+            
+            logits_list, embeddings = self.model(images)
+            probs = self.get_probs(logits_list, T)
+            
+            gate_logits = self.gate(embeddings)
+            weights = F.softmax(gate_logits, dim=1)
+            
+            mix_prob = torch.zeros_like(probs[0])
+            for i in range(3):
+                mix_prob += weights[:, i:i+1] * probs[i]
+                
+            _, pred = mix_prob.max(dim=1)
+            all_preds.extend(pred.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+            
+        all_preds = np.array(all_preds)
+        all_labels = np.array(all_labels)
+        
+        # Compute strict Balanced Accuracy
+        bal_acc = np.mean([np.mean(all_preds[all_labels == c] == c) for c in range(self.cfg.num_classes) if np.sum(all_labels == c) > 0]) * 100
+        
+        return bal_acc
+
+    @torch.no_grad()
     def log_feature_statistics(self):
         self.gate.eval()
         self.model.eval()
-        all_phis = []
+        all_embeddings = []
         
         for i, (images, _) in enumerate(self.gate_loader):
             if i >= 5: 
                 break
             images = images.to(self.device)
-            logits_list, _ = self.model(images)
-            probs = self.get_probs(logits_list, T=1.0) 
-            phi = compute_gate_features(logits_list, probs)
-            all_phis.append(phi.cpu())
+            _, embeddings = self.model(images)
+            all_embeddings.append(embeddings.cpu())
             
-        all_phis = torch.cat(all_phis, dim=0)
-        mean_phi = all_phis.mean(dim=0)
-        std_phi = all_phis.std(dim=0)
-        
-        feat_names = [
-            "CE_Ent", "CE_Max", "CE_Marg", "CE_Top5", "CE_Tail", "CE_Cos", "CE_KL",
-            "LA_Ent", "LA_Max", "LA_Marg", "LA_Top5", "LA_Tail", "LA_Cos", "LA_KL",
-            "BS_Ent", "BS_Max", "BS_Marg", "BS_Top5", "BS_Tail", "BS_Cos", "BS_KL",
-            "Glb_MeanEnt", "Glb_ClassVar", "Glb_ConfDisp"
-        ]
+        all_embeddings = torch.cat(all_embeddings, dim=0)
+        mean_emb = all_embeddings.mean(dim=0)
+        std_emb = all_embeddings.std(dim=0)
         
         self.logger.info("\n" + "="*80)
-        self.logger.info("GATE INPUT FEATURE STATISTICS (T=1.0)")
+        self.logger.info("GATE INPUT EMBEDDING STATISTICS (1536-dim)")
         self.logger.info("="*80)
-        self.logger.info(f"{'Feature':<15} | {'Mean':<10} | {'Std':<10}")
-        self.logger.info("-"*80)
-        for name, m, s in zip(feat_names, mean_phi, std_phi):
-            self.logger.info(f"{name:<15} | {m:<10.4f} | {s:<10.4f}")
+        self.logger.info(f"Global Mean: {mean_emb.mean().item():.4f} | Global Std: {std_emb.mean().item():.4f}")
+        self.logger.info(f"Min Val: {all_embeddings.min().item():.4f} | Max Val: {all_embeddings.max().item():.4f}")
         self.logger.info("="*80 + "\n")
 
     def train_one_epoch(self, epoch, T, gate_loader, optimizer, scheduler):
@@ -228,27 +256,22 @@ class GateTrainer(BaseTrainer):
             labels = labels.to(self.device, non_blocking=True)
 
             with torch.no_grad():
-                logits_list, _ = self.model(images)
+                logits_list, embeddings = self.model(images)
 
             probs = self.get_probs(logits_list, T)
-            phi = compute_gate_features(logits_list, probs)
 
-            gate_logits = self.gate(phi)
-            weights = F.softmax(gate_logits, dim=1)  # FIX: Moved this out of the if block so it exists for all batches
+            gate_logits = self.gate(embeddings)
+            weights = F.softmax(gate_logits, dim=1)
             B = labels.size(0)
 
-            # --- SUPERVISED ROUTING TARGET ---
-            # Find the expert that assigned the highest probability to the true label
-            true_probs_experts = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1) # Shape: (B, 3)
-            target_expert = torch.argmax(true_probs_experts, dim=1) # Shape: (B,)
+            true_probs_experts = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
+            target_expert = torch.argmax(true_probs_experts, dim=1)
             
-            # --- SUPERVISED LOSS ---
             loss = F.cross_entropy(gate_logits, target_expert)
 
             optimizer.zero_grad()
             loss.backward()
             
-            # --- DIAGNOSTIC LOGGING ---
             if batch_idx == 0 and ((epoch + 1) % 10 == 0 or epoch == 0):
                 self.logger.info("\n" + "="*80)
                 self.logger.info(f"🔍 DIAGNOSTIC LOG: EPOCH {epoch+1} | BATCH 0")
@@ -256,9 +279,9 @@ class GateTrainer(BaseTrainer):
                 
                 self.logger.info(f"Loss Components -> CE Loss: {loss.item():.4f}")
                 
-                phi_mean = phi.mean().item()
-                phi_std = phi.std().item()
-                self.logger.info(f"Input Features (phi) -> Mean: {phi_mean:.4f} | Std: {phi_std:.4f}")
+                emb_mean = embeddings.mean().item()
+                emb_std = embeddings.std().item()
+                self.logger.info(f"Input Embeddings -> Mean: {emb_mean:.4f} | Std: {emb_std:.4f}")
                 
                 logits_std = gate_logits.std(dim=0).mean().item()
                 weights_std = weights.std(dim=0).mean().item()
@@ -266,7 +289,6 @@ class GateTrainer(BaseTrainer):
                 self.logger.info(f"Gate Logits (pre-softmax) -> Avg Std across batch: {logits_std:.6f}")
                 self.logger.info(f"Weights (post-softmax) -> Avg Std across batch: {weights_std:.6f} | Mean: {[f'{w:.4f}' for w in avg_weights]}")
                 
-                # Target distribution
                 target_dist = torch.zeros(3, device=self.device)
                 for i in range(3):
                     target_dist[i] = (target_expert == i).float().mean()
@@ -282,11 +304,9 @@ class GateTrainer(BaseTrainer):
             total_loss += loss.item() * images.size(0)
             total_weights_sum += weights.sum(dim=0)
 
-            # Track accuracy of the gate predicting the target expert
             gate_preds = torch.argmax(gate_logits, dim=1)
             total_expert_match += gate_preds.eq(target_expert).sum().item()
             
-            # Track final mixture accuracy
             mix_prob_full = torch.zeros_like(probs[0])
             for i in range(3):
                 mix_prob_full += weights[:, i:i+1] * probs[i]
@@ -303,7 +323,7 @@ class GateTrainer(BaseTrainer):
         
         if (epoch + 1) % 10 == 0 or epoch == 0:
             w_ce, w_la, w_bs = epoch_avg_weights[0].item(), epoch_avg_weights[1].item(), epoch_avg_weights[2].item()
-            log_line = f"  Epoch {epoch+1} Routing -> Avg Weights: CE={w_ce:.3f}, LA={w_la:.3f}, BS={w_bs:.3f} | Gate Acc: {avg_expert_match:.2f}%"
+            log_line = f"  Epoch {epoch+1} Train Routing -> Avg Weights: CE={w_ce:.3f}, LA={w_la:.3f}, BS={w_bs:.3f} | Gate Acc: {avg_expert_match:.2f}%"
             print(log_line)
             self.logger.info(log_line)
             
@@ -333,38 +353,39 @@ class GateTrainer(BaseTrainer):
 
                 self._reset_gate_and_optimizer()
                 
-                best_gate_acc = 0.0
+                best_val_acc = 0.0
                 best_epoch = -1
 
                 for epoch in range(self.gate_epochs):
-                    loss, gate_acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
+                    train_loss, train_gate_acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
                     
-                    if (epoch + 1) % 10 == 0 or epoch == 0:
-                        print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={loss:.4f}, gate_acc={gate_acc:.2f}%")
+                    # Evaluate validation mixture accuracy every epoch
+                    val_mixture_acc = self.validate(T)
+                    
+                    print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={train_loss:.4f}, train_gate_acc={train_gate_acc:.2f}%, val_mixture_acc={val_mixture_acc:.2f}%")
 
-                    # select model with best gate accuracy
-                    if gate_acc > best_gate_acc:
-                        best_gate_acc = gate_acc
+                    if val_mixture_acc > best_val_acc:
+                        best_val_acc = val_mixture_acc
                         best_epoch = epoch
-                        self.save_gate_checkpoint(epoch, bs, T, is_best=True)
+                        self.save_gate_checkpoint(epoch, bs, T, val_mixture_acc, is_best=True)
                         
                 sweep_results.append({
-                    'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1, 'best_acc': best_gate_acc
+                    'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1, 'best_val_acc': best_val_acc
                 })
-                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with Gate Acc: {best_gate_acc:.4f}")
+                print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with Val Mixture Acc: {best_val_acc:.4f}")
 
         print("\n" + "="*100)
         print("GATE SWEEP FINAL SUMMARY")
         print("="*100)
-        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best Gate Acc':<20}")
+        print(f"{'BS':<5} | {'T':<5} | {'Best Epoch':<10} | {'Best Val Mixture Acc':<20}")
         print("-"*50)
         for r in sweep_results:
-            print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_acc']:<20.4f}")
+            print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_val_acc']:<20.4f}")
         print("="*100)
         
         self.eval_best_model()
 
-    def save_gate_checkpoint(self, epoch, bs, T, is_best=False):
+    def save_gate_checkpoint(self, epoch, bs, T, val_acc, is_best=False):
         os.makedirs(self.cfg.root_model, exist_ok=True)
         path = os.path.join(self.cfg.root_model, f"gate_checkpoint_bs{bs}_T{T}_epoch{epoch}.pth")
         state = {
@@ -373,10 +394,11 @@ class GateTrainer(BaseTrainer):
             'temperature': T,
             'gate_state_dict': self.gate.state_dict(),
             'optimizer': self.optimizer.state_dict(),
+            'val_acc': val_acc
         }
         if is_best:
             torch.save(state, path)
-            self.logger.info(f"New Best Gate Acc found! Saved checkpoint: {path}")
+            self.logger.info(f"New Best Val Mixture Acc found ({val_acc:.2f}%)! Saved checkpoint: {path}")
 
     def _reset_gate_and_optimizer(self):
         def weight_init(m):
@@ -404,11 +426,10 @@ class GateTrainer(BaseTrainer):
         all_labels = []
         for batch_idx, (images, labels) in enumerate(loader):
             images = images.to(self.device, non_blocking=True)
-            logits_list, _ = self.model(images)
+            logits_list, embeddings = self.model(images)
             probs = self.get_probs(logits_list, T)
-            phi = compute_gate_features(logits_list, probs)
 
-            gate_logits = self.gate(phi)
+            gate_logits = self.gate(embeddings)
             weights = F.softmax(gate_logits, dim=1)
 
             k = getattr(self.cfg, 'routing_sparsity', 2)

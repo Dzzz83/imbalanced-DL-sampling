@@ -22,7 +22,6 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.net.network import build_model
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.metrics import shot_acc
-from imbalanceddl.utils.gate_features import compute_gate_features
 from torch.utils.data import DataLoader
 
 class ExpertEnsemble(nn.Module):
@@ -50,14 +49,18 @@ class ExpertEnsemble(nn.Module):
     @torch.no_grad()
     def forward(self, x):
         logits_list = []
+        embeddings_list = []
         for expert in self.experts:
-            logits, _ = expert(x)
+            logits, hidden = expert(x)
             logits_list.append(logits)
-        return logits_list, None
+            embeddings_list.append(hidden)
+        embeddings = torch.cat(embeddings_list, dim=1)
+        return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=24, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
+    def __init__(self, input_dim=1536, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
         super().__init__()
+        self.norm = nn.LayerNorm(input_dim)
         self.fc1 = nn.Linear(input_dim, hidden1)
         self.fc2 = nn.Linear(hidden1, hidden2)
         self.fc3 = nn.Linear(hidden2, num_experts)
@@ -65,6 +68,7 @@ class GateMLP(nn.Module):
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
     def forward(self, x):
+        x = self.norm(x)
         x = self.relu(self.fc1(x))
         x = self.dropout(x)
         x = self.relu(self.fc2(x))
@@ -140,21 +144,24 @@ def main():
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
     
-    gate = GateMLP(input_dim=24, hidden1=cfg.gate_hidden_size, hidden2=cfg.gate_hidden_size2).to(device)
+    gate = GateMLP(input_dim=1536, hidden1=cfg.gate_hidden_size, hidden2=cfg.gate_hidden_size2).to(device)
     
-    print("\n[INFO] Caching expert logits on test set...")
+    print("\n[INFO] Caching expert logits and embeddings on test set...")
     all_logits = [[], [], []]
+    all_embeddings = []
     all_labels = []
     
     with torch.no_grad():
         for images, labels in val_loader:
             images = images.to(device)
-            logits_list, _ = model(images)
+            logits_list, embeddings = model(images)
             for i in range(3):
                 all_logits[i].append(logits_list[i].cpu())
+            all_embeddings.append(embeddings.cpu())
             all_labels.append(labels)
             
     all_logits = [torch.cat(l, dim=0) for l in all_logits]
+    all_embeddings = torch.cat(all_embeddings, dim=0)
     labels = torch.cat(all_labels, dim=0).numpy()
 
     gate_files = sorted(glob.glob(os.path.join(custom_args.gate_dir, "*.pth")))
@@ -208,11 +215,9 @@ def main():
                 F.softmax((all_logits[2] + log_spc.cpu()) / T, dim=1)
             ]
             
-            phi = compute_gate_features(all_logits, adj_probs).to(device)
-            gate_logits = gate(phi)
+            gate_logits = gate(all_embeddings.to(device))
             weights = F.softmax(gate_logits, dim=1)
             
-            # REVERTED: Using paper's k=2 routing
             k = 2  
             topk_weights, topk_indices = torch.topk(weights, k, dim=1)
             topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
