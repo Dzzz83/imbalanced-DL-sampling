@@ -34,12 +34,12 @@ class ExpertEnsemble(nn.Module):
             logits, hidden = expert(x)
             logits_list.append(logits)
             embeddings_list.append(hidden)
-        # Concatenate raw 512-dim embeddings from 3 experts -> 1536-dim
+        # Concatenate raw 64-dim embeddings from 3 experts -> 192-dim
         embeddings = torch.cat(embeddings_list, dim=1)
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=1536, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
+    def __init__(self, input_dim=192, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
         super().__init__()
         self.norm = nn.LayerNorm(input_dim)
         self.fc1 = nn.Linear(input_dim, hidden1)

@@ -71,12 +71,12 @@ class ExpertEnsemble(nn.Module):
             logits, hidden = expert(x)
             logits_list.append(logits)
             embeddings_list.append(hidden)
-        # Concatenate raw 512-dim embeddings from 3 experts -> 1536-dim
+        # Concatenate raw 64-dim embeddings from 3 experts -> 192-dim
         embeddings = torch.cat(embeddings_list, dim=1)
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=1536, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
+    def __init__(self, input_dim=192, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
         super().__init__()
         self.norm = nn.LayerNorm(input_dim)
         self.fc1 = nn.Linear(input_dim, hidden1)
@@ -112,7 +112,7 @@ class GateTrainer(BaseTrainer):
 
         dropout = getattr(cfg, 'gate_dropout', 0.0)
         self.gate = GateMLP(
-            input_dim=1536,  # Updated to 512 * 3
+            input_dim=192,  # Updated to 64 * 3
             hidden1=cfg.gate_hidden_size,
             hidden2=cfg.gate_hidden_size2,
             num_experts=3,
@@ -236,7 +236,7 @@ class GateTrainer(BaseTrainer):
         std_emb = all_embeddings.std(dim=0)
         
         self.logger.info("\n" + "="*80)
-        self.logger.info("GATE INPUT EMBEDDING STATISTICS (1536-dim)")
+        self.logger.info("GATE INPUT EMBEDDING STATISTICS (192-dim)")
         self.logger.info("="*80)
         self.logger.info(f"Global Mean: {mean_emb.mean().item():.4f} | Global Std: {std_emb.mean().item():.4f}")
         self.logger.info(f"Min Val: {all_embeddings.min().item():.4f} | Max Val: {all_embeddings.max().item():.4f}")

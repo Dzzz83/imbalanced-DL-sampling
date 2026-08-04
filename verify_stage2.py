@@ -58,7 +58,7 @@ class ExpertEnsemble(nn.Module):
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=1536, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
+    def __init__(self, input_dim=192, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
         super().__init__()
         self.norm = nn.LayerNorm(input_dim)
         self.fc1 = nn.Linear(input_dim, hidden1)
@@ -144,7 +144,7 @@ def main():
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
     
-    gate = GateMLP(input_dim=1536, hidden1=cfg.gate_hidden_size, hidden2=cfg.gate_hidden_size2).to(device)
+    gate = GateMLP(input_dim=192, hidden1=cfg.gate_hidden_size, hidden2=cfg.gate_hidden_size2).to(device)
     
     print("\n[INFO] Caching expert logits and embeddings on test set...")
     all_logits = [[], [], []]
