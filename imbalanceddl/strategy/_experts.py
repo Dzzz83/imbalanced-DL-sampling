@@ -25,7 +25,6 @@ class ExpertsTrainer(BaseTrainer):
         self.logger.info(f"[INFO] ExpertsTrainer initialized. Expert train size: {len(self.train_loader.dataset)}, Gate size: {len(self.gate_dataset)}")
 
         self.debug = getattr(cfg, 'debug', False)
-        self.grad_clip_value = getattr(cfg, 'grad_clip_value', 5.0)
 
     def _split_dataset(self):
         if isinstance(self.train_dataset, Subset):
@@ -47,17 +46,14 @@ class ExpertsTrainer(BaseTrainer):
         )
 
     def adjust_learning_rate(self, optimizer, epoch, base_lr):
+        # Adjusted for 200 total epochs
         if epoch < 15:
             lr = base_lr * (epoch + 1) / 15.0
         else:
-            if epoch < 96:
+            if epoch < 160:
                 lr = base_lr
-            elif epoch < 192:
-                lr = base_lr * 0.1
-            elif epoch < 224:
-                lr = base_lr * 0.01
             else:
-                lr = base_lr * 0.001
+                lr = base_lr * 0.1
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
@@ -81,9 +77,8 @@ class ExpertsTrainer(BaseTrainer):
 
             loss.backward()
             
-            if self.grad_clip_value is not None:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip_value)
-
+            # Gradient clipping removed to align with standard CIFAR-100-LT literature
+            
             optimizer.step()
 
             losses.update(loss.item(), images.size(0))
@@ -162,7 +157,7 @@ class ExpertsTrainer(BaseTrainer):
         
         sweep_taus = [1.0, 1.5, 2.0]
         sweep_biases = [False]
-        sweep_ls = [0.1]
+        sweep_ls = [0.0]  # Reverted to 0.0 to isolate weight decay and early stopping
         
         sweep_results = []
 
