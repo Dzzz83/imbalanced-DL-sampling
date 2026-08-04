@@ -67,7 +67,9 @@ def main():
     
     gate = GateMLP(input_dim=192, hidden1=cfg.gate_hidden_size, hidden2=cfg.gate_hidden_size2).to(device)
     print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
-    gate_ckpt = torch.load(custom_args.gate_ckpt, map_location='cpu')
+    
+    # FIX: Added weights_only=False
+    gate_ckpt = torch.load(custom_args.gate_ckpt, map_location='cpu', weights_only=False)
     gate.load_state_dict(gate_ckpt['gate_state_dict'])
     gate.eval()
 

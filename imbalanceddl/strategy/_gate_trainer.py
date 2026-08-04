@@ -460,7 +460,8 @@ class GateTrainer(BaseTrainer):
             
         best_gate_path = max(files, key=os.path.getmtime)
             
-        ckpt = torch.load(best_gate_path, map_location='cpu')
+        # FIX: Added weights_only=False for PyTorch 2.6+ compatibility
+        ckpt = torch.load(best_gate_path, map_location='cpu', weights_only=False)
         self.gate.load_state_dict(ckpt['gate_state_dict'])
         T = ckpt['temperature']
         self.logger.info(f"Loaded best gate from {best_gate_path} (Epoch {ckpt['epoch']}) with T={T}")
