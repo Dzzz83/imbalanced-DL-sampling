@@ -467,6 +467,68 @@ def main():
         print("-"*100)
     print("="*100)
 
+    # --- ORACLE EXPERT DIAGNOSTIC TEST ---
+    print("\n" + "="*100)
+    print("ORACLE EXPERT DIAGNOSTIC TEST")
+    print("="*100)
+    print("[INFO] Calculating accuracy if we always routed to the expert that assigned the highest probability to the TRUE label.")
+    print("-"*100)
+    
+    # Find the oracle expert for each sample
+    # p_ce_test, p_la_test, p_bs_test are of shape (N, C)
+    true_probs = np.stack([
+        p_ce_test[np.arange(len(labels_test)), labels_test],
+        p_la_test[np.arange(len(labels_test)), labels_test],
+        p_bs_test[np.arange(len(labels_test)), labels_test]
+    ], axis=1)  # Shape: (N, 3)
+    
+    oracle_expert_indices = np.argmax(true_probs, axis=1)  # 0 for CE, 1 for LA, 2 for BS
+    
+    # Get oracle predictions
+    oracle_preds = np.zeros_like(labels_test)
+    for i in range(len(labels_test)):
+        exp_idx = oracle_expert_indices[i]
+        if exp_idx == 0:
+            oracle_preds[i] = np.argmax(p_ce_test[i])
+        elif exp_idx == 1:
+            oracle_preds[i] = np.argmax(p_la_test[i])
+        else:
+            oracle_preds[i] = np.argmax(p_bs_test[i])
+            
+    # Calculate Oracle Bal Acc using the existing metrics helper
+    m_oracle = compute_all_metrics(p_mix_test, labels_test, None, cfg, train_dataset) # Dummy probs, we only need acc
+    # Manually calculate Bal Acc for Oracle
+    oracle_bal_acc = np.mean([np.mean(oracle_preds[labels_test == c] == c) for c in range(cfg.num_classes) if np.sum(labels_test == c) > 0]) * 100
+    
+    from imbalanceddl.utils.metrics import shot_acc
+    oracle_many, oracle_med, oracle_low = shot_acc(cfg, oracle_preds, labels_test, train_dataset, acc_per_cls=False)
+    
+    print(f"Oracle Balanced Accuracy: {oracle_bal_acc:.2f}%")
+    print(f"Oracle Many Acc:          {oracle_many*100:.2f}%")
+    print(f"Oracle Med Acc:           {oracle_med*100:.2f}%")
+    print(f"Oracle Low Acc:           {oracle_low*100:.2f}%")
+    print("-"*100)
+    
+    ce_oracle_count = np.sum(oracle_expert_indices == 0)
+    la_oracle_count = np.sum(oracle_expert_indices == 1)
+    bs_oracle_count = np.sum(oracle_expert_indices == 2)
+    total_samples = len(labels_test)
+    
+    print(f"Expert Chosen as Oracle:")
+    print(f"  CE: {ce_oracle_count}/{total_samples} ({ce_oracle_count/total_samples*100:.1f}%)")
+    print(f"  LA: {la_oracle_count}/{total_samples} ({la_oracle_count/total_samples*100:.1f}%)")
+    print(f"  BS: {bs_oracle_count}/{total_samples} ({bs_oracle_count/total_samples*100:.1f}%)")
+    
+    print("\nOracle Choice by Group:")
+    head_oracle_choices = oracle_expert_indices[head_mask]
+    tail_oracle_choices = oracle_expert_indices[tail_mask]
+    
+    print(f"  Head ({len(head_oracle_choices)} samples): CE={np.sum(head_oracle_choices==0)} | LA={np.sum(head_oracle_choices==1)} | BS={np.sum(head_oracle_choices==2)}")
+    print(f"  Tail ({len(tail_oracle_choices)} samples): CE={np.sum(tail_oracle_choices==0)} | LA={np.sum(tail_oracle_choices==1)} | BS={np.sum(tail_oracle_choices==2)}")
+    print("="*100)
+    print("[INFO] If Oracle Acc is high, the experts contain the knowledge. We must use Strategy 1 (Supervised Routing).")
+    print("[INFO] If Oracle Acc is low, the experts are fundamentally broken and we must rethink Stage 1.")
+
     # --- 3. STAGE 3 PLUG-IN PARAMETERS ---
     print_stage3_plugin_params(p_mix_tune, labels_tune, group_ids_2, cfg)
 
