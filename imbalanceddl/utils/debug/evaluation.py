@@ -105,7 +105,7 @@ def run_metric_comparisons(p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_mix_
     print_row("My Method", m_method)
     print("="*140)
 
-def run_temperature_comparison(T, l_ce_test, l_la_test, l_bs_test, w_test, k, log_prior, log_spc, labels_test, cfg, train_dataset):
+def run_temperature_comparison(T, l_ce_test, l_la_test, l_bs_test, w_test, k, log_prior, log_spc, labels_test, cfg, train_dataset, m_unif, m_method):
     print("\n" + "="*110)
     print("RAW T=1.0 vs GATE T={} COMPARISON".format(T))
     print("="*110)
@@ -138,11 +138,12 @@ def run_temperature_comparison(T, l_ce_test, l_la_test, l_bs_test, w_test, k, lo
     def print_T_row(name, val_u1, val_uT, val_m1, val_mT):
         print(f"{name:<35} | {val_u1:<15.4f} | {val_uT:<15.4f} | {val_m1:<15.4f} | {val_mT:<15.4f}")
         
-    print_T_row("NLL (lower is better)", m_unif_T1['nll'], m_unif_T1['nll'], m_method_T1['nll'], m_method_T1['nll'])
-    print_T_row("Brier (lower is better)", m_unif_T1['brier'], m_unif_T1['brier'], m_method_T1['brier'], m_method_T1['brier'])
-    print_T_row("ECE All (lower is better)", m_unif_T1['ece'], m_unif_T1['ece'], m_method_T1['ece'], m_method_T1['ece'])
-    print_T_row("tail-ECE (lower is better)", m_unif_T1['tail_ece'], m_unif_T1['tail_ece'], m_method_T1['tail_ece'], m_method_T1['tail_ece'])
-    print_T_row("Bal Acc (higher is better)", m_unif_T1['bal_acc'], m_unif_T1['bal_acc'], m_method_T1['bal_acc'], m_method_T1['bal_acc'])
+    # FIX: Corrected the variables passed to the print function
+    print_T_row("NLL (lower is better)", m_unif_T1['nll'], m_unif['nll'], m_method_T1['nll'], m_method['nll'])
+    print_T_row("Brier (lower is better)", m_unif_T1['brier'], m_unif['brier'], m_method_T1['brier'], m_method['brier'])
+    print_T_row("ECE All (lower is better)", m_unif_T1['ece'], m_unif['ece'], m_method_T1['ece'], m_method['ece'])
+    print_T_row("tail-ECE (lower is better)", m_unif_T1['tail_ece'], m_unif['tail_ece'], m_method_T1['tail_ece'], m_method['tail_ece'])
+    print_T_row("Bal Acc (higher is better)", m_unif_T1['bal_acc'], m_unif['bal_acc'], m_method_T1['bal_acc'], m_method['bal_acc'])
     print("="*110)
 
 def run_sample_by_sample_output(head_mask, tail_mask, p_mix_test, p_ce_test, p_la_test, p_bs_test, w_test, labels_test, label_groups_test, k):

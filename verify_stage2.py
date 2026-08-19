@@ -203,7 +203,8 @@ def main():
         match = re.search(r'T([\d\.]+)', fname)
         T = float(match.group(1)) if match else 1.0
         
-        ckpt = torch.load(g_path, map_location='cpu')
+        # FIX: Added weights_only=False for PyTorch 2.6+ compatibility
+        ckpt = torch.load(g_path, map_location='cpu', weights_only=False)
         gate.load_state_dict(ckpt['gate_state_dict'])
         gate.to(device)
         gate.eval()
