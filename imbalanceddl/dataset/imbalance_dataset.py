@@ -5,12 +5,7 @@ import torchvision.datasets as datasets
 
 from imbalanceddl.dataset import IMBALANCECIFAR10
 from imbalanceddl.dataset import IMBALANCECIFAR100
-from imbalanceddl.dataset import IMBALANCECINIC10
-from imbalanceddl.dataset import IMBALANCETINY
-from imbalanceddl.dataset import IMBALANCESVHN
-from imbalanceddl.dataset.imbalance_cifar_noisy import IMBALANCECIFAR10_NOISY
 from imbalanceddl.utils import get_weak_augmentation, get_trivial_augmentation
-from imbalanceddl.dataset.capped_dataset import CappedDataset
 
 class ImbalancedDataset:
     def __init__(self, cfg, dataset_name, augmentation='weak'):
@@ -28,8 +23,7 @@ class ImbalancedDataset:
         elif 'cifar100' in self.dataset_name:
             return 'cifar100'
         else:
-            # For other datasets, default to cifar10 (or raise error)
-            return 'cifar10'
+            raise NotImplementedError(f"Dataset {self.dataset_name} not supported.")
 
     def _get_data_transform(self):
         """
@@ -37,7 +31,7 @@ class ImbalancedDataset:
         """
         data_transform = dict()
 
-        if self.dataset_name in ['cifar10', 'cifar100', 'cifar10_noisy']:
+        if self.dataset_name in ['cifar10', 'cifar100']:
             print("=> Get {} data transform".format(self.dataset_name))
             base_dataset = self._get_base_dataset_name()
             if self.augmentation == 'weak':
@@ -48,14 +42,13 @@ class ImbalancedDataset:
                 train_transform, val_transform = get_trivial_augmentation(base_dataset)
             elif self.augmentation == 'none':
                 print(f"Not applying augmentation to the {self.dataset_name}")
-                if self.dataset_name == 'cifar10' or 'cifar10' in self.dataset_name:
+                if self.dataset_name == 'cifar10':
                     mean = (0.4914, 0.4822, 0.4465)
                     std = (0.2023, 0.1994, 0.2010)
                 elif self.dataset_name == 'cifar100':
                     mean = (0.5071, 0.4867, 0.4408)
                     std = (0.2675, 0.2565, 0.2761)
                 else:
-                    # fallback or raise error
                     mean = (0.5, 0.5, 0.5)
                     std = (0.5, 0.5, 0.5)
                 train_transform = transforms.Compose([
@@ -67,70 +60,10 @@ class ImbalancedDataset:
                 raise NotImplementedError(f"The augmentation '{self.augmentation}' is not implemented")
             data_transform['train'] = train_transform
             data_transform['val'] = val_transform
-        elif self.dataset_name == "cinic10":
-            print("=> Get {} data transform".format(self.dataset_name))
-            data_transform['train'] = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize((0.47889522, 0.47227842, 0.43047404),
-                                     (0.24205776, 0.23828046, 0.25874835)),
-            ])
-            data_transform['val'] = transform_val = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.47889522, 0.47227842, 0.43047404),
-                                     (0.24205776, 0.23828046, 0.25874835)),
-            ])
-        elif self.dataset_name == "tiny200":
-            print("=> Get {} data transform".format(self.dataset_name))
-            data_transform['train'] = transforms.Compose([
-                transforms.RandomCrop(64, padding=8),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize((0.485, 0.456, 0.406),
-                                     (0.229, 0.224, 0.225)),
-            ])
-            data_transform['val'] = transform_val = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.485, 0.456, 0.406),
-                                     (0.229, 0.224, 0.225)),
-            ])
-        elif self.dataset_name == "svhn10":
-            print("=> Get {} data transform".format(self.dataset_name))
-            data_transform['train'] = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize((.5, .5, .5), (.5, .5, .5)),
-            ])
-            data_transform['val'] = transform_val = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((.5, .5, .5), (.5, .5, .5)),
-            ])
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"Dataset {self.dataset_name} not supported.")
 
         return data_transform
-
-    def get_raw_imbalanced_data(self):
-        """Return the raw imbalanced dataset as (X, Y) numpy arrays, without transforms."""
-        # Use the appropriate dataset class but without transform
-        if self.dataset_name == 'cifar10':
-            ds = IMBALANCECIFAR10(
-                root='./data',
-                imb_type=self.imb_type,
-                imb_factor=self.imb_factor,
-                rand_number=self.cfg.rand_number,
-                train=True,
-                download=True,
-                transform=None   # no transform
-            )
-        elif self.dataset_name == 'cifar100':
-            ds = IMBALANCECIFAR100(...)
-        else:
-            raise NotImplementedError
-        # After __init__, the data is already imbalanced and stored as ds.data, ds.targets
-        return ds.data, np.array(ds.targets)
 
     @property
     def train_val_sets(self):
@@ -138,23 +71,8 @@ class ImbalancedDataset:
             train_dataset, val_dataset = self._cifar10()
         elif self.dataset_name == 'cifar100':
             train_dataset, val_dataset = self._cifar100()
-        elif self.dataset_name == 'cifar10_noisy':
-            train_dataset, val_dataset = self._cifar10_noisy()
-        elif self.dataset_name == 'cinic10':
-            train_dataset, val_dataset = self._cinic10()
-        elif self.dataset_name == 'tiny200':
-            train_dataset, val_dataset = self._tiny200()
-        elif self.dataset_name == 'svhn10':
-            train_dataset, val_dataset = self._svhn10()
         else:
             raise NotImplementedError
-
-        # Apply per-class capping if requested
-        if hasattr(self.cfg, 'cap_per_class') and self.cfg.cap_per_class is not None:
-            print(f"Applying per-class capping: {self.cfg.cap_per_class} samples per class")
-            train_dataset = CappedDataset(train_dataset, self.cfg.cap_per_class, num_classes=self.cfg.num_classes)
-            # Update the config class counts to reflect the capped distribution
-            self.cfg.cls_num_list = train_dataset.get_cls_num_list()
 
         return train_dataset, val_dataset
 
@@ -195,89 +113,5 @@ class ImbalancedDataset:
                                         train=False,
                                         download=True,
                                         transform=self.data_transform['val'])
-
-        return train_dataset, val_dataset
-
-    def _cifar10_noisy(self):
-        print("=> Preparing IMBALANCECIFAR10_NOISY {} | {} with noise_ratio={}".format(
-            self.imb_type, self.imb_factor, getattr(self.cfg, 'noise_ratio', 0.25)))
-        train_dataset = IMBALANCECIFAR10_NOISY(
-            root='./data',
-            imb_type=self.imb_type,
-            imb_factor=self.imb_factor,
-            rand_number=self.cfg.rand_number,
-            train=True,
-            download=True,
-            transform=self.data_transform['train'],
-            noise_ratio=getattr(self.cfg, 'noise_ratio', 0.25),
-            num_classes=self.cfg.num_classes,
-            seed=self.cfg.rand_number
-        )
-
-        print(f"[VERIFY] Dataset size: {len(train_dataset)}")
-        if hasattr(train_dataset, 'targets'):
-            unique, counts = np.unique(train_dataset.targets, return_counts=True)
-            print(f"[VERIFY] Final class distribution: {dict(zip(unique, counts))}")
-        # Optional: print first 10 labels
-        print(f"[VERIFY] First 10 labels: {train_dataset.targets[:10]}")
-
-        self.cfg.cls_num_list = train_dataset.get_cls_num_list()
-        val_dataset = datasets.CIFAR10(root='./data', train=False, download=True,
-                                    transform=self.data_transform['val'])
-        return train_dataset, val_dataset
-
-    def _cinic10(self):
-        print("=> Preparing IMBALANCECINIC100 {} | {} !".format(
-            self.imb_type, self.imb_factor))
-        # Change to your path into configuration file
-        # cinic_root = "/tmp2/wccheng/cinic/"
-        cinic_root = self.cfg.cinic_root
-        train_dataset = IMBALANCECINIC10(
-            cinic_root + "train",
-            imb_type=self.imb_type,
-            imb_factor=self.imb_factor,
-            rand_number=self.cfg.rand_number,
-            transform=self.data_transform['train'])
-
-        self.cfg.cls_num_list = train_dataset.get_cls_num_list()
-        val_dataset = datasets.ImageFolder(
-            cinic_root + "valid", transform=self.data_transform['val'])
-
-        return train_dataset, val_dataset
-
-    def _tiny200(self):
-        print("=> Preparing IMBALANCETINY {} | {} !".format(
-            self.imb_type, self.imb_factor))
-        # Change to your path into configuration file
-        # tiny_root = "/tmp2/wccheng/tiny/tiny-imagenet-200/"
-        tiny_root = self.cfg.tiny_root
-        train_dataset = IMBALANCETINY(tiny_root + "train",
-                                      imb_type=self.imb_type,
-                                      imb_factor=self.imb_factor,
-                                      rand_number=self.cfg.rand_number,
-                                      transform=self.data_transform['train'])
-
-        self.cfg.cls_num_list = train_dataset.get_cls_num_list()
-        val_dataset = datasets.ImageFolder(
-            tiny_root + "val/images", transform=self.data_transform['val'])
-
-        return train_dataset, val_dataset
-
-    def _svhn10(self):
-        print("=> Preparing IMBALANCESVHN {} | {} !".format(
-            self.imb_type, self.imb_factor))
-        train_dataset = IMBALANCESVHN(root='./data',
-                                      imb_type=self.imb_type,
-                                      imb_factor=self.imb_factor,
-                                      rand_number=self.cfg.rand_number,
-                                      split='train',
-                                      download=True,
-                                      transform=self.data_transform['train'])
-
-        self.cfg.cls_num_list = train_dataset.get_cls_num_list()
-        val_dataset = datasets.SVHN(root='./data',
-                                    split='test',
-                                    download=True,
-                                    transform=self.data_transform['val'])
 
         return train_dataset, val_dataset

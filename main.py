@@ -1,26 +1,4 @@
-import sys
-from pathlib import Path
-
-sava_root = Path(__file__).parent / 'sava'
-if str(sava_root) not in sys.path:
-    sys.path.insert(0, str(sava_root))
-if 'otdd' in sys.modules:
-    del sys.modules['otdd']
-
-from unittest.mock import MagicMock
 import logging
-
-def silence_torchtext():
-    modules_to_mock = [
-        "torchtext", "torchtext.data", "torchtext.data.utils", 
-        "torchtext.datasets", "torchtext.vocab"
-    ]
-    for mod in modules_to_mock:
-        if mod not in sys.modules:
-            sys.modules[mod] = MagicMock()
-
-silence_torchtext()
-
 import numpy as np
 import torch
 
@@ -30,7 +8,6 @@ from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.strategy.build_trainer import build_trainer
 from imbalanceddl.utils.config import get_args
 from imbalanceddl.utils.debug_logger import get_debug_logger
-from imbalanceddl.dataset.sava_dataset import SavaDataset
 
 def main():
     config = get_args()
@@ -78,33 +55,13 @@ def main():
     print(f"Creating training dataset with {config.augmentation} augmentation...")
     imbalance_dataset = ImbalancedDataset(config, dataset_name=config.dataset, augmentation=config.augmentation)
 
-    # FIX: Inject cls_num_list into config for global access
+    # Inject cls_num_list into config for global access
     train_set = imbalance_dataset.train_val_sets[0]
     if hasattr(train_set, 'get_cls_num_list'):
         config.cls_num_list = train_set.get_cls_num_list()
     else:
         targets = np.array(train_set.targets)
         config.cls_num_list = np.bincount(targets, minlength=config.num_classes).tolist()
-
-    if config.strategy in ["DeepSMOTE_Selection", "RandomOversampling_Selection", "Selection_RandomOversampling", "DeepSMOTE_Sava"]:
-        print(f"=> {config.strategy} handles selection internally. Skipping main script selection.")
-    else:
-        if config.selection_method == 'sava':
-            print(f"=> Applying SAVA scoring (ratio={config.selection_ratio})")
-            imbalance_dataset = SavaDataset(
-                config, imbalance_dataset, config.selection_ratio,
-                method='sava', device=device
-            )
-        elif config.selection_method == 'random' and config.selection_ratio < 1.0:
-            print(f"=> Applying random selection (ratio={config.selection_ratio})")
-            imbalance_dataset = SavaDataset(
-                config, imbalance_dataset, config.selection_ratio,
-                method='random', device=device
-            )
-        elif config.selection_method == 'none' or config.selection_ratio >= 1.0:
-            print("=> No selection or ratio = 1.0, using full dataset.")
-        else:
-            raise ValueError(f"Unknown selection method: {config.selection_method}. Use 'sava', 'random', or 'none'.")
 
     trainer = build_trainer(config, imbalance_dataset, model=model, strategy=config.strategy)
 
@@ -113,10 +70,7 @@ def main():
         trainer.eval_best_model()
     else:
         print("=> Start Train Val !")
-        if config.strategy == 'M2m':
-            trainer.do_train_val_m2m()
-        else:
-            trainer.do_train_val()
+        trainer.do_train_val()
             
     print("=> All Completed !")
     logging.shutdown()

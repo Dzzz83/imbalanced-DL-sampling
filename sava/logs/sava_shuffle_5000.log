@@ -1,857 +1,0 @@
-/home/phatht/.conda/envs/my_env/lib/python3.10/site-packages/requests/__init__.py:86: RequestsDependencyWarning: Unable to find acceptable character detection dependency (chardet or charset_normalizer).
-  warnings.warn(
-wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/phatht/.netrc.
-wandb: Currently logged in as: 10423088 (10423088-vietnamese-german-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
-wandb: setting up run hvigaq39
-wandb: Tracking run with wandb version 0.25.1
-wandb: Run data is saved locally in /home/phatht/phat/imbalanced-DL-sampling/sava/wandb/run-20260521_150144-hvigaq39
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run hot_tr_sz_5000_sava_shuffle_train5000_seed42
-wandb: ⭐️ View project at https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection
-wandb: 🚀 View run at https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection/runs/hvigaq39
-/home/phatht/phat/imbalanced-DL-sampling/sava/models/preact_resnet.py:173: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
-  state_dict = torch.load("checkpoint/" + feature_extractor_name, map_location=device)
-0.20.1+cu121
-2.5.1+cu121
-0.20.1+cu121
-2.5.1+cu121
-Namespace(cuda_num=0, hierarchical=True, batchwise_lava=False, random_seed=42, tag='sava_shuffle_train5000_seed42', corruption_type='shuffle', cache_l2l=True, hot_batch_size=1024, corrupt_por=0.3, prune_perc=0.1, smoketest=False, disable_wandb=False, train_net=False, feat_repr=False, poison_frogs_feat_repr=False, train_dataset_sizes=[5000], remake_data=False, cache_tag='', data_gen_force_cpu=False, stratified=False, visualise_hot=False, val_dataset_size=2000, evaluate=True)
-GPU 0
-torch.Size([1, 10])
-Files already downloaded and verified
-Files already downloaded and verified
-CIFAR TEN
-SAVA valuation:   0%|          | 0/5 [00:00<?, ?it/s]len D1: torch.Size([1024])
-len D2: torch.Size([1024])
-Pre-computing pairwise label Wasserstein distances D1 <-> D1...
-Computing label-to-label (exact) wasserstein distances...
-
-  0%|          | 0/45 [00:00<?, ?it/s][A
-Computing label-to-label distances:   0%|          | 0/45 [00:00<?, ?it/s][A
-Computing label-to-label distances:   2%|▏         | 1/45 [00:00<00:32,  1.34it/s][A
-Computing label-to-label distances:   4%|▍         | 2/45 [00:00<00:17,  2.51it/s][A
-Computing label-to-label distances:   7%|▋         | 3/45 [00:01<00:12,  3.41it/s][A
-Computing label-to-label distances:   9%|▉         | 4/45 [00:01<00:10,  3.97it/s][A
-Computing label-to-label distances:  11%|█         | 5/45 [00:01<00:08,  4.56it/s][A
-Computing label-to-label distances:  13%|█▎        | 6/45 [00:01<00:08,  4.76it/s][A
-Computing label-to-label distances:  16%|█▌        | 7/45 [00:01<00:07,  4.96it/s][A
-Computing label-to-label distances:  18%|█▊        | 8/45 [00:01<00:07,  5.07it/s][A
-Computing label-to-label distances:  20%|██        | 9/45 [00:02<00:06,  5.29it/s][A
-Computing label-to-label distances:  22%|██▏       | 10/45 [00:02<00:06,  5.46it/s][A
-Computing label-to-label distances:  24%|██▍       | 11/45 [00:02<00:06,  5.51it/s][A
-Computing label-to-label distances:  27%|██▋       | 12/45 [00:02<00:06,  5.42it/s][A
-Computing label-to-label distances:  29%|██▉       | 13/45 [00:02<00:05,  5.55it/s][A
-Computing label-to-label distances:  31%|███       | 14/45 [00:03<00:05,  5.49it/s][A
-Computing label-to-label distances:  33%|███▎      | 15/45 [00:03<00:05,  5.52it/s][A
-Computing label-to-label distances:  36%|███▌      | 16/45 [00:03<00:05,  5.41it/s][A
-Computing label-to-label distances:  38%|███▊      | 17/45 [00:03<00:05,  5.54it/s][A
-Computing label-to-label distances:  40%|████      | 18/45 [00:03<00:04,  5.76it/s][A
-Computing label-to-label distances:  42%|████▏     | 19/45 [00:03<00:04,  5.90it/s][A
-Computing label-to-label distances:  44%|████▍     | 20/45 [00:04<00:04,  6.10it/s][A
-Computing label-to-label distances:  47%|████▋     | 21/45 [00:04<00:04,  5.99it/s][A
-Computing label-to-label distances:  49%|████▉     | 22/45 [00:04<00:03,  5.94it/s][A
-Computing label-to-label distances:  51%|█████     | 23/45 [00:04<00:03,  5.84it/s][A
-Computing label-to-label distances:  53%|█████▎    | 24/45 [00:04<00:03,  5.99it/s][A
-Computing label-to-label distances:  56%|█████▌    | 25/45 [00:04<00:03,  6.01it/s][A
-Computing label-to-label distances:  58%|█████▊    | 26/45 [00:05<00:03,  6.17it/s][A
-Computing label-to-label distances:  60%|██████    | 27/45 [00:05<00:02,  6.04it/s][A
-Computing label-to-label distances:  62%|██████▏   | 28/45 [00:05<00:02,  5.98it/s][A
-Computing label-to-label distances:  64%|██████▍   | 29/45 [00:05<00:02,  5.88it/s][A
-Computing label-to-label distances:  67%|██████▋   | 30/45 [00:05<00:02,  6.04it/s][A
-Computing label-to-label distances:  69%|██████▉   | 31/45 [00:05<00:02,  6.08it/s][A
-Computing label-to-label distances:  71%|███████   | 32/45 [00:06<00:02,  5.81it/s][A
-Computing label-to-label distances:  73%|███████▎  | 33/45 [00:06<00:02,  5.72it/s][A
-Computing label-to-label distances:  76%|███████▌  | 34/45 [00:06<00:01,  5.55it/s][A
-Computing label-to-label distances:  78%|███████▊  | 35/45 [00:06<00:01,  5.64it/s][A
-Computing label-to-label distances:  80%|████████  | 36/45 [00:06<00:01,  5.68it/s][A
-Computing label-to-label distances:  82%|████████▏ | 37/45 [00:06<00:01,  5.79it/s][A
-Computing label-to-label distances:  84%|████████▍ | 38/45 [00:07<00:01,  5.86it/s][A
-Computing label-to-label distances:  87%|████████▋ | 39/45 [00:07<00:00,  6.06it/s][A
-Computing label-to-label distances:  89%|████████▉ | 40/45 [00:07<00:00,  5.73it/s][A
-Computing label-to-label distances:  91%|█████████ | 41/45 [00:07<00:00,  5.51it/s][A
-Computing label-to-label distances:  93%|█████████▎| 42/45 [00:07<00:00,  5.57it/s][A
-Computing label-to-label distances:  96%|█████████▌| 43/45 [00:08<00:00,  5.50it/s][A
-Computing label-to-label distances:  98%|█████████▊| 44/45 [00:08<00:00,  5.60it/s][A
-Computing label-to-label distances: 100%|██████████| 45/45 [00:08<00:00,  5.66it/s][A
-                                                                                   [ADistance size: torch.Size([10, 10])
-Pre-computing pairwise label Wasserstein distances D2 <-> D2...
-Computing label-to-label (exact) wasserstein distances...
-
-  0%|          | 0/45 [00:00<?, ?it/s][A
-Computing label-to-label distances:   0%|          | 0/45 [00:00<?, ?it/s][A
-Computing label-to-label distances:   2%|▏         | 1/45 [00:00<00:07,  5.93it/s][A
-Computing label-to-label distances:   4%|▍         | 2/45 [00:00<00:07,  5.96it/s][A
-Computing label-to-label distances:   7%|▋         | 3/45 [00:00<00:07,  5.91it/s][A
-Computing label-to-label distances:   9%|▉         | 4/45 [00:00<00:06,  5.96it/s][A
-Computing label-to-label distances:  11%|█         | 5/45 [00:00<00:06,  6.07it/s][A
-Computing label-to-label distances:  13%|█▎        | 6/45 [00:00<00:06,  6.14it/s][A
-Computing label-to-label distances:  16%|█▌        | 7/45 [00:01<00:06,  6.04it/s][A
-Computing label-to-label distances:  18%|█▊        | 8/45 [00:01<00:06,  6.01it/s][A
-Computing label-to-label distances:  20%|██        | 9/45 [00:01<00:06,  5.96it/s][A
-Computing label-to-label distances:  22%|██▏       | 10/45 [00:01<00:06,  5.81it/s][A
-Computing label-to-label distances:  24%|██▍       | 11/45 [00:01<00:05,  5.68it/s][A
-Computing label-to-label distances:  27%|██▋       | 12/45 [00:02<00:05,  5.59it/s][A
-Computing label-to-label distances:  29%|██▉       | 13/45 [00:02<00:05,  5.64it/s][A
-Computing label-to-label distances:  31%|███       | 14/45 [00:02<00:05,  5.63it/s][A
-Computing label-to-label distances:  33%|███▎      | 15/45 [00:02<00:05,  5.61it/s][A
-Computing label-to-label distances:  36%|███▌      | 16/45 [00:02<00:05,  5.53it/s][A
-Computing label-to-label distances:  38%|███▊      | 17/45 [00:02<00:05,  5.49it/s][A
-Computing label-to-label distances:  40%|████      | 18/45 [00:03<00:04,  5.47it/s][A
-Computing label-to-label distances:  42%|████▏     | 19/45 [00:03<00:04,  5.48it/s][A
-Computing label-to-label distances:  44%|████▍     | 20/45 [00:03<00:04,  5.52it/s][A
-Computing label-to-label distances:  47%|████▋     | 21/45 [00:03<00:04,  5.53it/s][A
-Computing label-to-label distances:  49%|████▉     | 22/45 [00:03<00:04,  5.45it/s][A
-Computing label-to-label distances:  51%|█████     | 23/45 [00:04<00:04,  5.43it/s][A
-Computing label-to-label distances:  53%|█████▎    | 24/45 [00:04<00:03,  5.46it/s][A
-Computing label-to-label distances:  56%|█████▌    | 25/45 [00:04<00:03,  5.44it/s][A
-Computing label-to-label distances:  58%|█████▊    | 26/45 [00:04<00:03,  5.60it/s][A
-Computing label-to-label distances:  60%|██████    | 27/45 [00:04<00:03,  5.60it/s][A
-Computing label-to-label distances:  62%|██████▏   | 28/45 [00:04<00:03,  5.55it/s][A
-Computing label-to-label distances:  64%|██████▍   | 29/45 [00:05<00:02,  5.50it/s][A
-Computing label-to-label distances:  67%|██████▋   | 30/45 [00:05<00:02,  5.51it/s][A
-Computing label-to-label distances:  69%|██████▉   | 31/45 [00:05<00:02,  5.58it/s][A
-Computing label-to-label distances:  71%|███████   | 32/45 [00:05<00:02,  5.53it/s][A
-Computing label-to-label distances:  73%|███████▎  | 33/45 [00:05<00:02,  5.45it/s][A
-Computing label-to-label distances:  76%|███████▌  | 34/45 [00:06<00:02,  5.44it/s][A
-Computing label-to-label distances:  78%|███████▊  | 35/45 [00:06<00:01,  5.48it/s][A
-Computing label-to-label distances:  80%|████████  | 36/45 [00:06<00:01,  5.58it/s][A
-Computing label-to-label distances:  82%|████████▏ | 37/45 [00:06<00:01,  5.70it/s][A
-Computing label-to-label distances:  84%|████████▍ | 38/45 [00:06<00:01,  5.73it/s][A
-Computing label-to-label distances:  87%|████████▋ | 39/45 [00:06<00:01,  5.70it/s][A
-Computing label-to-label distances:  89%|████████▉ | 40/45 [00:07<00:00,  5.69it/s][A
-Computing label-to-label distances:  91%|█████████ | 41/45 [00:07<00:00,  5.71it/s][A
-Computing label-to-label distances:  93%|█████████▎| 42/45 [00:07<00:00,  5.71it/s][A
-Computing label-to-label distances:  96%|█████████▌| 43/45 [00:07<00:00,  5.61it/s][A
-Computing label-to-label distances:  98%|█████████▊| 44/45 [00:07<00:00,  5.60it/s][A
-Computing label-to-label distances: 100%|██████████| 45/45 [00:07<00:00,  5.54it/s][A
-                                                                                   [ADistance size: torch.Size([10, 10])
-Pre-computing pairwise label Wasserstein distances D1 <-> D2...
-Computing label-to-label (exact) wasserstein distances...
-
-  0%|          | 0/100 [00:00<?, ?it/s][A
-Computing label-to-label distances:   0%|          | 0/100 [00:00<?, ?it/s][A
-Computing label-to-label distances:   1%|          | 1/100 [00:00<00:16,  5.86it/s][A
-Computing label-to-label distances:   2%|▏         | 2/100 [00:00<00:18,  5.44it/s][A
-Computing label-to-label distances:   3%|▎         | 3/100 [00:00<00:17,  5.46it/s][A
-Computing label-to-label distances:   4%|▍         | 4/100 [00:00<00:17,  5.43it/s][A
-Computing label-to-label distances:   5%|▌         | 5/100 [00:00<00:17,  5.40it/s][A
-Computing label-to-label distances:   6%|▌         | 6/100 [00:01<00:17,  5.52it/s][A
-Computing label-to-label distances:   7%|▋         | 7/100 [00:01<00:16,  5.48it/s][A
-Computing label-to-label distances:   8%|▊         | 8/100 [00:01<00:16,  5.55it/s][A
-Computing label-to-label distances:   9%|▉         | 9/100 [00:01<00:16,  5.49it/s][A
-Computing label-to-label distances:  10%|█         | 10/100 [00:01<00:15,  5.63it/s][A
-Computing label-to-label distances:  11%|█         | 11/100 [00:01<00:15,  5.69it/s][A
-Computing label-to-label distances:  12%|█▏        | 12/100 [00:02<00:15,  5.59it/s][A
-Computing label-to-label distances:  13%|█▎        | 13/100 [00:02<00:15,  5.50it/s][A
-Computing label-to-label distances:  14%|█▍        | 14/100 [00:02<00:15,  5.50it/s][A
-Computing label-to-label distances:  15%|█▌        | 15/100 [00:02<00:15,  5.46it/s][A
-Computing label-to-label distances:  16%|█▌        | 16/100 [00:02<00:15,  5.55it/s][A
-Computing label-to-label distances:  17%|█▋        | 17/100 [00:03<00:14,  5.58it/s][A
-Computing label-to-label distances:  18%|█▊        | 18/100 [00:03<00:14,  5.56it/s][A
-Computing label-to-label distances:  19%|█▉        | 19/100 [00:03<00:14,  5.54it/s][A
-Computing label-to-label distances:  20%|██        | 20/100 [00:03<00:14,  5.47it/s][A
-Computing label-to-label distances:  21%|██        | 21/100 [00:03<00:13,  5.76it/s][A
-Computing label-to-label distances:  22%|██▏       | 22/100 [00:03<00:13,  5.83it/s][A
-Computing label-to-label distances:  23%|██▎       | 23/100 [00:04<00:13,  5.92it/s][A
-Computing label-to-label distances:  24%|██▍       | 24/100 [00:04<00:12,  5.94it/s][A
-Computing label-to-label distances:  25%|██▌       | 25/100 [00:04<00:12,  6.03it/s][A
-Computing label-to-label distances:  26%|██▌       | 26/100 [00:04<00:12,  6.10it/s][A
-Computing label-to-label distances:  27%|██▋       | 27/100 [00:04<00:12,  6.08it/s][A
-Computing label-to-label distances:  28%|██▊       | 28/100 [00:04<00:11,  6.06it/s][A
-Computing label-to-label distances:  29%|██▉       | 29/100 [00:05<00:11,  6.07it/s][A
-Computing label-to-label distances:  30%|███       | 30/100 [00:05<00:11,  6.05it/s][A
-Computing label-to-label distances:  31%|███       | 31/100 [00:05<00:11,  6.25it/s][A
-Computing label-to-label distances:  32%|███▏      | 32/100 [00:05<00:11,  6.15it/s][A
-Computing label-to-label distances:  33%|███▎      | 33/100 [00:05<00:10,  6.10it/s][A
-Computing label-to-label distances:  34%|███▍      | 34/100 [00:05<00:10,  6.07it/s][A
-Computing label-to-label distances:  35%|███▌      | 35/100 [00:06<00:10,  6.09it/s][A
-Computing label-to-label distances:  36%|███▌      | 36/100 [00:06<00:10,  6.15it/s][A
-Computing label-to-label distances:  37%|███▋      | 37/100 [00:06<00:10,  6.18it/s][A
-Computing label-to-label distances:  38%|███▊      | 38/100 [00:06<00:10,  6.12it/s][A
-Computing label-to-label distances:  39%|███▉      | 39/100 [00:06<00:10,  6.08it/s][A
-Computing label-to-label distances:  40%|████      | 40/100 [00:06<00:09,  6.05it/s][A
-Computing label-to-label distances:  41%|████      | 41/100 [00:07<00:09,  6.03it/s][A
-Computing label-to-label distances:  42%|████▏     | 42/100 [00:07<00:09,  5.81it/s][A
-Computing label-to-label distances:  43%|████▎     | 43/100 [00:07<00:09,  5.72it/s][A
-Computing label-to-label distances:  44%|████▍     | 44/100 [00:07<00:09,  5.61it/s][A
-Computing label-to-label distances:  45%|████▌     | 45/100 [00:07<00:09,  5.54it/s][A
-Computing label-to-label distances:  46%|████▌     | 46/100 [00:07<00:09,  5.65it/s][A
-Computing label-to-label distances:  47%|████▋     | 47/100 [00:08<00:09,  5.62it/s][A
-Computing label-to-label distances:  48%|████▊     | 48/100 [00:08<00:09,  5.65it/s][A
-Computing label-to-label distances:  49%|████▉     | 49/100 [00:08<00:09,  5.56it/s][A
-Computing label-to-label distances:  50%|█████     | 50/100 [00:08<00:09,  5.54it/s][A
-Computing label-to-label distances:  51%|█████     | 51/100 [00:08<00:08,  5.87it/s][A
-Computing label-to-label distances:  52%|█████▏    | 52/100 [00:08<00:08,  5.96it/s][A
-Computing label-to-label distances:  53%|█████▎    | 53/100 [00:09<00:07,  5.98it/s][A
-Computing label-to-label distances:  54%|█████▍    | 54/100 [00:09<00:07,  6.11it/s][A
-Computing label-to-label distances:  55%|█████▌    | 55/100 [00:09<00:07,  6.09it/s][A
-Computing label-to-label distances:  56%|█████▌    | 56/100 [00:09<00:07,  6.17it/s][A
-Computing label-to-label distances:  57%|█████▋    | 57/100 [00:09<00:06,  6.21it/s][A
-Computing label-to-label distances:  58%|█████▊    | 58/100 [00:09<00:06,  6.26it/s][A
-Computing label-to-label distances:  59%|█████▉    | 59/100 [00:10<00:06,  6.25it/s][A
-Computing label-to-label distances:  60%|██████    | 60/100 [00:10<00:06,  6.32it/s][A
-Computing label-to-label distances:  61%|██████    | 61/100 [00:10<00:06,  6.13it/s][A
-Computing label-to-label distances:  62%|██████▏   | 62/100 [00:10<00:06,  5.95it/s][A
-Computing label-to-label distances:  63%|██████▎   | 63/100 [00:10<00:06,  5.69it/s][A
-Computing label-to-label distances:  64%|██████▍   | 64/100 [00:10<00:06,  5.64it/s][A
-Computing label-to-label distances:  65%|██████▌   | 65/100 [00:11<00:06,  5.49it/s][A
-Computing label-to-label distances:  66%|██████▌   | 66/100 [00:11<00:06,  5.55it/s][A
-Computing label-to-label distances:  67%|██████▋   | 67/100 [00:11<00:06,  5.48it/s][A
-Computing label-to-label distances:  68%|██████▊   | 68/100 [00:11<00:05,  5.43it/s][A
-Computing label-to-label distances:  69%|██████▉   | 69/100 [00:11<00:05,  5.40it/s][A
-Computing label-to-label distances:  70%|███████   | 70/100 [00:12<00:05,  5.37it/s][A
-Computing label-to-label distances:  71%|███████   | 71/100 [00:12<00:05,  5.61it/s][A
-Computing label-to-label distances:  72%|███████▏  | 72/100 [00:12<00:05,  5.58it/s][A
-Computing label-to-label distances:  73%|███████▎  | 73/100 [00:12<00:04,  5.57it/s][A
-Computing label-to-label distances:  74%|███████▍  | 74/100 [00:12<00:04,  5.58it/s][A
-Computing label-to-label distances:  75%|███████▌  | 75/100 [00:12<00:04,  5.66it/s][A
-Computing label-to-label distances:  76%|███████▌  | 76/100 [00:13<00:04,  5.76it/s][A
-Computing label-to-label distances:  77%|███████▋  | 77/100 [00:13<00:03,  5.80it/s][A
-Computing label-to-label distances:  78%|███████▊  | 78/100 [00:13<00:03,  5.73it/s][A
-Computing label-to-label distances:  79%|███████▉  | 79/100 [00:13<00:03,  5.68it/s][A
-Computing label-to-label distances:  80%|████████  | 80/100 [00:13<00:03,  5.64it/s][A
-Computing label-to-label distances:  81%|████████  | 81/100 [00:14<00:03,  5.74it/s][A
-Computing label-to-label distances:  82%|████████▏ | 82/100 [00:14<00:03,  5.61it/s][A
-Computing label-to-label distances:  83%|████████▎ | 83/100 [00:14<00:03,  5.52it/s][A
-Computing label-to-label distances:  84%|████████▍ | 84/100 [00:14<00:02,  5.52it/s][A
-Computing label-to-label distances:  85%|████████▌ | 85/100 [00:14<00:02,  5.49it/s][A
-Computing label-to-label distances:  86%|████████▌ | 86/100 [00:14<00:02,  5.60it/s][A
-Computing label-to-label distances:  87%|████████▋ | 87/100 [00:15<00:02,  5.58it/s][A
-Computing label-to-label distances:  88%|████████▊ | 88/100 [00:15<00:02,  5.60it/s][A
-Computing label-to-label distances:  89%|████████▉ | 89/100 [00:15<00:01,  5.53it/s][A
-Computing label-to-label distances:  90%|█████████ | 90/100 [00:15<00:01,  5.53it/s][A
-Computing label-to-label distances:  91%|█████████ | 91/100 [00:15<00:01,  5.86it/s][A
-Computing label-to-label distances:  92%|█████████▏| 92/100 [00:15<00:01,  5.89it/s][A
-Computing label-to-label distances:  93%|█████████▎| 93/100 [00:16<00:01,  5.96it/s][A
-Computing label-to-label distances:  94%|█████████▍| 94/100 [00:16<00:00,  6.03it/s][A
-Computing label-to-label distances:  95%|█████████▌| 95/100 [00:16<00:00,  6.03it/s][A
-Computing label-to-label distances:  96%|█████████▌| 96/100 [00:16<00:00,  6.17it/s][A
-Computing label-to-label distances:  97%|█████████▋| 97/100 [00:16<00:00,  6.14it/s][A
-Computing label-to-label distances:  98%|█████████▊| 98/100 [00:16<00:00,  6.13it/s][A
-Computing label-to-label distances:  99%|█████████▉| 99/100 [00:17<00:00,  6.11it/s][A
-Computing label-to-label distances: 100%|██████████| 100/100 [00:17<00:00,  6.14it/s][A
-                                                                                     [ASAVA valuation:  20%|██        | 1/5 [00:39<02:38, 39.59s/it]SAVA valuation:  40%|████      | 2/5 [00:45<00:59, 19.85s/it]SAVA valuation:  60%|██████    | 3/5 [00:52<00:27, 13.88s/it]SAVA valuation:  80%|████████  | 4/5 [00:58<00:10, 10.64s/it]SAVA valuation: 100%|██████████| 5/5 [01:03<00:00,  8.79s/it]SAVA valuation: 100%|██████████| 5/5 [01:03<00:00, 12.72s/it]
-/home/phatht/.conda/envs/my_env/lib/python3.10/site-packages/ot/bregman/_sinkhorn.py:631: RuntimeWarning: overflow encountered in divide
-  u = 1.0 / nx.dot(Kp, v)
-/home/phatht/.conda/envs/my_env/lib/python3.10/site-packages/ot/bregman/_sinkhorn.py:642: UserWarning: Warning: numerical errors at iteration 771
-  warnings.warn("Warning: numerical errors at iteration %d" % ii)
-Distance size: torch.Size([10, 10])
-Finished first label distance in: 33.73748159408569 s.
-finished load datasets in 0.08008432388305664s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-per batch cost calculation takes 36.1284 seconds
-len D1: torch.Size([1024])
-len D2: torch.Size([976])
-Finished first label distance in: 1.430511474609375e-06 s.
-finished load datasets in 0.08443760871887207s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 976, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 976, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 976, 3072]), torch.Size([1, 1024, 3072])
-per batch cost calculation takes 2.4679 seconds
-len D1: torch.Size([1024])
-len D2: torch.Size([1024])
-Finished first label distance in: 1.6689300537109375e-06 s.
-finished load datasets in 0.11069726943969727s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-per batch cost calculation takes 2.5565 seconds
-len D1: torch.Size([1024])
-len D2: torch.Size([976])
-Finished first label distance in: 1.9073486328125e-06 s.
-finished load datasets in 0.1862778663635254s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 976, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 976, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 976, 3072]), torch.Size([1, 1024, 3072])
-per batch cost calculation takes 2.4669 seconds
-len D1: torch.Size([1024])
-len D2: torch.Size([1024])
-Finished first label distance in: 2.1457672119140625e-06 s.
-finished load datasets in 1.123542070388794s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-per batch cost calculation takes 3.4398 seconds
-len D1: torch.Size([1024])
-len D2: torch.Size([976])
-Finished first label distance in: 2.384185791015625e-06 s.
-finished load datasets in 0.08386421203613281s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 976, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 976, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 976, 3072]), torch.Size([1, 1024, 3072])
-per batch cost calculation takes 2.3533 seconds
-len D1: torch.Size([1024])
-len D2: torch.Size([1024])
-Finished first label distance in: 1.6689300537109375e-06 s.
-finished load datasets in 0.05763864517211914s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 1024, 3072])
-per batch cost calculation takes 2.3705 seconds
-len D1: torch.Size([1024])
-len D2: torch.Size([976])
-Finished first label distance in: 1.6689300537109375e-06 s.
-finished load datasets in 0.052603721618652344s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 976, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 976, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 976, 3072]), torch.Size([1, 1024, 3072])
-per batch cost calculation takes 2.3018 seconds
-len D1: torch.Size([904])
-len D2: torch.Size([1024])
-Finished first label distance in: 1.6689300537109375e-06 s.
-finished load datasets in 0.08689165115356445s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 904, 3072]), torch.Size([1, 1024, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 904, 3072]), torch.Size([1, 1024, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 1024, 3072]), torch.Size([1, 904, 3072])
-per batch cost calculation takes 2.3190 seconds
-len D1: torch.Size([904])
-len D2: torch.Size([976])
-Finished first label distance in: 1.9073486328125e-06 s.
-finished load datasets in 0.07408571243286133s.
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 904, 3072]), torch.Size([1, 976, 3072])
-before Loss
-batch_augmented_cost | featurecost torch.Size([1, 904, 3072]), torch.Size([1, 976, 3072])
-batch_augmented_cost | featurecost torch.Size([1, 976, 3072]), torch.Size([1, 904, 3072])
-per batch cost calculation takes 2.2438 seconds
-inspected: 10, found: 10 detection rate: 0.01 baseline: 3.0
-inspected: 20, found: 20 detection rate: 0.01 baseline: 6.0
-inspected: 30, found: 29 detection rate: 0.02 baseline: 9.0
-inspected: 40, found: 39 detection rate: 0.03 baseline: 12.0
-inspected: 50, found: 49 detection rate: 0.03 baseline: 15.0
-inspected: 60, found: 58 detection rate: 0.04 baseline: 18.0
-inspected: 70, found: 67 detection rate: 0.04 baseline: 21.0
-inspected: 80, found: 77 detection rate: 0.05 baseline: 24.0
-inspected: 90, found: 87 detection rate: 0.06 baseline: 27.0
-inspected: 100, found: 97 detection rate: 0.06 baseline: 30.0
-inspected: 110, found: 107 detection rate: 0.07 baseline: 33.0
-inspected: 120, found: 116 detection rate: 0.08 baseline: 36.0
-inspected: 130, found: 126 detection rate: 0.08 baseline: 39.0
-inspected: 140, found: 136 detection rate: 0.09 baseline: 42.0
-inspected: 150, found: 146 detection rate: 0.10 baseline: 45.0
-inspected: 160, found: 156 detection rate: 0.10 baseline: 48.0
-inspected: 170, found: 166 detection rate: 0.11 baseline: 51.0
-inspected: 180, found: 175 detection rate: 0.12 baseline: 54.0
-inspected: 190, found: 185 detection rate: 0.12 baseline: 57.0
-inspected: 200, found: 194 detection rate: 0.13 baseline: 60.0
-inspected: 210, found: 204 detection rate: 0.14 baseline: 63.0
-inspected: 220, found: 214 detection rate: 0.14 baseline: 66.0
-inspected: 230, found: 224 detection rate: 0.15 baseline: 69.0
-inspected: 240, found: 232 detection rate: 0.15 baseline: 72.0
-inspected: 250, found: 242 detection rate: 0.16 baseline: 75.0
-inspected: 260, found: 252 detection rate: 0.17 baseline: 78.0
-inspected: 270, found: 262 detection rate: 0.17 baseline: 81.0
-inspected: 280, found: 272 detection rate: 0.18 baseline: 84.0
-inspected: 290, found: 282 detection rate: 0.19 baseline: 87.0
-inspected: 300, found: 292 detection rate: 0.19 baseline: 90.0
-inspected: 310, found: 301 detection rate: 0.20 baseline: 93.0
-inspected: 320, found: 311 detection rate: 0.21 baseline: 96.0
-inspected: 330, found: 321 detection rate: 0.21 baseline: 99.0
-inspected: 340, found: 331 detection rate: 0.22 baseline: 102.0
-inspected: 350, found: 341 detection rate: 0.23 baseline: 105.0
-inspected: 360, found: 351 detection rate: 0.23 baseline: 108.0
-inspected: 370, found: 360 detection rate: 0.24 baseline: 111.0
-inspected: 380, found: 369 detection rate: 0.25 baseline: 114.0
-inspected: 390, found: 378 detection rate: 0.25 baseline: 117.0
-inspected: 400, found: 388 detection rate: 0.26 baseline: 120.0
-inspected: 410, found: 398 detection rate: 0.27 baseline: 123.0
-inspected: 420, found: 408 detection rate: 0.27 baseline: 126.0
-inspected: 430, found: 417 detection rate: 0.28 baseline: 129.0
-inspected: 440, found: 427 detection rate: 0.28 baseline: 132.0
-inspected: 450, found: 437 detection rate: 0.29 baseline: 135.0
-inspected: 460, found: 447 detection rate: 0.30 baseline: 138.0
-inspected: 470, found: 457 detection rate: 0.30 baseline: 141.0
-inspected: 480, found: 467 detection rate: 0.31 baseline: 144.0
-inspected: 490, found: 477 detection rate: 0.32 baseline: 147.0
-inspected: 500, found: 487 detection rate: 0.32 baseline: 150.0
-inspected: 510, found: 497 detection rate: 0.33 baseline: 153.0
-inspected: 520, found: 506 detection rate: 0.34 baseline: 156.0
-inspected: 530, found: 516 detection rate: 0.34 baseline: 159.0
-inspected: 540, found: 526 detection rate: 0.35 baseline: 162.0
-inspected: 550, found: 536 detection rate: 0.36 baseline: 165.0
-inspected: 560, found: 546 detection rate: 0.36 baseline: 168.0
-inspected: 570, found: 556 detection rate: 0.37 baseline: 171.0
-inspected: 580, found: 565 detection rate: 0.38 baseline: 174.0
-inspected: 590, found: 575 detection rate: 0.38 baseline: 177.0
-inspected: 600, found: 585 detection rate: 0.39 baseline: 180.0
-inspected: 610, found: 594 detection rate: 0.40 baseline: 183.0
-inspected: 620, found: 603 detection rate: 0.40 baseline: 186.0
-inspected: 630, found: 613 detection rate: 0.41 baseline: 189.0
-inspected: 640, found: 623 detection rate: 0.42 baseline: 192.0
-inspected: 650, found: 633 detection rate: 0.42 baseline: 195.0
-inspected: 660, found: 643 detection rate: 0.43 baseline: 198.0
-inspected: 670, found: 653 detection rate: 0.44 baseline: 201.0
-inspected: 680, found: 663 detection rate: 0.44 baseline: 204.0
-inspected: 690, found: 673 detection rate: 0.45 baseline: 207.0
-inspected: 700, found: 681 detection rate: 0.45 baseline: 210.0
-inspected: 710, found: 690 detection rate: 0.46 baseline: 213.0
-inspected: 720, found: 699 detection rate: 0.47 baseline: 216.0
-inspected: 730, found: 709 detection rate: 0.47 baseline: 219.0
-inspected: 740, found: 719 detection rate: 0.48 baseline: 222.0
-inspected: 750, found: 729 detection rate: 0.49 baseline: 225.0
-inspected: 760, found: 739 detection rate: 0.49 baseline: 228.0
-inspected: 770, found: 749 detection rate: 0.50 baseline: 231.0
-inspected: 780, found: 758 detection rate: 0.51 baseline: 234.0
-inspected: 790, found: 768 detection rate: 0.51 baseline: 237.0
-inspected: 800, found: 778 detection rate: 0.52 baseline: 240.0
-inspected: 810, found: 788 detection rate: 0.53 baseline: 243.0
-inspected: 820, found: 797 detection rate: 0.53 baseline: 246.0
-inspected: 830, found: 806 detection rate: 0.54 baseline: 249.0
-inspected: 840, found: 815 detection rate: 0.54 baseline: 252.0
-inspected: 850, found: 825 detection rate: 0.55 baseline: 255.0
-inspected: 860, found: 834 detection rate: 0.56 baseline: 258.0
-inspected: 870, found: 844 detection rate: 0.56 baseline: 261.0
-inspected: 880, found: 852 detection rate: 0.57 baseline: 264.0
-inspected: 890, found: 862 detection rate: 0.57 baseline: 267.0
-inspected: 900, found: 872 detection rate: 0.58 baseline: 270.0
-inspected: 910, found: 879 detection rate: 0.59 baseline: 273.0
-inspected: 920, found: 889 detection rate: 0.59 baseline: 276.0
-inspected: 930, found: 897 detection rate: 0.60 baseline: 279.0
-inspected: 940, found: 907 detection rate: 0.60 baseline: 282.0
-inspected: 950, found: 915 detection rate: 0.61 baseline: 285.0
-inspected: 960, found: 925 detection rate: 0.62 baseline: 288.0
-inspected: 970, found: 934 detection rate: 0.62 baseline: 291.0
-inspected: 980, found: 941 detection rate: 0.63 baseline: 294.0
-inspected: 990, found: 950 detection rate: 0.63 baseline: 297.0
-inspected: 1000, found: 957 detection rate: 0.64 baseline: 300.0
-inspected: 1010, found: 965 detection rate: 0.64 baseline: 303.0
-inspected: 1020, found: 975 detection rate: 0.65 baseline: 306.0
-inspected: 1030, found: 985 detection rate: 0.66 baseline: 309.0
-inspected: 1040, found: 994 detection rate: 0.66 baseline: 312.0
-inspected: 1050, found: 1002 detection rate: 0.67 baseline: 315.0
-inspected: 1060, found: 1009 detection rate: 0.67 baseline: 318.0
-inspected: 1070, found: 1017 detection rate: 0.68 baseline: 321.0
-inspected: 1080, found: 1026 detection rate: 0.68 baseline: 324.0
-inspected: 1090, found: 1034 detection rate: 0.69 baseline: 327.0
-inspected: 1100, found: 1044 detection rate: 0.70 baseline: 330.0
-inspected: 1110, found: 1050 detection rate: 0.70 baseline: 333.0
-inspected: 1120, found: 1059 detection rate: 0.71 baseline: 336.0
-inspected: 1130, found: 1067 detection rate: 0.71 baseline: 339.0
-inspected: 1140, found: 1074 detection rate: 0.72 baseline: 342.0
-inspected: 1150, found: 1083 detection rate: 0.72 baseline: 345.0
-inspected: 1160, found: 1092 detection rate: 0.73 baseline: 348.0
-inspected: 1170, found: 1099 detection rate: 0.73 baseline: 351.0
-inspected: 1180, found: 1107 detection rate: 0.74 baseline: 354.0
-inspected: 1190, found: 1116 detection rate: 0.74 baseline: 357.0
-inspected: 1200, found: 1122 detection rate: 0.75 baseline: 360.0
-inspected: 1210, found: 1131 detection rate: 0.75 baseline: 363.0
-inspected: 1220, found: 1139 detection rate: 0.76 baseline: 366.0
-inspected: 1230, found: 1149 detection rate: 0.77 baseline: 369.0
-inspected: 1240, found: 1156 detection rate: 0.77 baseline: 372.0
-inspected: 1250, found: 1164 detection rate: 0.78 baseline: 375.0
-inspected: 1260, found: 1169 detection rate: 0.78 baseline: 378.0
-inspected: 1270, found: 1177 detection rate: 0.78 baseline: 381.0
-inspected: 1280, found: 1185 detection rate: 0.79 baseline: 384.0
-inspected: 1290, found: 1194 detection rate: 0.80 baseline: 387.0
-inspected: 1300, found: 1201 detection rate: 0.80 baseline: 390.0
-inspected: 1310, found: 1209 detection rate: 0.81 baseline: 393.0
-inspected: 1320, found: 1217 detection rate: 0.81 baseline: 396.0
-inspected: 1330, found: 1226 detection rate: 0.82 baseline: 399.0
-inspected: 1340, found: 1232 detection rate: 0.82 baseline: 402.0
-inspected: 1350, found: 1237 detection rate: 0.82 baseline: 405.0
-inspected: 1360, found: 1245 detection rate: 0.83 baseline: 408.0
-inspected: 1370, found: 1251 detection rate: 0.83 baseline: 411.0
-inspected: 1380, found: 1256 detection rate: 0.84 baseline: 414.0
-inspected: 1390, found: 1265 detection rate: 0.84 baseline: 417.0
-inspected: 1400, found: 1272 detection rate: 0.85 baseline: 420.0
-inspected: 1410, found: 1277 detection rate: 0.85 baseline: 423.0
-inspected: 1420, found: 1285 detection rate: 0.86 baseline: 426.0
-inspected: 1430, found: 1291 detection rate: 0.86 baseline: 429.0
-inspected: 1440, found: 1297 detection rate: 0.86 baseline: 432.0
-inspected: 1450, found: 1305 detection rate: 0.87 baseline: 435.0
-inspected: 1460, found: 1313 detection rate: 0.88 baseline: 438.0
-inspected: 1470, found: 1319 detection rate: 0.88 baseline: 441.0
-inspected: 1480, found: 1327 detection rate: 0.88 baseline: 444.0
-inspected: 1490, found: 1332 detection rate: 0.89 baseline: 447.0
-inspected: 1500, found: 1337 detection rate: 0.89 baseline: 450.0
-inspected: 1510, found: 1343 detection rate: 0.90 baseline: 453.0
-inspected: 1520, found: 1347 detection rate: 0.90 baseline: 456.0
-inspected: 1530, found: 1352 detection rate: 0.90 baseline: 459.0
-inspected: 1540, found: 1359 detection rate: 0.91 baseline: 462.0
-inspected: 1550, found: 1365 detection rate: 0.91 baseline: 465.0
-inspected: 1560, found: 1371 detection rate: 0.91 baseline: 468.0
-inspected: 1570, found: 1378 detection rate: 0.92 baseline: 471.0
-inspected: 1580, found: 1382 detection rate: 0.92 baseline: 474.0
-inspected: 1590, found: 1387 detection rate: 0.92 baseline: 477.0
-inspected: 1600, found: 1394 detection rate: 0.93 baseline: 480.0
-inspected: 1610, found: 1396 detection rate: 0.93 baseline: 483.0
-inspected: 1620, found: 1399 detection rate: 0.93 baseline: 486.0
-inspected: 1630, found: 1403 detection rate: 0.94 baseline: 489.0
-inspected: 1640, found: 1407 detection rate: 0.94 baseline: 492.0
-inspected: 1650, found: 1411 detection rate: 0.94 baseline: 495.0
-inspected: 1660, found: 1413 detection rate: 0.94 baseline: 498.0
-inspected: 1670, found: 1416 detection rate: 0.94 baseline: 501.0
-inspected: 1680, found: 1418 detection rate: 0.95 baseline: 504.0
-inspected: 1690, found: 1421 detection rate: 0.95 baseline: 507.0
-inspected: 1700, found: 1424 detection rate: 0.95 baseline: 510.0
-inspected: 1710, found: 1427 detection rate: 0.95 baseline: 513.0
-inspected: 1720, found: 1427 detection rate: 0.95 baseline: 516.0
-inspected: 1730, found: 1428 detection rate: 0.95 baseline: 519.0
-inspected: 1740, found: 1428 detection rate: 0.95 baseline: 522.0
-inspected: 1750, found: 1430 detection rate: 0.95 baseline: 525.0
-inspected: 1760, found: 1432 detection rate: 0.95 baseline: 528.0
-inspected: 1770, found: 1434 detection rate: 0.96 baseline: 531.0
-inspected: 1780, found: 1435 detection rate: 0.96 baseline: 534.0
-inspected: 1790, found: 1436 detection rate: 0.96 baseline: 537.0
-inspected: 1800, found: 1437 detection rate: 0.96 baseline: 540.0
-inspected: 1810, found: 1439 detection rate: 0.96 baseline: 543.0
-inspected: 1820, found: 1440 detection rate: 0.96 baseline: 546.0
-inspected: 1830, found: 1441 detection rate: 0.96 baseline: 549.0
-inspected: 1840, found: 1442 detection rate: 0.96 baseline: 552.0
-inspected: 1850, found: 1442 detection rate: 0.96 baseline: 555.0
-inspected: 1860, found: 1442 detection rate: 0.96 baseline: 558.0
-inspected: 1870, found: 1444 detection rate: 0.96 baseline: 561.0
-inspected: 1880, found: 1444 detection rate: 0.96 baseline: 564.0
-inspected: 1890, found: 1446 detection rate: 0.96 baseline: 567.0
-inspected: 1900, found: 1446 detection rate: 0.96 baseline: 570.0
-inspected: 1910, found: 1446 detection rate: 0.96 baseline: 573.0
-inspected: 1920, found: 1449 detection rate: 0.97 baseline: 576.0
-inspected: 1930, found: 1451 detection rate: 0.97 baseline: 579.0
-inspected: 1940, found: 1453 detection rate: 0.97 baseline: 582.0
-inspected: 1950, found: 1455 detection rate: 0.97 baseline: 585.0
-inspected: 1960, found: 1456 detection rate: 0.97 baseline: 588.0
-inspected: 1970, found: 1457 detection rate: 0.97 baseline: 591.0
-inspected: 1980, found: 1457 detection rate: 0.97 baseline: 594.0
-inspected: 1990, found: 1458 detection rate: 0.97 baseline: 597.0
-inspected: 2000, found: 1458 detection rate: 0.97 baseline: 600.0
-inspected: 2010, found: 1460 detection rate: 0.97 baseline: 603.0
-inspected: 2020, found: 1461 detection rate: 0.97 baseline: 606.0
-inspected: 2030, found: 1461 detection rate: 0.97 baseline: 609.0
-inspected: 2040, found: 1461 detection rate: 0.97 baseline: 612.0
-inspected: 2050, found: 1462 detection rate: 0.97 baseline: 615.0
-inspected: 2060, found: 1463 detection rate: 0.98 baseline: 618.0
-inspected: 2070, found: 1464 detection rate: 0.98 baseline: 621.0
-inspected: 2080, found: 1464 detection rate: 0.98 baseline: 624.0
-inspected: 2090, found: 1464 detection rate: 0.98 baseline: 627.0
-inspected: 2100, found: 1464 detection rate: 0.98 baseline: 630.0
-inspected: 2110, found: 1464 detection rate: 0.98 baseline: 633.0
-inspected: 2120, found: 1466 detection rate: 0.98 baseline: 636.0
-inspected: 2130, found: 1466 detection rate: 0.98 baseline: 639.0
-inspected: 2140, found: 1466 detection rate: 0.98 baseline: 642.0
-inspected: 2150, found: 1466 detection rate: 0.98 baseline: 645.0
-inspected: 2160, found: 1466 detection rate: 0.98 baseline: 648.0
-inspected: 2170, found: 1467 detection rate: 0.98 baseline: 651.0
-inspected: 2180, found: 1468 detection rate: 0.98 baseline: 654.0
-inspected: 2190, found: 1468 detection rate: 0.98 baseline: 657.0
-inspected: 2200, found: 1469 detection rate: 0.98 baseline: 660.0
-inspected: 2210, found: 1470 detection rate: 0.98 baseline: 663.0
-inspected: 2220, found: 1470 detection rate: 0.98 baseline: 666.0
-inspected: 2230, found: 1470 detection rate: 0.98 baseline: 669.0
-inspected: 2240, found: 1470 detection rate: 0.98 baseline: 672.0
-inspected: 2250, found: 1470 detection rate: 0.98 baseline: 675.0
-inspected: 2260, found: 1471 detection rate: 0.98 baseline: 678.0
-inspected: 2270, found: 1471 detection rate: 0.98 baseline: 681.0
-inspected: 2280, found: 1471 detection rate: 0.98 baseline: 684.0
-inspected: 2290, found: 1471 detection rate: 0.98 baseline: 687.0
-inspected: 2300, found: 1473 detection rate: 0.98 baseline: 690.0
-inspected: 2310, found: 1473 detection rate: 0.98 baseline: 693.0
-inspected: 2320, found: 1473 detection rate: 0.98 baseline: 696.0
-inspected: 2330, found: 1473 detection rate: 0.98 baseline: 699.0
-inspected: 2340, found: 1473 detection rate: 0.98 baseline: 702.0
-inspected: 2350, found: 1473 detection rate: 0.98 baseline: 705.0
-inspected: 2360, found: 1476 detection rate: 0.98 baseline: 708.0
-inspected: 2370, found: 1477 detection rate: 0.98 baseline: 711.0
-inspected: 2380, found: 1478 detection rate: 0.99 baseline: 714.0
-inspected: 2390, found: 1479 detection rate: 0.99 baseline: 717.0
-inspected: 2400, found: 1479 detection rate: 0.99 baseline: 720.0
-inspected: 2410, found: 1480 detection rate: 0.99 baseline: 723.0
-inspected: 2420, found: 1480 detection rate: 0.99 baseline: 726.0
-inspected: 2430, found: 1480 detection rate: 0.99 baseline: 729.0
-inspected: 2440, found: 1481 detection rate: 0.99 baseline: 732.0
-inspected: 2450, found: 1481 detection rate: 0.99 baseline: 735.0
-inspected: 2460, found: 1481 detection rate: 0.99 baseline: 738.0
-inspected: 2470, found: 1482 detection rate: 0.99 baseline: 741.0
-inspected: 2480, found: 1482 detection rate: 0.99 baseline: 744.0
-inspected: 2490, found: 1482 detection rate: 0.99 baseline: 747.0
-inspected: 2500, found: 1483 detection rate: 0.99 baseline: 750.0
-inspected: 2510, found: 1483 detection rate: 0.99 baseline: 753.0
-inspected: 2520, found: 1483 detection rate: 0.99 baseline: 756.0
-inspected: 2530, found: 1484 detection rate: 0.99 baseline: 759.0
-inspected: 2540, found: 1484 detection rate: 0.99 baseline: 762.0
-inspected: 2550, found: 1484 detection rate: 0.99 baseline: 765.0
-inspected: 2560, found: 1484 detection rate: 0.99 baseline: 768.0
-inspected: 2570, found: 1485 detection rate: 0.99 baseline: 771.0
-inspected: 2580, found: 1485 detection rate: 0.99 baseline: 774.0
-inspected: 2590, found: 1485 detection rate: 0.99 baseline: 777.0
-inspected: 2600, found: 1486 detection rate: 0.99 baseline: 780.0
-inspected: 2610, found: 1487 detection rate: 0.99 baseline: 783.0
-inspected: 2620, found: 1487 detection rate: 0.99 baseline: 786.0
-inspected: 2630, found: 1487 detection rate: 0.99 baseline: 789.0
-inspected: 2640, found: 1487 detection rate: 0.99 baseline: 792.0
-inspected: 2650, found: 1487 detection rate: 0.99 baseline: 795.0
-inspected: 2660, found: 1487 detection rate: 0.99 baseline: 798.0
-inspected: 2670, found: 1488 detection rate: 0.99 baseline: 801.0
-inspected: 2680, found: 1488 detection rate: 0.99 baseline: 804.0
-inspected: 2690, found: 1488 detection rate: 0.99 baseline: 807.0
-inspected: 2700, found: 1488 detection rate: 0.99 baseline: 810.0
-inspected: 2710, found: 1488 detection rate: 0.99 baseline: 813.0
-inspected: 2720, found: 1488 detection rate: 0.99 baseline: 816.0
-inspected: 2730, found: 1489 detection rate: 0.99 baseline: 819.0
-inspected: 2740, found: 1489 detection rate: 0.99 baseline: 822.0
-inspected: 2750, found: 1489 detection rate: 0.99 baseline: 825.0
-inspected: 2760, found: 1489 detection rate: 0.99 baseline: 828.0
-inspected: 2770, found: 1489 detection rate: 0.99 baseline: 831.0
-inspected: 2780, found: 1489 detection rate: 0.99 baseline: 834.0
-inspected: 2790, found: 1490 detection rate: 0.99 baseline: 837.0
-inspected: 2800, found: 1490 detection rate: 0.99 baseline: 840.0
-inspected: 2810, found: 1490 detection rate: 0.99 baseline: 843.0
-inspected: 2820, found: 1490 detection rate: 0.99 baseline: 846.0
-inspected: 2830, found: 1490 detection rate: 0.99 baseline: 849.0
-inspected: 2840, found: 1490 detection rate: 0.99 baseline: 852.0
-inspected: 2850, found: 1490 detection rate: 0.99 baseline: 855.0
-inspected: 2860, found: 1490 detection rate: 0.99 baseline: 858.0
-inspected: 2870, found: 1490 detection rate: 0.99 baseline: 861.0
-inspected: 2880, found: 1490 detection rate: 0.99 baseline: 864.0
-inspected: 2890, found: 1490 detection rate: 0.99 baseline: 867.0
-inspected: 2900, found: 1490 detection rate: 0.99 baseline: 870.0
-inspected: 2910, found: 1490 detection rate: 0.99 baseline: 873.0
-inspected: 2920, found: 1490 detection rate: 0.99 baseline: 876.0
-inspected: 2930, found: 1490 detection rate: 0.99 baseline: 879.0
-inspected: 2940, found: 1490 detection rate: 0.99 baseline: 882.0
-inspected: 2950, found: 1490 detection rate: 0.99 baseline: 885.0
-inspected: 2960, found: 1490 detection rate: 0.99 baseline: 888.0
-inspected: 2970, found: 1490 detection rate: 0.99 baseline: 891.0
-inspected: 2980, found: 1492 detection rate: 0.99 baseline: 894.0
-inspected: 2990, found: 1492 detection rate: 0.99 baseline: 897.0
-inspected: 3000, found: 1492 detection rate: 0.99 baseline: 900.0
-inspected: 3010, found: 1492 detection rate: 0.99 baseline: 903.0
-inspected: 3020, found: 1492 detection rate: 0.99 baseline: 906.0
-inspected: 3030, found: 1493 detection rate: 1.00 baseline: 909.0
-inspected: 3040, found: 1493 detection rate: 1.00 baseline: 912.0
-inspected: 3050, found: 1493 detection rate: 1.00 baseline: 915.0
-inspected: 3060, found: 1493 detection rate: 1.00 baseline: 918.0
-inspected: 3070, found: 1493 detection rate: 1.00 baseline: 921.0
-inspected: 3080, found: 1493 detection rate: 1.00 baseline: 924.0
-inspected: 3090, found: 1493 detection rate: 1.00 baseline: 927.0
-inspected: 3100, found: 1493 detection rate: 1.00 baseline: 930.0
-inspected: 3110, found: 1493 detection rate: 1.00 baseline: 933.0
-inspected: 3120, found: 1493 detection rate: 1.00 baseline: 936.0
-inspected: 3130, found: 1493 detection rate: 1.00 baseline: 939.0
-inspected: 3140, found: 1493 detection rate: 1.00 baseline: 942.0
-inspected: 3150, found: 1493 detection rate: 1.00 baseline: 945.0
-inspected: 3160, found: 1493 detection rate: 1.00 baseline: 948.0
-inspected: 3170, found: 1493 detection rate: 1.00 baseline: 951.0
-inspected: 3180, found: 1493 detection rate: 1.00 baseline: 954.0
-inspected: 3190, found: 1493 detection rate: 1.00 baseline: 957.0
-inspected: 3200, found: 1493 detection rate: 1.00 baseline: 960.0
-inspected: 3210, found: 1493 detection rate: 1.00 baseline: 963.0
-inspected: 3220, found: 1493 detection rate: 1.00 baseline: 966.0
-inspected: 3230, found: 1494 detection rate: 1.00 baseline: 969.0
-inspected: 3240, found: 1494 detection rate: 1.00 baseline: 972.0
-inspected: 3250, found: 1494 detection rate: 1.00 baseline: 975.0
-inspected: 3260, found: 1494 detection rate: 1.00 baseline: 978.0
-inspected: 3270, found: 1495 detection rate: 1.00 baseline: 981.0
-inspected: 3280, found: 1496 detection rate: 1.00 baseline: 984.0
-inspected: 3290, found: 1496 detection rate: 1.00 baseline: 987.0
-inspected: 3300, found: 1496 detection rate: 1.00 baseline: 990.0
-inspected: 3310, found: 1496 detection rate: 1.00 baseline: 993.0
-inspected: 3320, found: 1496 detection rate: 1.00 baseline: 996.0
-inspected: 3330, found: 1496 detection rate: 1.00 baseline: 999.0
-inspected: 3340, found: 1496 detection rate: 1.00 baseline: 1002.0
-inspected: 3350, found: 1496 detection rate: 1.00 baseline: 1005.0
-inspected: 3360, found: 1496 detection rate: 1.00 baseline: 1008.0
-inspected: 3370, found: 1496 detection rate: 1.00 baseline: 1011.0
-inspected: 3380, found: 1496 detection rate: 1.00 baseline: 1014.0
-inspected: 3390, found: 1496 detection rate: 1.00 baseline: 1017.0
-inspected: 3400, found: 1496 detection rate: 1.00 baseline: 1020.0
-inspected: 3410, found: 1496 detection rate: 1.00 baseline: 1023.0
-inspected: 3420, found: 1496 detection rate: 1.00 baseline: 1026.0
-inspected: 3430, found: 1496 detection rate: 1.00 baseline: 1029.0
-inspected: 3440, found: 1496 detection rate: 1.00 baseline: 1032.0
-inspected: 3450, found: 1496 detection rate: 1.00 baseline: 1035.0
-inspected: 3460, found: 1496 detection rate: 1.00 baseline: 1038.0
-inspected: 3470, found: 1496 detection rate: 1.00 baseline: 1041.0
-inspected: 3480, found: 1496 detection rate: 1.00 baseline: 1044.0
-inspected: 3490, found: 1496 detection rate: 1.00 baseline: 1047.0
-inspected: 3500, found: 1496 detection rate: 1.00 baseline: 1050.0
-inspected: 3510, found: 1496 detection rate: 1.00 baseline: 1053.0
-inspected: 3520, found: 1496 detection rate: 1.00 baseline: 1056.0
-inspected: 3530, found: 1496 detection rate: 1.00 baseline: 1059.0
-inspected: 3540, found: 1496 detection rate: 1.00 baseline: 1062.0
-inspected: 3550, found: 1496 detection rate: 1.00 baseline: 1065.0
-inspected: 3560, found: 1496 detection rate: 1.00 baseline: 1068.0
-inspected: 3570, found: 1496 detection rate: 1.00 baseline: 1071.0
-inspected: 3580, found: 1496 detection rate: 1.00 baseline: 1074.0
-inspected: 3590, found: 1496 detection rate: 1.00 baseline: 1077.0
-inspected: 3600, found: 1496 detection rate: 1.00 baseline: 1080.0
-inspected: 3610, found: 1497 detection rate: 1.00 baseline: 1083.0
-inspected: 3620, found: 1497 detection rate: 1.00 baseline: 1086.0
-inspected: 3630, found: 1497 detection rate: 1.00 baseline: 1089.0
-inspected: 3640, found: 1498 detection rate: 1.00 baseline: 1092.0
-inspected: 3650, found: 1498 detection rate: 1.00 baseline: 1095.0
-inspected: 3660, found: 1498 detection rate: 1.00 baseline: 1098.0
-inspected: 3670, found: 1498 detection rate: 1.00 baseline: 1101.0
-inspected: 3680, found: 1498 detection rate: 1.00 baseline: 1104.0
-inspected: 3690, found: 1498 detection rate: 1.00 baseline: 1107.0
-inspected: 3700, found: 1498 detection rate: 1.00 baseline: 1110.0
-inspected: 3710, found: 1498 detection rate: 1.00 baseline: 1113.0
-inspected: 3720, found: 1498 detection rate: 1.00 baseline: 1116.0
-inspected: 3730, found: 1498 detection rate: 1.00 baseline: 1119.0
-inspected: 3740, found: 1498 detection rate: 1.00 baseline: 1122.0
-inspected: 3750, found: 1498 detection rate: 1.00 baseline: 1125.0
-inspected: 3760, found: 1498 detection rate: 1.00 baseline: 1128.0
-inspected: 3770, found: 1498 detection rate: 1.00 baseline: 1131.0
-inspected: 3780, found: 1498 detection rate: 1.00 baseline: 1134.0
-inspected: 3790, found: 1498 detection rate: 1.00 baseline: 1137.0
-inspected: 3800, found: 1498 detection rate: 1.00 baseline: 1140.0
-inspected: 3810, found: 1498 detection rate: 1.00 baseline: 1143.0
-inspected: 3820, found: 1498 detection rate: 1.00 baseline: 1146.0
-inspected: 3830, found: 1498 detection rate: 1.00 baseline: 1149.0
-inspected: 3840, found: 1498 detection rate: 1.00 baseline: 1152.0
-inspected: 3850, found: 1498 detection rate: 1.00 baseline: 1155.0
-inspected: 3860, found: 1498 detection rate: 1.00 baseline: 1158.0
-inspected: 3870, found: 1498 detection rate: 1.00 baseline: 1161.0
-inspected: 3880, found: 1498 detection rate: 1.00 baseline: 1164.0
-inspected: 3890, found: 1498 detection rate: 1.00 baseline: 1167.0
-inspected: 3900, found: 1498 detection rate: 1.00 baseline: 1170.0
-inspected: 3910, found: 1498 detection rate: 1.00 baseline: 1173.0
-inspected: 3920, found: 1498 detection rate: 1.00 baseline: 1176.0
-inspected: 3930, found: 1498 detection rate: 1.00 baseline: 1179.0
-inspected: 3940, found: 1498 detection rate: 1.00 baseline: 1182.0
-inspected: 3950, found: 1498 detection rate: 1.00 baseline: 1185.0
-inspected: 3960, found: 1498 detection rate: 1.00 baseline: 1188.0
-inspected: 3970, found: 1498 detection rate: 1.00 baseline: 1191.0
-inspected: 3980, found: 1498 detection rate: 1.00 baseline: 1194.0
-inspected: 3990, found: 1498 detection rate: 1.00 baseline: 1197.0
-inspected: 4000, found: 1498 detection rate: 1.00 baseline: 1200.0
-inspected: 4010, found: 1498 detection rate: 1.00 baseline: 1203.0
-inspected: 4020, found: 1498 detection rate: 1.00 baseline: 1206.0
-inspected: 4030, found: 1498 detection rate: 1.00 baseline: 1209.0
-inspected: 4040, found: 1498 detection rate: 1.00 baseline: 1212.0
-inspected: 4050, found: 1498 detection rate: 1.00 baseline: 1215.0
-inspected: 4060, found: 1498 detection rate: 1.00 baseline: 1218.0
-inspected: 4070, found: 1498 detection rate: 1.00 baseline: 1221.0
-inspected: 4080, found: 1498 detection rate: 1.00 baseline: 1224.0
-inspected: 4090, found: 1498 detection rate: 1.00 baseline: 1227.0
-inspected: 4100, found: 1498 detection rate: 1.00 baseline: 1230.0
-inspected: 4110, found: 1498 detection rate: 1.00 baseline: 1233.0
-inspected: 4120, found: 1498 detection rate: 1.00 baseline: 1236.0
-inspected: 4130, found: 1498 detection rate: 1.00 baseline: 1239.0
-inspected: 4140, found: 1498 detection rate: 1.00 baseline: 1242.0
-inspected: 4150, found: 1498 detection rate: 1.00 baseline: 1245.0
-inspected: 4160, found: 1498 detection rate: 1.00 baseline: 1248.0
-inspected: 4170, found: 1498 detection rate: 1.00 baseline: 1251.0
-inspected: 4180, found: 1498 detection rate: 1.00 baseline: 1254.0
-inspected: 4190, found: 1498 detection rate: 1.00 baseline: 1257.0
-inspected: 4200, found: 1498 detection rate: 1.00 baseline: 1260.0
-inspected: 4210, found: 1498 detection rate: 1.00 baseline: 1263.0
-wandb: updating run metadata
-wandb: updating run metadata; uploading history steps 0-498, summary, console lines 16-619
-wandb: uploading history steps 0-498, summary, console lines 16-619
-wandb: uploading history steps 0-498, summary, console lines 16-619; uploading output.log
-wandb: uploading data
-wandb: 
-wandb: Run history:
-wandb:    baseline ▁▁▁▁▁▂▂▃▃▃▃▃▃▄▄▄▄▄▄▄▄▄▄▅▅▅▅▅▅▅▅▆▇▇▇▇▇███
-wandb: custom_step ▁▁▂▂▂▂▂▃▃▃▃▃▃▃▃▃▄▄▄▄▄▄▄▄▄▅▅▅▆▆▆▆▆▆▆▇▇▇▇█
-wandb:       found ▁▁▁▁▂▃▃▄▄▄▅▅▅▆██████████████████████████
-wandb: 
-wandb: Run summary:
-wandb:    baseline 1497
-wandb: custom_step 4990
-wandb:       found 1500
-wandb: 
-wandb: 🚀 View run hot_tr_sz_5000_sava_shuffle_train5000_seed42 at: https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection/runs/hvigaq39
-wandb: ⭐️ View project at: https://wandb.ai/10423088-vietnamese-german-university/ot-data-selection
-wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
-wandb: Find logs at: ./wandb/run-20260521_150144-hvigaq39/logs
-wandb: WARNING Tried to log to step 1 that is less than the current step 499. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
-inspected: 4220, found: 1498 detection rate: 1.00 baseline: 1266.0
-inspected: 4230, found: 1498 detection rate: 1.00 baseline: 1269.0
-inspected: 4240, found: 1498 detection rate: 1.00 baseline: 1272.0
-inspected: 4250, found: 1498 detection rate: 1.00 baseline: 1275.0
-inspected: 4260, found: 1498 detection rate: 1.00 baseline: 1278.0
-inspected: 4270, found: 1499 detection rate: 1.00 baseline: 1281.0
-inspected: 4280, found: 1499 detection rate: 1.00 baseline: 1284.0
-inspected: 4290, found: 1499 detection rate: 1.00 baseline: 1287.0
-inspected: 4300, found: 1499 detection rate: 1.00 baseline: 1290.0
-inspected: 4310, found: 1499 detection rate: 1.00 baseline: 1293.0
-inspected: 4320, found: 1499 detection rate: 1.00 baseline: 1296.0
-inspected: 4330, found: 1499 detection rate: 1.00 baseline: 1299.0
-inspected: 4340, found: 1499 detection rate: 1.00 baseline: 1302.0
-inspected: 4350, found: 1499 detection rate: 1.00 baseline: 1305.0
-inspected: 4360, found: 1499 detection rate: 1.00 baseline: 1308.0
-inspected: 4370, found: 1499 detection rate: 1.00 baseline: 1311.0
-inspected: 4380, found: 1499 detection rate: 1.00 baseline: 1314.0
-inspected: 4390, found: 1499 detection rate: 1.00 baseline: 1317.0
-inspected: 4400, found: 1499 detection rate: 1.00 baseline: 1320.0
-inspected: 4410, found: 1499 detection rate: 1.00 baseline: 1323.0
-inspected: 4420, found: 1499 detection rate: 1.00 baseline: 1326.0
-inspected: 4430, found: 1499 detection rate: 1.00 baseline: 1329.0
-inspected: 4440, found: 1499 detection rate: 1.00 baseline: 1332.0
-inspected: 4450, found: 1499 detection rate: 1.00 baseline: 1335.0
-inspected: 4460, found: 1499 detection rate: 1.00 baseline: 1338.0
-inspected: 4470, found: 1499 detection rate: 1.00 baseline: 1341.0
-inspected: 4480, found: 1499 detection rate: 1.00 baseline: 1344.0
-inspected: 4490, found: 1500 detection rate: 1.00 baseline: 1347.0
-inspected: 4500, found: 1500 detection rate: 1.00 baseline: 1350.0
-inspected: 4510, found: 1500 detection rate: 1.00 baseline: 1353.0
-inspected: 4520, found: 1500 detection rate: 1.00 baseline: 1356.0
-inspected: 4530, found: 1500 detection rate: 1.00 baseline: 1359.0
-inspected: 4540, found: 1500 detection rate: 1.00 baseline: 1362.0
-inspected: 4550, found: 1500 detection rate: 1.00 baseline: 1365.0
-inspected: 4560, found: 1500 detection rate: 1.00 baseline: 1368.0
-inspected: 4570, found: 1500 detection rate: 1.00 baseline: 1371.0
-inspected: 4580, found: 1500 detection rate: 1.00 baseline: 1374.0
-inspected: 4590, found: 1500 detection rate: 1.00 baseline: 1377.0
-inspected: 4600, found: 1500 detection rate: 1.00 baseline: 1380.0
-inspected: 4610, found: 1500 detection rate: 1.00 baseline: 1383.0
-inspected: 4620, found: 1500 detection rate: 1.00 baseline: 1386.0
-inspected: 4630, found: 1500 detection rate: 1.00 baseline: 1389.0
-inspected: 4640, found: 1500 detection rate: 1.00 baseline: 1392.0
-inspected: 4650, found: 1500 detection rate: 1.00 baseline: 1395.0
-inspected: 4660, found: 1500 detection rate: 1.00 baseline: 1398.0
-inspected: 4670, found: 1500 detection rate: 1.00 baseline: 1401.0
-inspected: 4680, found: 1500 detection rate: 1.00 baseline: 1404.0
-inspected: 4690, found: 1500 detection rate: 1.00 baseline: 1407.0
-inspected: 4700, found: 1500 detection rate: 1.00 baseline: 1410.0
-inspected: 4710, found: 1500 detection rate: 1.00 baseline: 1413.0
-inspected: 4720, found: 1500 detection rate: 1.00 baseline: 1416.0
-inspected: 4730, found: 1500 detection rate: 1.00 baseline: 1419.0
-inspected: 4740, found: 1500 detection rate: 1.00 baseline: 1422.0
-inspected: 4750, found: 1500 detection rate: 1.00 baseline: 1425.0
-inspected: 4760, found: 1500 detection rate: 1.00 baseline: 1428.0
-inspected: 4770, found: 1500 detection rate: 1.00 baseline: 1431.0
-inspected: 4780, found: 1500 detection rate: 1.00 baseline: 1434.0
-inspected: 4790, found: 1500 detection rate: 1.00 baseline: 1437.0
-inspected: 4800, found: 1500 detection rate: 1.00 baseline: 1440.0
-inspected: 4810, found: 1500 detection rate: 1.00 baseline: 1443.0
-inspected: 4820, found: 1500 detection rate: 1.00 baseline: 1446.0
-inspected: 4830, found: 1500 detection rate: 1.00 baseline: 1449.0
-inspected: 4840, found: 1500 detection rate: 1.00 baseline: 1452.0
-inspected: 4850, found: 1500 detection rate: 1.00 baseline: 1455.0
-inspected: 4860, found: 1500 detection rate: 1.00 baseline: 1458.0
-inspected: 4870, found: 1500 detection rate: 1.00 baseline: 1461.0
-inspected: 4880, found: 1500 detection rate: 1.00 baseline: 1464.0
-inspected: 4890, found: 1500 detection rate: 1.00 baseline: 1467.0
-inspected: 4900, found: 1500 detection rate: 1.00 baseline: 1470.0
-inspected: 4910, found: 1500 detection rate: 1.00 baseline: 1473.0
-inspected: 4920, found: 1500 detection rate: 1.00 baseline: 1476.0
-inspected: 4930, found: 1500 detection rate: 1.00 baseline: 1479.0
-inspected: 4940, found: 1500 detection rate: 1.00 baseline: 1482.0
-inspected: 4950, found: 1500 detection rate: 1.00 baseline: 1485.0
-inspected: 4960, found: 1500 detection rate: 1.00 baseline: 1488.0
-inspected: 4970, found: 1500 detection rate: 1.00 baseline: 1491.0
-inspected: 4980, found: 1500 detection rate: 1.00 baseline: 1494.0
-inspected: 4990, found: 1500 detection rate: 1.00 baseline: 1497.0
-run time: 72.11s

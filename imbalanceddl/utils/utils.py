@@ -3,7 +3,6 @@ import numpy as np
 import torch
 import shutil
 import os
-import torch
 
 def fix_all_seed(seed):
     """

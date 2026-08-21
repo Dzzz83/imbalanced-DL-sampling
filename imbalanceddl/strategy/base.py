@@ -4,8 +4,6 @@ import torch
 from sklearn.metrics import confusion_matrix
 from imbalanceddl.utils.metrics import shot_acc
 import numpy as np
-from imbalanceddl.utils.backup_sampler import StratifiedSampler
-from imbalanceddl.utils.bsampler import SamplerFactory
 from imbalanceddl.utils.logging import setup_logger, create_distribution_table
 from collections import Counter
 import datetime
@@ -47,40 +45,12 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             elif hasattr(self.train_dataset, 'dataset') and hasattr(self.train_dataset.dataset, 'targets'):
                 self.debug_logger.debug(f"train_dataset.dataset.targets length: {len(self.train_dataset.dataset.targets)}")
 
-        if self.cfg.sampling == "WeightedRandomBatchSampler":
-            print("Using WeightedRandomBatchSampler.")
-            class_idxs = self.train_dataset.get_class_idxs2()
-            sampler_factory = SamplerFactory()
-            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.n_batches, self.cfg.alpha, "random")
-            self.train_loader = torch.utils.data.DataLoader(self.train_dataset, batch_sampler=sampler)
-
-        elif self.cfg.sampling == "WeightedFixedBatchSampler":
-            print("Using WeightedFixedBatchSampler.")
-            class_idxs = self.train_dataset.get_class_idxs2()
-            sampler_factory = SamplerFactory()
-            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.n_batches, self.cfg.alpha, "fixed")
-            self.train_loader = torch.utils.data.DataLoader(self.train_dataset, batch_sampler=sampler)
-
-        elif self.cfg.sampling == "Random":
+        if self.cfg.sampling == "Random":
             print("Using Random Sampler.")
             self.train_loader = torch.utils.data.DataLoader(
                 self.train_dataset,
                 batch_size=self.cfg.batch_size,
                 shuffle=True,
-                num_workers=self.cfg.workers,
-                pin_memory=True
-            )
-
-        elif self.cfg.sampling == "StratifiedSampler":
-            print("Using StratifiedSampler.")
-            sampler = StratifiedSampler(
-                labels=self.train_dataset.targets,
-                num_samples=len(self.train_dataset),
-                batch_size=self.cfg.batch_size
-            )
-            self.train_loader = torch.utils.data.DataLoader(
-                self.train_dataset,
-                batch_sampler=sampler,
                 num_workers=self.cfg.workers,
                 pin_memory=True
             )
@@ -134,13 +104,6 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             f"Seed: {self.cfg.seed}, rand_number: {self.cfg.rand_number}\n"
             f"Augmentation: {self.cfg.augmentation}\n"
         )
-        if hasattr(self.cfg, 'noise_ratio') and self.cfg.noise_ratio > 0:
-            header += f"Noise ratio: {self.cfg.noise_ratio}\n"
-        mixup_strategies = ['Mixup_DRW', 'Mixup', 'Remix_DRW', 'MAMix_DRW']
-        if hasattr(self.cfg, 'mixup_alpha') and self.cfg.strategy in mixup_strategies:
-            header += f"mixup_alpha: {self.cfg.mixup_alpha}\n"
-        if hasattr(self.cfg, 'mamix_ratio') and self.cfg.mamix_ratio is not None:
-            header += f"mamix_ratio: {self.cfg.mamix_ratio}\n"
         header += "=" * 60 + "\n"
 
         self.logger.info(header)
