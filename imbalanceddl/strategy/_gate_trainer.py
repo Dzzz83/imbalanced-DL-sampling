@@ -76,22 +76,14 @@ class ExpertEnsemble(nn.Module):
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=192, hidden1=256, hidden2=128, num_experts=3, dropout=0.0):
+    def __init__(self, input_dim=192, num_experts=3):
         super().__init__()
         self.norm = nn.LayerNorm(input_dim)
-        self.fc1 = nn.Linear(input_dim, hidden1)
-        self.fc2 = nn.Linear(hidden1, hidden2)
-        self.fc3 = nn.Linear(hidden2, num_experts)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+        self.fc = nn.Linear(input_dim, num_experts)
 
     def forward(self, x):
         x = self.norm(x)
-        x = self.relu(self.fc1(x))
-        x = self.dropout(x)
-        x = self.relu(self.fc2(x))
-        x = self.dropout(x)
-        x = self.fc3(x)
+        x = self.fc(x)
         return x
 
 class GateTrainer(BaseTrainer):
@@ -110,13 +102,9 @@ class GateTrainer(BaseTrainer):
         self.gate_split_ratio = getattr(cfg, 'gate_split_ratio', 0.9)
         self._split_dataset()
 
-        dropout = getattr(cfg, 'gate_dropout', 0.0)
         self.gate = GateMLP(
             input_dim=192,  # Updated to 64 * 3
-            hidden1=cfg.gate_hidden_size,
-            hidden2=cfg.gate_hidden_size2,
-            num_experts=3,
-            dropout=dropout
+            num_experts=3
         ).to(self.device)
 
         self.gate_epochs = cfg.gate_epochs
@@ -310,9 +298,8 @@ class GateTrainer(BaseTrainer):
                     target_dist[i] = (target_expert == i).float().mean()
                 self.logger.info(f"Target Expert Distribution: CE={target_dist[0]:.3f} | LA={target_dist[1]:.3f} | BS={target_dist[2]:.3f}")
                 
-                grad_norm_fc1 = self.gate.fc1.weight.grad.norm().item() if self.gate.fc1.weight.grad is not None else 0.0
-                grad_norm_fc3 = self.gate.fc3.weight.grad.norm().item() if self.gate.fc3.weight.grad is not None else 0.0
-                self.logger.info(f"Gradient Norms -> FC1 (Input): {grad_norm_fc1:.6f} | FC3 (Output): {grad_norm_fc3:.6f}")
+                grad_norm_fc = self.gate.fc.weight.grad.norm().item() if self.gate.fc.weight.grad is not None else 0.0
+                self.logger.info(f"Gradient Norms -> FC (Linear Router): {grad_norm_fc:.6f}")
                 self.logger.info("="*80 + "\n")
 
             optimizer.step()
