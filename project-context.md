@@ -1,1 +1,1 @@
-/home/dzzz83/Documents/code/context_files/project-context.md
+/home/dzzz83/Documents/code/context_files/harness/project-context.md

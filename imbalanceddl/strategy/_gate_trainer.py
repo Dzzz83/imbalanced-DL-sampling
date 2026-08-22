@@ -6,7 +6,7 @@ import torch.optim as optim
 import numpy as np
 import math
 from sklearn.model_selection import train_test_split
-from torch.utils.data import Subset, DataLoader
+from torch.utils.data import Subset, DataLoader, WeightedRandomSampler
 from .base import BaseTrainer
 from ..utils.debug_logger import get_debug_logger
 from ..utils.plugin_rule import define_groups, define_groups_2, compute_aurc_metrics
@@ -138,13 +138,25 @@ class GateTrainer(BaseTrainer):
             stratify=targets, random_state=self.cfg.seed
         )
         self.gate_dataset = Subset(self.train_dataset, gate_idx)
-        
+
+        # Inverse-class-frequency sampling: give every class equal expected
+        # coverage so Head/Tail classes are seen equally during gate training.
+        gate_targets = targets[gate_idx]
+        class_counts = np.bincount(gate_targets, minlength=self.cfg.num_classes).astype(np.float64)
+        class_weights = 1.0 / (class_counts + 1e-8)
+        sample_weights = class_weights[gate_targets]
+        self.gate_sampler = WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(sample_weights),
+            replacement=True
+        )
+
         gate_bs = getattr(self.cfg, 'gating_batch_size', 128)
         self.gate_loader = DataLoader(
-            self.gate_dataset, 
+            self.gate_dataset,
             batch_size=gate_bs,
-            shuffle=True,
-            num_workers=self.cfg.workers, 
+            sampler=self.gate_sampler,
+            num_workers=self.cfg.workers,
             pin_memory=True
         )
         
@@ -166,7 +178,7 @@ class GateTrainer(BaseTrainer):
         self.tune_loader = DataLoader(self.tune_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
         self.test_loader = DataLoader(self.test_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
         
-        self.logger.info(f"[INFO] Gating split size: {len(self.gate_dataset)} (Standard Shuffle Enabled)")
+        self.logger.info(f"[INFO] Gating split size: {len(self.gate_dataset)} (WeightedRandomSampler Enabled)")
         self.logger.info(f"[INFO] Plugin Tune size: {len(self.tune_dataset)} | Final Test size: {len(self.test_dataset)}")
 
     def get_criterion(self):
@@ -266,8 +278,12 @@ class GateTrainer(BaseTrainer):
 
             true_probs_experts = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
             target_expert = torch.argmax(true_probs_experts, dim=1)
-            
-            loss = F.cross_entropy(gate_logits, target_expert)
+
+            mix_prob_full = torch.zeros_like(probs[0])
+            for i in range(3):
+                mix_prob_full += weights[:, i:i+1] * probs[i]
+
+            loss = F.nll_loss(torch.log(mix_prob_full + 1e-8), labels)
 
             optimizer.zero_grad()
             loss.backward()
@@ -307,9 +323,6 @@ class GateTrainer(BaseTrainer):
             gate_preds = torch.argmax(gate_logits, dim=1)
             total_expert_match += gate_preds.eq(target_expert).sum().item()
             
-            mix_prob_full = torch.zeros_like(probs[0])
-            for i in range(3):
-                mix_prob_full += weights[:, i:i+1] * probs[i]
             _, pred = mix_prob_full.max(dim=1)
             total_correct += pred.eq(labels).sum().item()
             total_samples += images.size(0)
@@ -342,7 +355,7 @@ class GateTrainer(BaseTrainer):
         for bs in batch_sizes:
             gate_loader = DataLoader(
                 self.gate_dataset, batch_size=bs,
-                shuffle=True, num_workers=self.cfg.workers, pin_memory=True
+                sampler=self.gate_sampler, num_workers=self.cfg.workers, pin_memory=True
             )
 
             for T in temperatures:

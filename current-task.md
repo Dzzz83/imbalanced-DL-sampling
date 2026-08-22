@@ -1,1 +1,1 @@
-/home/dzzz83/Documents/code/context_files/current-task.md
+/home/dzzz83/Documents/code/context_files/harness/current-task.md
