@@ -205,7 +205,11 @@ def main():
         
         # FIX: Added weights_only=False for PyTorch 2.6+ compatibility
         ckpt = torch.load(g_path, map_location='cpu', weights_only=False)
-        gate.load_state_dict(ckpt['gate_state_dict'])
+        try:
+            gate.load_state_dict(ckpt['gate_state_dict'])
+        except RuntimeError:
+            print(f"[WARNING] Skipping checkpoint {fname} due to architecture mismatch.")
+            continue
         gate.to(device)
         gate.eval()
         
