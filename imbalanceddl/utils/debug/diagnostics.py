@@ -7,8 +7,8 @@ def print_gate_feature_importance(gate):
     print("GATE MLP FEATURE IMPORTANCE (L1 NORM OF INPUT WEIGHTS)")
     print("="*80)
     
-    fc1_weights = gate.fc1.weight.detach().cpu().numpy()
-    feature_importance = np.sum(np.abs(fc1_weights), axis=0)
+    fc_weights = gate.fc.weight.detach().cpu().numpy()
+    feature_importance = np.sum(np.abs(fc_weights), axis=0)
     
     feat_names = [
         "CE_Ent", "CE_Max", "CE_Marg", "CE_Top5", "CE_Tail", "CE_Cos", "CE_KL",

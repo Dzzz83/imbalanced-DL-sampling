@@ -66,7 +66,7 @@ def main():
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
     
-    gate = GateMLP(input_dim=192, hidden1=cfg.gate_hidden_size, hidden2=cfg.gate_hidden_size2).to(device)
+    gate = GateMLP(input_dim=192, num_experts=3).to(device)
     print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
     
     # FIX: Added weights_only=False
