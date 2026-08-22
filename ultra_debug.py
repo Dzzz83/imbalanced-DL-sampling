@@ -31,6 +31,7 @@ from imbalanceddl.utils.debug.evaluation import (
     run_sample_by_sample_output, run_saves_the_day_checks, 
     run_raw_prob_inspection, run_oracle_diagnostic
 )
+from imbalanceddl.utils.debug.metrics import compute_all_metrics
 from imbalanceddl.utils.debug.diagnostics import print_stage3_plugin_params, print_expert_agreement, print_per_class_extreme_routing
 
 def main():
@@ -100,7 +101,14 @@ def main():
     run_metric_comparisons(p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_mix_test, p_unif_test, p_ce_test, p_la_test, p_bs_test, l_ce_test, l_la_test, l_bs_test, labels_tune, labels_test, group_ids_2, cfg, train_dataset)
     
     # 2. Temperature Comparison
-    run_temperature_comparison(T, l_ce_test, l_la_test, l_bs_test, w_test, k, log_prior, log_spc, labels_test, cfg, train_dataset)
+    # m_unif / m_method = metrics of the Uniform and Gate-routed Method
+    # posteriors at the gate temperature T (p_unif_test / p_mix_test were
+    # extracted by extract_data at T). They fill the "Unif @ T={T}" and
+    # "Method @ T={T}" columns of the comparison table; the T=1.0 columns
+    # are computed inside run_temperature_comparison.
+    m_unif = compute_all_metrics(p_unif_test, labels_test, None, cfg, train_dataset)
+    m_method = compute_all_metrics(p_mix_test, labels_test, None, cfg, train_dataset)
+    run_temperature_comparison(T, l_ce_test, l_la_test, l_bs_test, w_test, k, log_prior, log_spc, labels_test, cfg, train_dataset, m_unif, m_method)
     
     # 3. Routing Statistics
     print_per_class_extreme_routing(w_test, labels_test, cfg)
