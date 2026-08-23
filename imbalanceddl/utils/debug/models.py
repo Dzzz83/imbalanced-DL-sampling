@@ -5,6 +5,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from imbalanceddl.net.network import build_model
+from imbalanceddl.utils.gate_features import (
+    calibrate_expert_probs, build_gate_input,
+)
 
 class ExpertEnsemble(nn.Module):
     def __init__(self, cfg, device, ckpt_paths):
@@ -43,36 +46,26 @@ class ExpertEnsemble(nn.Module):
         for expert in self.experts:
             logits, _ = expert(x)
             logits_list.append(logits)
-        # Probability-space routing (T=1.0), matching the trainer-side
-        # ExpertEnsemble so the gate sees the same input distribution at
-        # evaluation time as it saw during training.
-        embeddings = self._calibrated_probs(logits_list, T=1.0)
+        # Probability-space routing (T=1.0): build the exact same
+        # calibrated-probability + confidence/agreement feature vector the
+        # trainer-side ExpertEnsemble produces, so the gate is evaluated on
+        # the representation it was trained on.
+        probs = calibrate_expert_probs(
+            logits_list, self.cfg.cls_num_list, self.la_tau, T=1.0
+        )
+        embeddings = build_gate_input(probs)
         return logits_list, embeddings
 
-    def _calibrated_probs(self, logits_list, T=1.0):
-        """Calibrate expert logits to probs (same math as get_probs)."""
-        p_ce = F.softmax(logits_list[0] / T, dim=1)
-
-        cls_num_list = torch.tensor(
-            self.cfg.cls_num_list, device=self.device, dtype=torch.float32
-        )
-        log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
-        p_la = F.softmax((logits_list[1] + self.la_tau * log_prior) / T, dim=1)
-
-        log_spc = torch.log(cls_num_list + 1e-12)
-        p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
-
-        return torch.cat([p_ce, p_la, p_bs], dim=1)
-
 class GateMLP(nn.Module):
-    """Non-linear logit router matching the trainer-side architecture.
+    """Non-linear router matching the trainer-side architecture.
 
-    BatchNorm1d(300) -> Linear(300, 64) -> ReLU -> Linear(64, 3).
-    Attribute names (bn, fc, act, fc_out) match ``_gate_trainer.GateMLP``
-    so trained gate state_dicts load unchanged.
+    BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> Linear(64, 3), where
+    D = ``gate_input_dim(num_classes)``. Attribute names (bn, fc, act,
+    fc_out) match ``_gate_trainer.GateMLP`` so trained state_dicts load
+    unchanged.
     """
 
-    def __init__(self, input_dim=300, num_experts=3, hidden_dim=64):
+    def __init__(self, input_dim=312, num_experts=3, hidden_dim=64):
         super().__init__()
         self.bn = nn.BatchNorm1d(input_dim)
         self.fc = nn.Linear(input_dim, hidden_dim)

@@ -22,6 +22,7 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.plugin_rule import define_groups_2, tune_plugin_for_rho, evaluate_plugin_for_rho
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
+from imbalanceddl.utils.gate_features import gate_input_dim
 from torch.utils.data import DataLoader, Subset
 
 def chows_rule_risk_balanced(p_tune, labels_tune, p_test, labels_test, group_ids, rho, mode='bal'):
@@ -79,7 +80,7 @@ def main():
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
     
-    gate = GateMLP(input_dim=300, num_experts=3).to(device)
+    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes), num_experts=3).to(device)
     print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
     gate_ckpt = torch.load(custom_args.gate_ckpt, map_location='cpu', weights_only=False)
     gate.load_state_dict(gate_ckpt['gate_state_dict'])

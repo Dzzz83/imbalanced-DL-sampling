@@ -10,6 +10,9 @@ from torch.utils.data import Subset, DataLoader, WeightedRandomSampler
 from .base import BaseTrainer
 from ..utils.debug_logger import get_debug_logger
 from ..utils.plugin_rule import define_groups, define_groups_2, compute_aurc_metrics
+from ..utils.gate_features import (
+    calibrate_expert_probs, build_gate_input, gate_input_dim,
+)
 from ..net.network import build_model
 import glob
 
@@ -72,44 +75,35 @@ class ExpertEnsemble(nn.Module):
         for expert in self.experts:
             logits, _ = expert(x)
             logits_list.append(logits)
-        # Probability-space routing: the gate sees calibrated class
-        # probabilities (T=1.0) instead of raw logits. This equalizes the
-        # wildly different CE/LA/BS logit scales and lets the gate "see" the
-        # experts' prior biases (la_tau/log_prior and log_spc), instead of
+        # Probability-space routing: the gate consumes calibrated class
+        # probabilities + confidence/margin/entropy/agreement features
+        # (T=1.0) instead of raw logits. This equalizes the wildly different
+        # CE/LA/BS logit scales, exposes each expert's prior bias, and gives
+        # the gate explicit "overconfident-but-wrong" signals, instead of
         # acting as a naive peak-detector on raw logit magnitude.
-        embeddings = self._calibrated_probs(logits_list, T=1.0)
+        probs = calibrate_expert_probs(
+            logits_list, self.cfg.cls_num_list, self.la_tau, T=1.0
+        )
+        embeddings = build_gate_input(probs)
         return logits_list, embeddings
 
-    def _calibrated_probs(self, logits_list, T=1.0):
-        """Calibrate expert logits to probs (same math as get_probs)."""
-        p_ce = F.softmax(logits_list[0] / T, dim=1)
-
-        cls_num_list = torch.tensor(
-            self.cfg.cls_num_list, device=self.device, dtype=torch.float32
-        )
-        log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
-        p_la = F.softmax((logits_list[1] + self.la_tau * log_prior) / T, dim=1)
-
-        log_spc = torch.log(cls_num_list + 1e-12)
-        p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
-
-        return torch.cat([p_ce, p_la, p_bs], dim=1)
-
 class GateMLP(nn.Module):
-    """Non-linear logit router with batch-normalized input standardization.
+    """Non-linear router over calibrated probability features.
 
-    Replaces the naive ``LayerNorm -> Linear`` peak-detector. The hidden
+    The input is ``build_gate_input(probs)``: the three experts' calibrated
+    probability distributions + per-expert confidence/margin/entropy +
+    pairwise agreement (see ``imbalanceddl.utils.gate_features``). The hidden
     ReLU layer lets the gate suppress overconfident-but-wrong experts
-    conditionally, and BatchNorm1d standardizes the 300-dim logit scales
-    across the batch (CE/LA/BS can live on very different magnitudes).
+    conditionally, and BatchNorm1d standardizes the feature scales.
 
-    Architecture: BatchNorm1d(300) -> Linear(300, 64) -> ReLU -> Linear(64, 3).
+    Architecture: BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> Linear(64, 3),
+    where D = num_experts*(num_classes+3) + C(num_experts,2).
 
     ``fc`` (hidden projection) keeps the legacy attribute name so
     ``GateTrainer.train_one_epoch`` can still log ``gate.fc.weight.grad``.
     """
 
-    def __init__(self, input_dim=300, num_experts=3, hidden_dim=64):
+    def __init__(self, input_dim=312, num_experts=3, hidden_dim=64):
         super().__init__()
         self.bn = nn.BatchNorm1d(input_dim)
         self.fc = nn.Linear(input_dim, hidden_dim)
@@ -139,7 +133,7 @@ class GateTrainer(BaseTrainer):
         self._split_dataset()
 
         self.gate = GateMLP(
-            input_dim=300,  # Concatenated raw logits (100-dim x 3 experts)
+            input_dim=gate_input_dim(self.cfg.num_classes),
             num_experts=3
         ).to(self.device)
 
@@ -209,16 +203,9 @@ class GateTrainer(BaseTrainer):
         return None
 
     def get_probs(self, logits_list, T):
-        p_ce = F.softmax(logits_list[0] / T, dim=1)
-        
-        cls_num_list = torch.tensor(self.cfg.cls_num_list, device=self.device, dtype=torch.float32)
-        log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
-        p_la = F.softmax((logits_list[1] + self.cfg.la_tau * log_prior) / T, dim=1)
-        
-        log_spc = torch.log(cls_num_list + 1e-12)
-        p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
-        
-        return [p_ce, p_la, p_bs]
+        return calibrate_expert_probs(
+            logits_list, self.cfg.cls_num_list, self.cfg.la_tau, T
+        )
 
     @torch.no_grad()
     def validate(self, T):
@@ -283,7 +270,8 @@ class GateTrainer(BaseTrainer):
         std_emb = all_embeddings.std(dim=0)
         
         self.logger.info("\n" + "="*80)
-        self.logger.info("GATE INPUT EMBEDDING STATISTICS (300-dim)")
+        self.logger.info(f"GATE INPUT FEATURE STATISTICS "
+                         f"({all_embeddings.size(1)}-dim)")
         self.logger.info("="*80)
         self.logger.info(f"Global Mean: {mean_emb.mean().item():.4f} | Global Std: {std_emb.mean().item():.4f}")
         self.logger.info(f"Min Val: {all_embeddings.min().item():.4f} | Max Val: {all_embeddings.max().item():.4f}")
@@ -314,17 +302,19 @@ class GateTrainer(BaseTrainer):
             true_probs_experts = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
             target_expert = torch.argmax(true_probs_experts, dim=1)
 
+            # (kept only for the mixture-accuracy metric below; not in loss)
             mix_prob_full = torch.zeros_like(probs[0])
             for i in range(3):
                 mix_prob_full += weights[:, i:i+1] * probs[i]
 
-            nll_loss = F.nll_loss(torch.log(mix_prob_full + 1e-8), labels)
-            # Switch Transformer-style auxiliary load-balancing loss, scaled by
-            # alpha=0.01 and N=3 experts: L_aux = alpha * N * sum(mean(w)^2).
-            # Since weights = softmax(gate_logits), this penalizes the sum of
-            # squared mean routing weights and prevents expert starvation.
-            loss_aux = 0.01 * 3.0 * torch.sum(weights.mean(dim=0) ** 2)
-            loss = nll_loss + loss_aux
+            # Soft-oracle supervision: route proportional to each expert's
+            # true-class confidence. This per-sample KL target has a strong,
+            # per-sample gradient and cannot collapse to uniform lazy routing
+            # (unlike mixture NLL, whose gradient ~ 0 when experts agree).
+            tau_oracle = getattr(self.cfg, 'gate_oracle_tau', 0.2)
+            soft_target = F.softmax(true_probs_experts / tau_oracle, dim=1)
+            log_weights = F.log_softmax(gate_logits, dim=1)
+            loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
 
             optimizer.zero_grad()
             loss.backward()
@@ -334,10 +324,7 @@ class GateTrainer(BaseTrainer):
                 self.logger.info(f"🔍 DIAGNOSTIC LOG: EPOCH {epoch+1} | BATCH 0")
                 self.logger.info("="*80)
                 
-                self.logger.info(f"Loss Components -> Total Loss "
-                                 f"(NLL + Aux): {loss.item():.4f}")
-                self.logger.info(f"Aux Load-Balancing Loss: "
-                                 f"{loss_aux.item():.4f}")
+                self.logger.info(f"Loss (soft-oracle KL): {loss.item():.4f}")
                 
                 emb_mean = embeddings.mean().item()
                 emb_std = embeddings.std().item()
@@ -468,10 +455,11 @@ class GateTrainer(BaseTrainer):
             lr=self.cfg.gate_lr,
             weight_decay=self.cfg.gate_weight_decay
         )
+        # Flat LR: the previous warmup schedule kept LR at 0.2-0.8x for the
+        # first 4 epochs, so with early plateau the gate never escaped its
+        # (near-uniform) initialization.
         self.scheduler = optim.lr_scheduler.LambdaLR(
-            self.optimizer,
-            lr_lambda=lambda epoch: (epoch + 1) / 5.0 if epoch < 5
-                                    else 0.5 * (1 + math.cos(math.pi * (epoch - 5) / (self.cfg.gate_epochs - 5)))
+            self.optimizer, lr_lambda=lambda epoch: 1.0
         )
 
     @torch.no_grad()

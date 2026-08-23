@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # inspect_gate_gradients.py
-# Exp 11 diagnostic: NLL vs Switch-aux loss gradient balance on the gate.
+# Diagnostic: soft-oracle KL loss gradient on the gate (single forward/backward).
 #
 # Usage:
 #   python inspect_gate_gradients.py \
@@ -33,18 +33,20 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from imbalanceddl.utils.config import get_args
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
+from imbalanceddl.utils.gate_features import (
+    calibrate_expert_probs, gate_input_dim,
+)
 
 
 class GateGradientInspector:
-    """Compares NLL vs Switch-aux gradient pressure on the gate router.
+    """Inspects soft-oracle KL gradient pressure on the gate router.
 
     Runs one batch through the exact ``train_one_epoch`` forward pass
-    (probability-space embeddings at T=1.0, mixture at the checkpoint
-    temperature) and performs two separate backward passes so the L2 grad
-    norms of ``gate.fc.weight`` can be attributed to each loss individually.
+    (probability+feature embeddings at T=1.0, soft-oracle target at the
+    checkpoint temperature) and backprops the soft-oracle KL loss so the
+    ``gate.fc.weight`` gradient norm and routing weights can be reported.
     """
 
-    AUX_ALPHA = 0.01
     NUM_EXPERTS = 3
 
     def __init__(self, cfg, ce_path, la_path, bs_path, gate_ckpt_path,
@@ -56,7 +58,8 @@ class GateGradientInspector:
         self.model = ExpertEnsemble(
             cfg, device, {'CE': ce_path, 'LA': la_path, 'BS': bs_path}
         )
-        self.gate = GateMLP(input_dim=300, num_experts=3).to(device)
+        self.gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes),
+                            num_experts=3).to(device)
         gate_ckpt = torch.load(gate_ckpt_path, map_location='cpu',
                                weights_only=False)
         self.gate.load_state_dict(gate_ckpt['gate_state_dict'])
@@ -73,22 +76,13 @@ class GateGradientInspector:
         return float(match_tau.group(1)) if match_tau else 1.5
 
     def _get_probs(self, logits_list, T):
-        """Calibrated expert posteriors (same math as get_probs)."""
-        p_ce = F.softmax(logits_list[0] / T, dim=1)
-
-        cls_num_list = torch.tensor(
-            self.cfg.cls_num_list, device=self.device, dtype=torch.float32
+        """Calibrated expert posteriors (shared math)."""
+        return calibrate_expert_probs(
+            logits_list, self.cfg.cls_num_list, self.la_tau, T
         )
-        log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
-        p_la = F.softmax((logits_list[1] + self.la_tau * log_prior) / T, dim=1)
-
-        log_spc = torch.log(cls_num_list + 1e-12)
-        p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
-
-        return [p_ce, p_la, p_bs]
 
     def run(self, images, labels):
-        """Forward one batch, backprop each loss, print gradient norms."""
+        """Forward one batch, backprop the soft-oracle KL loss."""
         images = images.to(self.device, non_blocking=True)
         labels = labels.to(self.device, non_blocking=True)
 
@@ -99,51 +93,39 @@ class GateGradientInspector:
         gate_logits = self.gate(embeddings)
         weights = F.softmax(gate_logits, dim=1)
 
-        mix_prob = torch.zeros_like(probs[0])
-        for i in range(self.NUM_EXPERTS):
-            mix_prob += weights[:, i:i+1] * probs[i]
-
-        nll_loss = F.nll_loss(torch.log(mix_prob + 1e-8), labels)
-        aux_loss = (self.AUX_ALPHA * self.NUM_EXPERTS
-                    * torch.sum(weights.mean(dim=0) ** 2))
-
-        # --- Separate backward passes, zeroing grads in between ---
-        self.gate.zero_grad()
-        nll_loss.backward(retain_graph=True)
-        nll_grad_norm = self.gate.fc.weight.grad.norm().item()
+        B = labels.size(0)
+        true_probs = torch.stack(
+            [p[torch.arange(B), labels] for p in probs], dim=1
+        )
+        tau_oracle = getattr(self.cfg, 'gate_oracle_tau', 0.2)
+        soft_target = F.softmax(true_probs / tau_oracle, dim=1)
+        log_weights = F.log_softmax(gate_logits, dim=1)
+        loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
 
         self.gate.zero_grad()
-        aux_loss.backward()
-        aux_grad_norm = self.gate.fc.weight.grad.norm().item()
+        loss.backward()
+        grad_norm = self.gate.fc.weight.grad.norm().item()
 
-        self._print_report(nll_loss.item(), aux_loss.item(),
-                           nll_grad_norm, aux_grad_norm, weights)
+        self._print_report(loss.item(), grad_norm, weights)
 
-    def _print_report(self, nll_value, aux_value, nll_grad, aux_grad, weights):
+    def _print_report(self, loss_value, grad_norm, weights):
         fc_weight = self.gate.fc.weight.detach()
         avg_weights = weights.mean(dim=0).tolist()
-        ratio = aux_grad / (nll_grad + 1e-12)
 
         print("\n" + "=" * 80)
-        print("GATE GRADIENT INSPECTION (Exp 11): NLL vs AUX")
+        print("GATE GRADIENT INSPECTION: SOFT-ORACLE KL LOSS")
         print("=" * 80)
         print(f"Gate temperature T      : {self.T}")
         print(f"LA tau                  : {self.la_tau}")
         print(f"Batch size              : {weights.size(0)}")
         print("-" * 80)
-        print(f"nll_loss (mixture NLL)  : {nll_value:.6f}")
-        print(f"aux_loss (load-balance) : {aux_value:.6f}")
-        print("-" * 80)
-        print(f"||grad nll|| (fc.weight): {nll_grad:.6f}")
-        print(f"||grad aux|| (fc.weight): {aux_grad:.6f}")
-        print(f"aux/nll grad ratio      : {ratio:.3f}x")
+        print(f"soft-oracle KL loss     : {loss_value:.6f}")
+        print(f"||grad|| (fc.weight)    : {grad_norm:.6f}")
         print("-" * 80)
         print(f"fc.weight mean          : {fc_weight.mean().item():+.6f}")
         print(f"fc.weight std           : {fc_weight.std().item():.6f}")
         print(f"avg routing weights     : CE={avg_weights[0]:.4f} "
               f"| LA={avg_weights[1]:.4f} | BS={avg_weights[2]:.4f}")
-        print("[INFO] fc.weight std -> 0 and weights ~ 0.33/0.33/0.33 "
-              "indicate collapse to uniform routing.")
         print("=" * 80)
 
 

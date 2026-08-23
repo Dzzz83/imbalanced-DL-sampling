@@ -26,6 +26,7 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.plugin_rule import define_groups_2
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
+from imbalanceddl.utils.gate_features import gate_input_dim
 from imbalanceddl.utils.debug.evaluation import (
     extract_data, run_metric_comparisons, run_temperature_comparison,
     run_saves_the_day_checks,
@@ -70,7 +71,8 @@ class LinearWeightPeakAnalyzer:
         print("LINEAR WEIGHT & PEAK LOGIT ANALYSIS")
         print("=" * 80)
         print(f"GateMLP fc.weight shape: {tuple(self.weight.shape)} "
-              "(hidden units x 300 logit inputs)")
+              "(hidden units x D gate inputs: 3x100 probs + 9 conf-stats "
+              "+ 3 agreement)")
         print(f"{'Expert':<6} | {'Input block':<12} | {'Mean':<10} | "
               f"{'Std':<10} | {'Min':<10} | {'Max':<10}")
         print("-" * 70)
@@ -132,7 +134,7 @@ def main():
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
     
-    gate = GateMLP(input_dim=300, num_experts=3).to(device)
+    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes), num_experts=3).to(device)
     print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
     
     # FIX: Added weights_only=False
