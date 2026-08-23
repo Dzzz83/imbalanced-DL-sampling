@@ -16,6 +16,8 @@ import glob
 class ExpertEnsemble(nn.Module):
     def __init__(self, cfg, device):
         super().__init__()
+        self.cfg = cfg
+        self.device = device
         self.experts = nn.ModuleList()
         expert_dir = getattr(cfg, 'expert_ckpt_dir', cfg.root_model)
 
@@ -24,6 +26,7 @@ class ExpertEnsemble(nn.Module):
         la_bias = getattr(cfg, 'la_bias', False)
         la_ls = getattr(cfg, 'la_ls', 0.0)
         la_tau = getattr(cfg, 'la_tau', 1.5)
+        self.la_tau = la_tau
         bs_bias = getattr(cfg, 'bs_bias', False)
         bs_ls = getattr(cfg, 'bs_ls', 0.0)
 
@@ -69,9 +72,28 @@ class ExpertEnsemble(nn.Module):
         for expert in self.experts:
             logits, _ = expert(x)
             logits_list.append(logits)
-        # Logit-level routing: gate sees the concatenated raw 100-dim logits (300-dim)
-        embeddings = torch.cat(logits_list, dim=1)
+        # Probability-space routing: the gate sees calibrated class
+        # probabilities (T=1.0) instead of raw logits. This equalizes the
+        # wildly different CE/LA/BS logit scales and lets the gate "see" the
+        # experts' prior biases (la_tau/log_prior and log_spc), instead of
+        # acting as a naive peak-detector on raw logit magnitude.
+        embeddings = self._calibrated_probs(logits_list, T=1.0)
         return logits_list, embeddings
+
+    def _calibrated_probs(self, logits_list, T=1.0):
+        """Calibrate expert logits to probs (same math as get_probs)."""
+        p_ce = F.softmax(logits_list[0] / T, dim=1)
+
+        cls_num_list = torch.tensor(
+            self.cfg.cls_num_list, device=self.device, dtype=torch.float32
+        )
+        log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
+        p_la = F.softmax((logits_list[1] + self.la_tau * log_prior) / T, dim=1)
+
+        log_spc = torch.log(cls_num_list + 1e-12)
+        p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
+
+        return torch.cat([p_ce, p_la, p_bs], dim=1)
 
 class GateMLP(nn.Module):
     """Non-linear logit router with batch-normalized input standardization.
@@ -296,7 +318,13 @@ class GateTrainer(BaseTrainer):
             for i in range(3):
                 mix_prob_full += weights[:, i:i+1] * probs[i]
 
-            loss = F.nll_loss(torch.log(mix_prob_full + 1e-8), labels)
+            nll_loss = F.nll_loss(torch.log(mix_prob_full + 1e-8), labels)
+            # Switch Transformer-style auxiliary load-balancing loss, scaled by
+            # alpha=0.01 and N=3 experts: L_aux = alpha * N * sum(mean(w)^2).
+            # Since weights = softmax(gate_logits), this penalizes the sum of
+            # squared mean routing weights and prevents expert starvation.
+            loss_aux = 0.01 * 3.0 * torch.sum(weights.mean(dim=0) ** 2)
+            loss = nll_loss + loss_aux
 
             optimizer.zero_grad()
             loss.backward()
@@ -306,7 +334,10 @@ class GateTrainer(BaseTrainer):
                 self.logger.info(f"🔍 DIAGNOSTIC LOG: EPOCH {epoch+1} | BATCH 0")
                 self.logger.info("="*80)
                 
-                self.logger.info(f"Loss Components -> CE Loss: {loss.item():.4f}")
+                self.logger.info(f"Loss Components -> Total Loss "
+                                 f"(NLL + Aux): {loss.item():.4f}")
+                self.logger.info(f"Aux Load-Balancing Loss: "
+                                 f"{loss_aux.item():.4f}")
                 
                 emb_mean = embeddings.mean().item()
                 emb_std = embeddings.std().item()

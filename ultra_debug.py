@@ -36,33 +36,34 @@ from imbalanceddl.utils.debug.diagnostics import print_stage3_plugin_params, pri
 
 
 class LinearWeightPeakAnalyzer:
-    """Diagnoses whether the gate acts as a naive logit peak-detector.
+    """Diagnoses whether the gate acts as a naive probability peak-detector.
 
     Two views into the router:
     1. The GateMLP's first linear layer weight matrix (Linear(300, 64)),
        split into the three 100-dim input blocks per expert: CE = input
        cols 0-99, LA = 100-199, BS = 200-299. Near-uniform weights mean
-       the gate is tracking overall logit magnitude; extreme weights on a
+       the gate is tracking overall input magnitude; extreme weights on a
        few classes mean it is overfitting to spurious per-class signals.
-    2. How often each expert owns the highest per-sample maximum logit
-       ("peak") across the test set, which reveals whether an expert is
-       starved simply because it rarely produces the largest peak.
+    2. How often each expert owns the highest per-sample maximum
+       probability ("peak") across the test set, which reveals whether an
+       expert is starved simply because it rarely produces the largest
+       peak.
     """
 
     EXPERT_NAMES = ("CE", "LA", "BS")
     EXPERT_BLOCKS = ((0, 100), (100, 200), (200, 300))
 
-    def __init__(self, gate, expert_logits):
+    def __init__(self, gate, expert_probs):
         # Mini-MLP fc layer: (hidden_dim, 300) = hidden units x logit inputs.
         # The per-expert blocks live on the 300 input columns (CE 0-99, LA
         # 100-199, BS 200-299), so the column slicing below is unchanged.
         self.weight = gate.fc.weight.detach().cpu()
-        self.expert_logits = expert_logits
+        self.expert_probs = expert_probs
 
     def run(self):
         """Print both diagnostics of the gate's routing behaviour."""
         self._print_linear_weight_analysis()
-        self._print_peak_logit_frequency()
+        self._print_peak_probability_frequency()
 
     def _print_linear_weight_analysis(self):
         print("\n" + "=" * 80)
@@ -83,19 +84,19 @@ class LinearWeightPeakAnalyzer:
         print("[INFO] extreme per-class weights ~ overfitting to spurious "
               "class signals.")
 
-    def _print_peak_logit_frequency(self):
+    def _print_peak_probability_frequency(self):
         peaks = torch.stack(
-            [logits.max(dim=1).values for logits in self.expert_logits],
+            [probs.max(dim=1).values for probs in self.expert_probs],
             dim=1,
         )
         peak_winner = torch.argmax(peaks, dim=1)
         total = peak_winner.numel()
         print("-" * 80)
-        print(f"Highest max-logit peak per sample ({total} test samples):")
+        print(f"Max Probability Frequency ({total} test samples):")
         for i, name in enumerate(self.EXPERT_NAMES):
             count = int((peak_winner == i).sum().item())
             print(f"  {name}: {count}/{total} ({count / total * 100:.1f}%) | "
-                  f"mean peak logit {peaks[:, i].mean():+.4f}")
+                  f"mean peak probability {peaks[:, i].mean():+.4f}")
         print("=" * 80)
 
 
@@ -201,8 +202,12 @@ def main():
 
     # 1. Linear Weight & Peak Logit Analysis
     # Inspects the gate's learned weights and how often each expert wins the
-    # max-logit peak race (is BS starved because it rarely peaks highest?).
-    LinearWeightPeakAnalyzer(gate, (l_ce_test, l_la_test, l_bs_test)).run()
+    # max-probability peak race (is BS starved because it rarely peaks
+    # highest?). The gate routes on calibrated probabilities, so pass the
+    # T-calibrated posteriors (as torch tensors) rather than raw logits.
+    peak_probs = (torch.from_numpy(p_ce_test), torch.from_numpy(p_la_test),
+                  torch.from_numpy(p_bs_test))
+    LinearWeightPeakAnalyzer(gate, peak_probs).run()
 
     # 2. Metrics & Comparisons
     run_metric_comparisons(p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_mix_test, p_unif_test, p_ce_test, p_la_test, p_bs_test, l_ce_test, l_la_test, l_bs_test, labels_tune, labels_test, group_ids_2, cfg, train_dataset)

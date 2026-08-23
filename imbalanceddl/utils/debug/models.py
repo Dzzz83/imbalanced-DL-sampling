@@ -1,3 +1,5 @@
+import os
+import re
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +9,15 @@ from imbalanceddl.net.network import build_model
 class ExpertEnsemble(nn.Module):
     def __init__(self, cfg, device, ckpt_paths):
         super().__init__()
+        self.cfg = cfg
+        self.device = device
+        # la_tau: prefer the config value (as the trainer does); fall back to
+        # parsing the LA checkpoint filename (as ultra_debug.py does).
+        self.la_tau = getattr(cfg, 'la_tau', None)
+        if self.la_tau is None:
+            tau_match = re.search(r't([\d\.]+)',
+                                  os.path.basename(ckpt_paths['LA']))
+            self.la_tau = float(tau_match.group(1)) if tau_match else 1.5
         self.experts = nn.ModuleList()
         for name, path in ckpt_paths.items():
             print(f"[INFO] Loading expert {name} from {path}")
@@ -32,9 +43,26 @@ class ExpertEnsemble(nn.Module):
         for expert in self.experts:
             logits, _ = expert(x)
             logits_list.append(logits)
-        # Logit-level routing: gate sees the concatenated raw 100-dim logits (300-dim)
-        embeddings = torch.cat(logits_list, dim=1)
+        # Probability-space routing (T=1.0), matching the trainer-side
+        # ExpertEnsemble so the gate sees the same input distribution at
+        # evaluation time as it saw during training.
+        embeddings = self._calibrated_probs(logits_list, T=1.0)
         return logits_list, embeddings
+
+    def _calibrated_probs(self, logits_list, T=1.0):
+        """Calibrate expert logits to probs (same math as get_probs)."""
+        p_ce = F.softmax(logits_list[0] / T, dim=1)
+
+        cls_num_list = torch.tensor(
+            self.cfg.cls_num_list, device=self.device, dtype=torch.float32
+        )
+        log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
+        p_la = F.softmax((logits_list[1] + self.la_tau * log_prior) / T, dim=1)
+
+        log_spc = torch.log(cls_num_list + 1e-12)
+        p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
+
+        return torch.cat([p_ce, p_la, p_bs], dim=1)
 
 class GateMLP(nn.Module):
     """Non-linear logit router matching the trainer-side architecture.
