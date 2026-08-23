@@ -56,14 +56,24 @@ class ExpertEnsemble(nn.Module):
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=192, num_experts=3):
+    """Non-linear logit router matching the trainer-side architecture.
+
+    BatchNorm1d(300) -> Linear(300, 64) -> ReLU -> Linear(64, 3).
+    Attribute names (bn, fc, act, fc_out) match ``_gate_trainer.GateMLP``
+    so trained gate state_dicts load unchanged.
+    """
+
+    def __init__(self, input_dim=300, num_experts=3, hidden_dim=64):
         super().__init__()
-        self.norm = nn.LayerNorm(input_dim)
-        self.fc = nn.Linear(input_dim, num_experts)
+        self.bn = nn.BatchNorm1d(input_dim)
+        self.fc = nn.Linear(input_dim, hidden_dim)
+        self.act = nn.ReLU()
+        self.fc_out = nn.Linear(hidden_dim, num_experts)
 
     def forward(self, x):
-        x = self.norm(x)
-        x = self.fc(x)
+        x = self.bn(x)
+        x = self.act(self.fc(x))
+        x = self.fc_out(x)
         return x
 
 def compute_ece(confidences, preds, labels, n_bins=15):
