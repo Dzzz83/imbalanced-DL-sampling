@@ -66,17 +66,15 @@ class ExpertEnsemble(nn.Module):
     @torch.no_grad()
     def forward(self, x):
         logits_list = []
-        embeddings_list = []
         for expert in self.experts:
-            logits, hidden = expert(x)
+            logits, _ = expert(x)
             logits_list.append(logits)
-            embeddings_list.append(hidden)
-        # Shared-backbone routing: gate sees only the CE expert's 64-dim embedding
-        embeddings = embeddings_list[0]
+        # Logit-level routing: gate sees the concatenated raw 100-dim logits (300-dim)
+        embeddings = torch.cat(logits_list, dim=1)
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=64, num_experts=3):
+    def __init__(self, input_dim=300, num_experts=3):
         super().__init__()
         self.norm = nn.LayerNorm(input_dim)
         self.fc = nn.Linear(input_dim, num_experts)
@@ -103,7 +101,7 @@ class GateTrainer(BaseTrainer):
         self._split_dataset()
 
         self.gate = GateMLP(
-            input_dim=64,  # Single CE 64-dim embedding (shared backbone routing)
+            input_dim=300,  # Concatenated raw logits (100-dim x 3 experts)
             num_experts=3
         ).to(self.device)
 
@@ -191,6 +189,7 @@ class GateTrainer(BaseTrainer):
         
         all_preds = []
         all_labels = []
+        all_oracle_matches = []
         
         for images, labels in self.tune_loader:
             images = images.to(self.device, non_blocking=True)
@@ -209,14 +208,24 @@ class GateTrainer(BaseTrainer):
             _, pred = mix_prob.max(dim=1)
             all_preds.extend(pred.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
+
+            B = labels.size(0)
+            true_probs_experts = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
+            target_expert = torch.argmax(true_probs_experts, dim=1)
+            gate_choice = torch.argmax(weights, dim=1)
+            all_oracle_matches.extend(gate_choice.eq(target_expert).cpu().numpy())
             
         all_preds = np.array(all_preds)
         all_labels = np.array(all_labels)
         
         # Compute strict Balanced Accuracy
         bal_acc = np.mean([np.mean(all_preds[all_labels == c] == c) for c in range(self.cfg.num_classes) if np.sum(all_labels == c) > 0]) * 100
-        
-        return bal_acc
+
+        # Oracle Match Accuracy: fraction of samples where the gate's routing
+        # choice equals the oracle expert (highest true-class probability).
+        oracle_match_acc = np.mean(all_oracle_matches) * 100
+
+        return bal_acc, oracle_match_acc
 
     @torch.no_grad()
     def log_feature_statistics(self):
@@ -236,7 +245,7 @@ class GateTrainer(BaseTrainer):
         std_emb = all_embeddings.std(dim=0)
         
         self.logger.info("\n" + "="*80)
-        self.logger.info("GATE INPUT EMBEDDING STATISTICS (64-dim)")
+        self.logger.info("GATE INPUT EMBEDDING STATISTICS (300-dim)")
         self.logger.info("="*80)
         self.logger.info(f"Global Mean: {mean_emb.mean().item():.4f} | Global Std: {std_emb.mean().item():.4f}")
         self.logger.info(f"Min Val: {all_embeddings.min().item():.4f} | Max Val: {all_embeddings.max().item():.4f}")
@@ -360,9 +369,9 @@ class GateTrainer(BaseTrainer):
                     train_loss, train_gate_acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
                     
                     # Evaluate validation mixture accuracy every epoch
-                    val_mixture_acc = self.validate(T)
+                    val_mixture_acc, val_oracle_match = self.validate(T)
                     
-                    print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={train_loss:.4f}, train_gate_acc={train_gate_acc:.2f}%, val_mixture_acc={val_mixture_acc:.2f}%")
+                    print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={train_loss:.4f}, train_gate_acc={train_gate_acc:.2f}%, val_mixture_acc={val_mixture_acc:.2f}%, oracle_match={val_oracle_match:.2f}%")
 
                     if val_mixture_acc > best_val_acc:
                         best_val_acc = val_mixture_acc

@@ -49,12 +49,10 @@ class ExpertEnsemble(nn.Module):
     @torch.no_grad()
     def forward(self, x):
         logits_list = []
-        embeddings_list = []
         for expert in self.experts:
-            logits, hidden = expert(x)
+            logits, _ = expert(x)
             logits_list.append(logits)
-            embeddings_list.append(hidden)
-        embeddings = embeddings_list[0]
+        embeddings = torch.cat(logits_list, dim=1)
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
@@ -136,7 +134,7 @@ def main():
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
     
-    gate = GateMLP(input_dim=64, num_experts=3).to(device)
+    gate = GateMLP(input_dim=300, num_experts=3).to(device)
     
     print("\n[INFO] Caching expert logits and embeddings on test set...")
     all_logits = [[], [], []]

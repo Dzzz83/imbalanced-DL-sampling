@@ -29,13 +29,11 @@ class ExpertEnsemble(nn.Module):
     @torch.no_grad()
     def forward(self, x):
         logits_list = []
-        embeddings_list = []
         for expert in self.experts:
-            logits, hidden = expert(x)
+            logits, _ = expert(x)
             logits_list.append(logits)
-            embeddings_list.append(hidden)
-        # Shared-backbone routing: gate sees only the CE expert's 64-dim embedding
-        embeddings = embeddings_list[0]
+        # Logit-level routing: gate sees the concatenated raw 100-dim logits (300-dim)
+        embeddings = torch.cat(logits_list, dim=1)
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
