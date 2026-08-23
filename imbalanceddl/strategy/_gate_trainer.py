@@ -74,14 +74,30 @@ class ExpertEnsemble(nn.Module):
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=300, num_experts=3):
+    """Non-linear logit router with batch-normalized input standardization.
+
+    Replaces the naive ``LayerNorm -> Linear`` peak-detector. The hidden
+    ReLU layer lets the gate suppress overconfident-but-wrong experts
+    conditionally, and BatchNorm1d standardizes the 300-dim logit scales
+    across the batch (CE/LA/BS can live on very different magnitudes).
+
+    Architecture: BatchNorm1d(300) -> Linear(300, 64) -> ReLU -> Linear(64, 3).
+
+    ``fc`` (hidden projection) keeps the legacy attribute name so
+    ``GateTrainer.train_one_epoch`` can still log ``gate.fc.weight.grad``.
+    """
+
+    def __init__(self, input_dim=300, num_experts=3, hidden_dim=64):
         super().__init__()
-        self.norm = nn.LayerNorm(input_dim)
-        self.fc = nn.Linear(input_dim, num_experts)
+        self.bn = nn.BatchNorm1d(input_dim)
+        self.fc = nn.Linear(input_dim, hidden_dim)
+        self.act = nn.ReLU()
+        self.fc_out = nn.Linear(hidden_dim, num_experts)
 
     def forward(self, x):
-        x = self.norm(x)
-        x = self.fc(x)
+        x = self.bn(x)
+        x = self.act(self.fc(x))
+        x = self.fc_out(x)
         return x
 
 class GateTrainer(BaseTrainer):

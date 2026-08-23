@@ -39,11 +39,11 @@ class LinearWeightPeakAnalyzer:
     """Diagnoses whether the gate acts as a naive logit peak-detector.
 
     Two views into the router:
-    1. The GateMLP linear layer's weight matrix (Linear(300, 3)), split into
-       the three 100-dim input blocks per expert: CE = input cols 0-99,
-       LA = 100-199, BS = 200-299. Near-uniform weights mean the gate is
-       tracking overall logit magnitude; extreme weights on a few classes
-       mean it is overfitting to spurious per-class signals.
+    1. The GateMLP's first linear layer weight matrix (Linear(300, 64)),
+       split into the three 100-dim input blocks per expert: CE = input
+       cols 0-99, LA = 100-199, BS = 200-299. Near-uniform weights mean
+       the gate is tracking overall logit magnitude; extreme weights on a
+       few classes mean it is overfitting to spurious per-class signals.
     2. How often each expert owns the highest per-sample maximum logit
        ("peak") across the test set, which reveals whether an expert is
        starved simply because it rarely produces the largest peak.
@@ -53,7 +53,9 @@ class LinearWeightPeakAnalyzer:
     EXPERT_BLOCKS = ((0, 100), (100, 200), (200, 300))
 
     def __init__(self, gate, expert_logits):
-        # Linear(300, 3): rows = experts, columns = the 300 logit inputs.
+        # Mini-MLP fc layer: (hidden_dim, 300) = hidden units x logit inputs.
+        # The per-expert blocks live on the 300 input columns (CE 0-99, LA
+        # 100-199, BS 200-299), so the column slicing below is unchanged.
         self.weight = gate.fc.weight.detach().cpu()
         self.expert_logits = expert_logits
 
@@ -67,7 +69,7 @@ class LinearWeightPeakAnalyzer:
         print("LINEAR WEIGHT & PEAK LOGIT ANALYSIS")
         print("=" * 80)
         print(f"GateMLP fc.weight shape: {tuple(self.weight.shape)} "
-              "(experts x 300 logit inputs)")
+              "(hidden units x 300 logit inputs)")
         print(f"{'Expert':<6} | {'Input block':<12} | {'Mean':<10} | "
               f"{'Std':<10} | {'Min':<10} | {'Max':<10}")
         print("-" * 70)
