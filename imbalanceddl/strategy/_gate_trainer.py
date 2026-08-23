@@ -71,12 +71,12 @@ class ExpertEnsemble(nn.Module):
             logits, hidden = expert(x)
             logits_list.append(logits)
             embeddings_list.append(hidden)
-        # Concatenate raw 64-dim embeddings from 3 experts -> 192-dim
-        embeddings = torch.cat(embeddings_list, dim=1)
+        # Shared-backbone routing: gate sees only the CE expert's 64-dim embedding
+        embeddings = embeddings_list[0]
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    def __init__(self, input_dim=192, num_experts=3):
+    def __init__(self, input_dim=64, num_experts=3):
         super().__init__()
         self.norm = nn.LayerNorm(input_dim)
         self.fc = nn.Linear(input_dim, num_experts)
@@ -103,7 +103,7 @@ class GateTrainer(BaseTrainer):
         self._split_dataset()
 
         self.gate = GateMLP(
-            input_dim=192,  # Updated to 64 * 3
+            input_dim=64,  # Single CE 64-dim embedding (shared backbone routing)
             num_experts=3
         ).to(self.device)
 
@@ -236,7 +236,7 @@ class GateTrainer(BaseTrainer):
         std_emb = all_embeddings.std(dim=0)
         
         self.logger.info("\n" + "="*80)
-        self.logger.info("GATE INPUT EMBEDDING STATISTICS (192-dim)")
+        self.logger.info("GATE INPUT EMBEDDING STATISTICS (64-dim)")
         self.logger.info("="*80)
         self.logger.info(f"Global Mean: {mean_emb.mean().item():.4f} | Global Std: {std_emb.mean().item():.4f}")
         self.logger.info(f"Min Val: {all_embeddings.min().item():.4f} | Max Val: {all_embeddings.max().item():.4f}")

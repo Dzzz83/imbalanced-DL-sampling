@@ -136,7 +136,7 @@ def main():
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
     
-    gate = GateMLP(input_dim=192, num_experts=3).to(device)
+    gate = GateMLP(input_dim=64, num_experts=3).to(device)
     
     print("\n[INFO] Caching expert logits and embeddings on test set...")
     all_logits = [[], [], []]
