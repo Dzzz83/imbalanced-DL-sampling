@@ -34,8 +34,8 @@ class ExpertEnsemble(nn.Module):
             logits, hidden = expert(x)
             logits_list.append(logits)
             embeddings_list.append(hidden)
-        # Concatenate raw 64-dim embeddings from 3 experts -> 192-dim
-        embeddings = torch.cat(embeddings_list, dim=1)
+        # Shared-backbone routing: gate sees only the CE expert's 64-dim embedding
+        embeddings = embeddings_list[0]
         return logits_list, embeddings
 
 class GateMLP(nn.Module):

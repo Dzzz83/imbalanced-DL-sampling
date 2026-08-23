@@ -54,7 +54,7 @@ class ExpertEnsemble(nn.Module):
             logits, hidden = expert(x)
             logits_list.append(logits)
             embeddings_list.append(hidden)
-        embeddings = torch.cat(embeddings_list, dim=1)
+        embeddings = embeddings_list[0]
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
