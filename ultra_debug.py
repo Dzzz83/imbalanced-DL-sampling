@@ -34,6 +34,69 @@ from imbalanceddl.utils.debug.evaluation import (
 from imbalanceddl.utils.debug.metrics import compute_all_metrics
 from imbalanceddl.utils.debug.diagnostics import print_stage3_plugin_params, print_expert_agreement, print_per_class_extreme_routing
 
+
+class LinearWeightPeakAnalyzer:
+    """Diagnoses whether the gate acts as a naive logit peak-detector.
+
+    Two views into the router:
+    1. The GateMLP linear layer's weight matrix (Linear(300, 3)), split into
+       the three 100-dim input blocks per expert: CE = input cols 0-99,
+       LA = 100-199, BS = 200-299. Near-uniform weights mean the gate is
+       tracking overall logit magnitude; extreme weights on a few classes
+       mean it is overfitting to spurious per-class signals.
+    2. How often each expert owns the highest per-sample maximum logit
+       ("peak") across the test set, which reveals whether an expert is
+       starved simply because it rarely produces the largest peak.
+    """
+
+    EXPERT_NAMES = ("CE", "LA", "BS")
+    EXPERT_BLOCKS = ((0, 100), (100, 200), (200, 300))
+
+    def __init__(self, gate, expert_logits):
+        # Linear(300, 3): rows = experts, columns = the 300 logit inputs.
+        self.weight = gate.fc.weight.detach().cpu()
+        self.expert_logits = expert_logits
+
+    def run(self):
+        """Print both diagnostics of the gate's routing behaviour."""
+        self._print_linear_weight_analysis()
+        self._print_peak_logit_frequency()
+
+    def _print_linear_weight_analysis(self):
+        print("\n" + "=" * 80)
+        print("LINEAR WEIGHT & PEAK LOGIT ANALYSIS")
+        print("=" * 80)
+        print(f"GateMLP fc.weight shape: {tuple(self.weight.shape)} "
+              "(experts x 300 logit inputs)")
+        print(f"{'Expert':<6} | {'Input block':<12} | {'Mean':<10} | "
+              f"{'Std':<10} | {'Min':<10} | {'Max':<10}")
+        print("-" * 70)
+        for name, (start, end) in zip(self.EXPERT_NAMES, self.EXPERT_BLOCKS):
+            block = self.weight[:, start:end]
+            print(f"{name:<6} | {start}-{end - 1:<9} | "
+                  f"{block.mean():+.6f} | {block.std():.6f} | "
+                  f"{block.min():+.6f} | {block.max():+.6f}")
+        print("-" * 70)
+        print("[INFO] Uniform weights ~ tracking overall logit magnitude;")
+        print("[INFO] extreme per-class weights ~ overfitting to spurious "
+              "class signals.")
+
+    def _print_peak_logit_frequency(self):
+        peaks = torch.stack(
+            [logits.max(dim=1).values for logits in self.expert_logits],
+            dim=1,
+        )
+        peak_winner = torch.argmax(peaks, dim=1)
+        total = peak_winner.numel()
+        print("-" * 80)
+        print(f"Highest max-logit peak per sample ({total} test samples):")
+        for i, name in enumerate(self.EXPERT_NAMES):
+            count = int((peak_winner == i).sum().item())
+            print(f"  {name}: {count}/{total} ({count / total * 100:.1f}%) | "
+                  f"mean peak logit {peaks[:, i].mean():+.4f}")
+        print("=" * 80)
+
+
 def main():
     cfg = get_args()
     if cfg.dataset == 'cifar100':
@@ -134,10 +197,15 @@ def main():
               "(healthy scale).")
     print("=" * 80)
 
-    # 1. Metrics & Comparisons
+    # 1. Linear Weight & Peak Logit Analysis
+    # Inspects the gate's learned weights and how often each expert wins the
+    # max-logit peak race (is BS starved because it rarely peaks highest?).
+    LinearWeightPeakAnalyzer(gate, (l_ce_test, l_la_test, l_bs_test)).run()
+
+    # 2. Metrics & Comparisons
     run_metric_comparisons(p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_mix_test, p_unif_test, p_ce_test, p_la_test, p_bs_test, l_ce_test, l_la_test, l_bs_test, labels_tune, labels_test, group_ids_2, cfg, train_dataset)
     
-    # 2. Temperature Comparison
+    # 3. Temperature Comparison
     # m_unif / m_method = metrics of the Uniform and Gate-routed Method
     # posteriors at the gate temperature T (p_unif_test / p_mix_test were
     # extracted by extract_data at T). They fill the "Unif @ T={T}" and
@@ -147,23 +215,23 @@ def main():
     m_method = compute_all_metrics(p_mix_test, labels_test, None, cfg, train_dataset)
     run_temperature_comparison(T, l_ce_test, l_la_test, l_bs_test, w_test, k, log_prior, log_spc, labels_test, cfg, train_dataset, m_unif, m_method)
     
-    # 3. Routing Statistics
+    # 4. Routing Statistics
     label_groups_test = group_ids_2[labels_test]
     head_mask = (label_groups_test == 0)
     tail_mask = (label_groups_test == 1)
     print_per_class_extreme_routing(w_test, labels_test, cfg)
     
-    # 4. LA Saves the Day & Raw Prob Inspection
+    # 5. LA Saves the Day & Raw Prob Inspection
     la_saves_day_indices = run_saves_the_day_checks(p_ce_test, p_la_test, p_bs_test, w_test, labels_test, label_groups_test, k)
     run_raw_prob_inspection(la_saves_day_indices, p_ce_test, p_la_test, p_bs_test, w_test, labels_test)
     
-    # 5. Oracle Diagnostic
+    # 6. Oracle Diagnostic
     run_oracle_diagnostic(p_ce_test, p_la_test, p_bs_test, p_mix_test, labels_test, head_mask, tail_mask, cfg, train_dataset)
     
-    # 6. Stage 3 Plugin Parameters
+    # 7. Stage 3 Plugin Parameters
     print_stage3_plugin_params(p_mix_tune, labels_tune, group_ids_2, cfg)
     
-    # 7. Expert Correlation & Sharpening Check
+    # 8. Expert Correlation & Sharpening Check
     print_expert_agreement(p_mix_test, np.argmax(p_ce_test, axis=1), np.argmax(p_la_test, axis=1), np.argmax(p_bs_test, axis=1), labels_test)
     
     agreement = np.mean((np.argmax(p_ce_test, axis=1) == np.argmax(p_la_test, axis=1)) & (np.argmax(p_la_test, axis=1) == np.argmax(p_bs_test, axis=1)))
