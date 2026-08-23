@@ -50,10 +50,12 @@ def extract_data(model, gate, loader, T, la_tau, log_prior, log_spc, k, device):
         
     p_uniform = (adj_probs[0] + adj_probs[1] + adj_probs[2]) / 3.0
     
-    return (p_mix.cpu().numpy(), p_uniform.cpu().numpy(), 
-            adj_probs[0].cpu().numpy(), adj_probs[1].cpu().numpy(), adj_probs[2].cpu().numpy(), 
-            all_logits[0].cpu(), all_logits[1].cpu(), all_logits[2].cpu(), 
-            np.concatenate(all_weights, axis=0), labels.cpu().numpy())
+    return (p_mix.cpu().numpy(), p_uniform.cpu().numpy(),
+            adj_probs[0].cpu().numpy(), adj_probs[1].cpu().numpy(),
+            adj_probs[2].cpu().numpy(),
+            all_logits[0].cpu(), all_logits[1].cpu(), all_logits[2].cpu(),
+            np.concatenate(all_weights, axis=0), labels.cpu().numpy(),
+            gate_logits.cpu())
 
 def run_metric_comparisons(p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_mix_test, p_unif_test, p_ce_test, p_la_test, p_bs_test, l_ce_test, l_la_test, l_bs_test, labels_tune, labels_test, group_ids_2, cfg, train_dataset):
     print("\n[INFO] Computing AURC & Calibration metrics...")
@@ -145,38 +147,6 @@ def run_temperature_comparison(T, l_ce_test, l_la_test, l_bs_test, w_test, k, lo
     print_T_row("tail-ECE (lower is better)", m_unif_T1['tail_ece'], m_unif['tail_ece'], m_method_T1['tail_ece'], m_method['tail_ece'])
     print_T_row("Bal Acc (higher is better)", m_unif_T1['bal_acc'], m_unif['bal_acc'], m_method_T1['bal_acc'], m_method['bal_acc'])
     print("="*110)
-
-def run_sample_by_sample_output(head_mask, tail_mask, p_mix_test, p_ce_test, p_la_test, p_bs_test, w_test, labels_test, label_groups_test, k):
-    print("\n" + "="*100)
-    print("SAMPLE-BY-SAMPLE GATE OUTPUTS (10 Head, 10 Tail)")
-    print("="*100)
-    
-    head_idxs = np.where(head_mask)[0][:10]
-    tail_idxs = np.where(tail_mask)[0][:10]
-    
-    print(f"{'Idx':<6} | {'Group':<5} | {'True Label':<4} | {'Prediction':<8} | {'CE_Pred':<8} | {'LA_Pred':<8} | {'BS_Pred':<8} | {'w_CE':<6} | {'w_LA':<6} | {'w_BS':<6} | Top-k Chosen")
-    print("-"*100)
-    
-    for i in np.concatenate([head_idxs, tail_idxs]):
-        w = w_test[i]
-        topk_idx = np.argsort(w)[::-1][:k]
-        
-        mix_pred = np.argmax(p_mix_test[i])
-        ce_pred = np.argmax(p_ce_test[i])
-        la_pred = np.argmax(p_la_test[i])
-        bs_pred = np.argmax(p_bs_test[i])
-        
-        true_label = labels_test[i]
-        group_name = "Head" if label_groups_test[i] == 0 else "Tail"
-        
-        experts_chosen = []
-        if 0 in topk_idx: experts_chosen.append("CE")
-        if 1 in topk_idx: experts_chosen.append("LA")
-        if 2 in topk_idx: experts_chosen.append("BS")
-        experts_chosen_str = ",".join(experts_chosen)
-        
-        print(f"{i:<6} | {group_name:<5} | {true_label:<4} | {mix_pred:<8} | {ce_pred:<8} | {la_pred:<8} | {bs_pred:<8} | {w[0]:<6.3f} | {w[1]:<6.3f} | {w[2]:<6.3f} | {experts_chosen_str}")
-    print("="*100)
 
 def run_saves_the_day_checks(p_ce_test, p_la_test, p_bs_test, w_test, labels_test, label_groups_test, k):
     print("\n" + "="*100)

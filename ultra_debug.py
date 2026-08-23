@@ -28,7 +28,7 @@ from imbalanceddl.utils.plugin_rule import define_groups_2
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
 from imbalanceddl.utils.debug.evaluation import (
     extract_data, run_metric_comparisons, run_temperature_comparison,
-    run_sample_by_sample_output, run_saves_the_day_checks, 
+    run_saves_the_day_checks,
     run_raw_prob_inspection, run_oracle_diagnostic
 )
 from imbalanceddl.utils.debug.metrics import compute_all_metrics
@@ -90,13 +90,50 @@ def main():
 
     print("\n[INFO] Extracting posteriors...")
     (p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_bs_tune, 
-     l_ce_tune, l_la_tune, l_bs_tune, w_tune, labels_tune) = extract_data(model, gate, tune_loader, T, la_tau, log_prior, log_spc, k, device)
+     l_ce_tune, l_la_tune, l_bs_tune, w_tune, labels_tune,
+     gate_logits_tune) = extract_data(model, gate, tune_loader, T, la_tau, log_prior, log_spc, k, device)
      
     (p_mix_test, p_unif_test, p_ce_test, p_la_test, p_bs_test, 
-     l_ce_test, l_la_test, l_bs_test, w_test, labels_test) = extract_data(model, gate, test_loader, T, la_tau, log_prior, log_spc, k, device)
+     l_ce_test, l_la_test, l_bs_test, w_test, labels_test,
+     gate_logits_test) = extract_data(model, gate, test_loader, T, la_tau, log_prior, log_spc, k, device)
 
     group_ids_2 = define_groups_2(cfg.cls_num_list)
-    
+
+    # 0. Tensor-Level Health Check
+    # Earliest signal: are the 300-dim logit inputs (CE, LA, BS) on wildly
+    # different scales, and are the gate's pre-softmax activations collapsing
+    # toward zero? Either would bias the router.
+    print("\n" + "=" * 80)
+    print("TENSOR-LEVEL HEALTH CHECK (Scale & Collapse Diagnosis)")
+    print("=" * 80)
+
+    logit_stds = []
+    for name, logits in (("CE", l_ce_test), ("LA", l_la_test),
+                         ("BS", l_bs_test)):
+        logit_stds.append(logits.std().item())
+        print(f"{name} raw logits: mean={logits.mean().item():+.4f} | "
+              f"std={logits.std().item():.4f}")
+        print(f"  [min={logits.min().item():+.3f}, "
+              f"max={logits.max().item():+.3f}]")
+    print(f"Logit scale ratio (max std / min std): "
+          f"{max(logit_stds) / min(logit_stds):.2f}x")
+
+    print("-" * 80)
+    print("Gate pre-softmax activations (gate_logits):")
+    print(f"  overall: mean={gate_logits_test.mean().item():+.6f} | "
+          f"std={gate_logits_test.std().item():.6f} | "
+          f"max_abs={gate_logits_test.abs().max().item():.6f}")
+    for i, name in enumerate(["CE", "LA", "BS"]):
+        col = gate_logits_test[:, i]
+        print(f"  expert {name}: mean={col.mean().item():+.6f} | "
+              f"std={col.std().item():.6f}")
+    if gate_logits_test.abs().max().item() < 1e-3:
+        print("[WARN] Gate pre-softmax activations collapsed toward zero.")
+    else:
+        print("[INFO] Gate pre-softmax activations are not collapsed "
+              "(healthy scale).")
+    print("=" * 80)
+
     # 1. Metrics & Comparisons
     run_metric_comparisons(p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_mix_test, p_unif_test, p_ce_test, p_la_test, p_bs_test, l_ce_test, l_la_test, l_bs_test, labels_tune, labels_test, group_ids_2, cfg, train_dataset)
     
@@ -111,25 +148,22 @@ def main():
     run_temperature_comparison(T, l_ce_test, l_la_test, l_bs_test, w_test, k, log_prior, log_spc, labels_test, cfg, train_dataset, m_unif, m_method)
     
     # 3. Routing Statistics
-    print_per_class_extreme_routing(w_test, labels_test, cfg)
-    
-    # 4. Sample-by-Sample Output
     label_groups_test = group_ids_2[labels_test]
     head_mask = (label_groups_test == 0)
     tail_mask = (label_groups_test == 1)
-    run_sample_by_sample_output(head_mask, tail_mask, p_mix_test, p_ce_test, p_la_test, p_bs_test, w_test, labels_test, label_groups_test, k)
+    print_per_class_extreme_routing(w_test, labels_test, cfg)
     
-    # 5. LA Saves the Day & Raw Prob Inspection
+    # 4. LA Saves the Day & Raw Prob Inspection
     la_saves_day_indices = run_saves_the_day_checks(p_ce_test, p_la_test, p_bs_test, w_test, labels_test, label_groups_test, k)
     run_raw_prob_inspection(la_saves_day_indices, p_ce_test, p_la_test, p_bs_test, w_test, labels_test)
     
-    # 6. Oracle Diagnostic
+    # 5. Oracle Diagnostic
     run_oracle_diagnostic(p_ce_test, p_la_test, p_bs_test, p_mix_test, labels_test, head_mask, tail_mask, cfg, train_dataset)
     
-    # 7. Stage 3 Plugin Parameters
+    # 6. Stage 3 Plugin Parameters
     print_stage3_plugin_params(p_mix_tune, labels_tune, group_ids_2, cfg)
     
-    # 8. Expert Correlation & Sharpening Check
+    # 7. Expert Correlation & Sharpening Check
     print_expert_agreement(p_mix_test, np.argmax(p_ce_test, axis=1), np.argmax(p_la_test, axis=1), np.argmax(p_bs_test, axis=1), labels_test)
     
     agreement = np.mean((np.argmax(p_ce_test, axis=1) == np.argmax(p_la_test, axis=1)) & (np.argmax(p_la_test, axis=1) == np.argmax(p_bs_test, axis=1)))
