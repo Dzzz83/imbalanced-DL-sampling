@@ -121,8 +121,10 @@ def main():
                   'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths,
                            expert_T=expert_temps,
-                           normalize_blocks=recipe['norm_blocks']).to(device)
-    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes),
+                           normalize_blocks=recipe['norm_blocks'],
+                           freq_features=recipe['freq_features']).to(device)
+    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes,
+                                            freq_features=recipe['freq_features']),
                    num_experts=3).to(device)
     gate.load_state_dict(gate_ckpt['gate_state_dict'])
     gate.eval()
@@ -149,7 +151,10 @@ def main():
     def get_weights(logits, tg):
         probs = calibrate_expert_probs(logits, cfg.cls_num_list, la_tau,
                                        T=1.0, per_expert_T=expert_temps)
-        emb = build_gate_input(probs, normalize_blocks=recipe['norm_blocks'])
+        emb = build_gate_input(
+            probs, normalize_blocks=recipe['norm_blocks'],
+            cls_num_list=cfg.cls_num_list if recipe['freq_features'] else None,
+        )
         g = gate(emb.to(device)).cpu()
         return F.softmax(g / tg, dim=1), probs
 
@@ -340,6 +345,53 @@ def main():
           "=> confident noise routing on head.")
 
     print("\n" + "=" * 90)
+    print("H6: CLASS/GROUP-CONDITIONAL RULE BENCHMARK (no MLP, tune-estimated)")
+    print("=" * 90)
+    print("[INFO] Rule: for each frequency group, weights = softmax of the "
+          "group's per-expert accuracy on tune; applied per sample from the "
+          "uniform mixture's predicted class. LA alone gets Low 12.21 — if "
+          "this rule beats the MLP gate, per-class priors are the better "
+          "policy.")
+    with torch.no_grad():
+        probs_tune = calibrate_expert_probs(
+            tune_logits, cfg.cls_num_list, la_tau, T=1.0,
+            per_expert_T=expert_temps)
+    y_t = tune_labels.numpy()
+    p_tune_np = [p.numpy() for p in probs_tune]
+    # Per-expert accuracy per group on tune.
+    g_t = group_ids[y_t]
+    acc_g = np.zeros((3, len(np.unique(group_ids))))
+    for j in range(3):
+        preds_j = p_tune_np[j].argmax(1)
+        for g in np.unique(group_ids):
+            m = g_t == g
+            acc_g[j, g] = np.mean(preds_j[m] == y_t[m]) if m.sum() else 0.0
+    for g in np.unique(group_ids):
+        print(f"  tune acc {GROUP_NAMES[g]}: CE={acc_g[0, g]:.3f} "
+              f"LA={acc_g[1, g]:.3f} BS={acc_g[2, g]:.3f}")
+    w_group = np.exp(acc_g.T)          # (G, 3) softmax over experts
+    w_group = w_group / w_group.sum(1, keepdims=True)
+    # Apply on test via the uniform mixture's predicted class.
+    p_unif_np = p_unif.numpy()
+    pred_unif = p_unif_np.argmax(1)
+    g_pred = group_ids[pred_unif]
+    w_rule = w_group[g_pred]
+    for k in [3, k_recipe]:
+        p_r = build_mixture(test_logits,
+                            torch.from_numpy(w_rule).float(),
+                            cfg.cls_num_list, la_tau, T=T,
+                            per_expert_T=expert_temps, k=k, space=space,
+                            weight_floor=0.0, mix_temperature=1.0)
+        accs = group_accs(p_r, test_labels, group_ids)
+        print(f"  group-rule (k={k}): bal {bal_acc(p_r, test_labels):.2f} "
+              f"| {fmt_group(accs)}")
+    print(f"  MLP gate           : bal {bal_acc(p_gated, test_labels):.2f} "
+          f"| {fmt_group(group_accs(p_gated, test_labels, group_ids))}")
+    print("[READ] If the group-rule beats the MLP gate, replace per-sample "
+          "routing with group-conditional weights (or add class-frequency "
+          "features so the MLP can learn the same rule — round-3 fix).")
+
+    print("\n" + "=" * 90)
     print("SUMMARY / DECISION RULES")
     print("=" * 90)
     print("1. H1: k=3 better than k=2 on Head  -> set routing_sparsity: 3")
@@ -349,6 +401,8 @@ def main():
     print("     regularize (2) or switch target to 'correctness'")
     print("5. H5c: ceiling close to uniform     -> stop tuning the gate; invest")
     print("     in features (penultimate) or two-stage routing instead")
+    print("6. H6: group-rule beats the MLP      -> use group-conditional weights")
+    print("     and/or enable gate_freq_features (round-3 fix)")
 
 
 if __name__ == "__main__":

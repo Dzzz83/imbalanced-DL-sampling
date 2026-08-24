@@ -29,6 +29,7 @@ def recipe_from_checkpoint(gate_ckpt, cfg, la_tau=None, T=None):
         'gate_temp': gate_ckpt.get('gate_temp', 1.0),
         'mix_temp': gate_ckpt.get('mix_temp', 1.0),
         'norm_blocks': gate_ckpt.get('norm_blocks', True),
+        'freq_features': gate_ckpt.get('freq_features', False),
         'cls_num_list': list(cfg.cls_num_list),
     }
 
@@ -161,7 +162,7 @@ def run_temperature_comparison(recipe, l_ce_test, l_la_test, l_bs_test,
     print("="*110)
 
     raw_logits = [l_ce_test, l_la_test, l_bs_test]
-    g = torch.tensor(gate_logits_test)
+    g = gate_logits_test.detach().clone()
 
     def mix_with(Tg, gate_temp, mix_temp):
         weights = F.softmax(g / gate_temp, dim=1)

@@ -196,11 +196,15 @@ class FakeEnsemble(nn.Module):
         self.la_tau = getattr(cfg, 'la_tau', 1.5)
         self.expert_T = [1.0, 1.0, 1.0]
         self.normalize_blocks = True
+        self.freq_features = getattr(cfg, 'gate_freq_features', False)
 
-    def set_gate_params(self, expert_T=None, normalize_blocks=True):
+    def set_gate_params(self, expert_T=None, normalize_blocks=True,
+                        freq_features=None):
         if expert_T is not None:
             self.expert_T = list(expert_T)
         self.normalize_blocks = bool(normalize_blocks)
+        if freq_features is not None:
+            self.freq_features = bool(freq_features)
 
     @torch.no_grad()
     def forward(self, x):
@@ -215,7 +219,10 @@ class FakeEnsemble(nn.Module):
             z, self.cfg.cls_num_list, self.la_tau, T=1.0,
             per_expert_T=self.expert_T,
         )
-        embeddings = build_gate_input(probs, normalize_blocks=self.normalize_blocks)
+        embeddings = build_gate_input(
+            probs, normalize_blocks=self.normalize_blocks,
+            cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
+        )
         return z, embeddings
 
 
@@ -272,11 +279,14 @@ def make_cfg(root_model, target_mode, mix_space, seed=42, round2=False):
     cfg.gate_dropout = 0.1 if round2 else 0.0
     cfg.gate_kl_uniform = 2.0 if round2 else 0.0
     cfg.gate_disagree_weight = bool(round2)
+    # Round-3 flags (round2 may be a dict with 'freq': True).
+    cfg.gate_freq_features = bool(isinstance(round2, dict) and round2.get('freq', False))
     return cfg
 
 
 def run_e2e_case(target_mode, mix_space, tmp_root, round2=False):
-    tag = f"{target_mode}_{mix_space}" + ("_r2" if round2 else "")
+    tag = f"{target_mode}_{mix_space}" + ("_r2" if round2 else "") + (
+        "_freq" if isinstance(round2, dict) and round2.get('freq') else "")
     out_dir = os.path.join(tmp_root, tag)
     os.makedirs(out_dir, exist_ok=True)
     cfg = make_cfg(out_dir, target_mode, mix_space, round2=round2)
@@ -322,34 +332,38 @@ def run_e2e_case(target_mode, mix_space, tmp_root, round2=False):
     return trainer
 
 
-def test_eval_recipe_path(tmp_root):
+def test_eval_recipe_path(tmp_root, tag='mix_nll_logit'):
     """Simulate the verify_stage2 / ultra_debug evaluation path on a real
     saved checkpoint: recipe_from_checkpoint -> model + gate -> extract_data
     -> mixture sanity (this exercises imbalanceddl.utils.debug.evaluation)."""
-    print("\n[6] eval-script recipe path (verify_stage2/ultra_debug logic)")
+    print(f"\n[6] eval-script recipe path ({tag})")
     from imbalanceddl.utils.debug.evaluation import extract_data, recipe_from_checkpoint
 
-    ckpt_dir = os.path.join(tmp_root, 'mix_nll_logit')
+    ckpt_dir = os.path.join(tmp_root, tag)
     ckpt_files = [f for f in sorted(os.listdir(ckpt_dir)) if f.endswith('.pth')]
     if not ckpt_files:
-        check("eval path: checkpoint available", False)
+        check(f"eval path ({tag}): checkpoint available", False)
         return
     ck_path = os.path.join(ckpt_dir, ckpt_files[0])
     ck = torch.load(ck_path, map_location='cpu', weights_only=False)
     cfg = make_cfg(ckpt_dir, 'mix_nll', 'logit')
     recipe = recipe_from_checkpoint(ck, cfg, la_tau=LA_TAU)
-    check("eval path: recipe T matches metadata",
+    check(f"eval path ({tag}): recipe T matches metadata",
           recipe['T'] == ck.get('temperature', 1.0))
-    check("eval path: recipe gate_temp matches metadata",
+    check(f"eval path ({tag}): recipe gate_temp matches metadata",
           recipe['gate_temp'] == ck.get('gate_temp', 1.0))
-    check("eval path: recipe expert_temps matches metadata",
+    check(f"eval path ({tag}): recipe expert_temps matches metadata",
           recipe['expert_temps'] == list(ck.get('expert_temps', [1.0, 1.0, 1.0])))
+    check(f"eval path ({tag}): recipe freq_features matches metadata",
+          recipe['freq_features'] == ck.get('freq_features', False))
 
     model = FakeEnsemble(cfg, torch.device('cpu'))
-    model.set_gate_params(recipe['expert_temps'], recipe['norm_blocks'])
-    gate = nn.Sequential()  # placeholder replaced below
+    model.set_gate_params(recipe['expert_temps'], recipe['norm_blocks'],
+                          recipe['freq_features'])
     from imbalanceddl.utils.debug.models import GateMLP
-    gate = GateMLP(input_dim=gate_input_dim(NUM_CLASSES), num_experts=3)
+    gate = GateMLP(input_dim=gate_input_dim(NUM_CLASSES,
+                                            freq_features=recipe['freq_features']),
+                   num_experts=3)
     gate.load_state_dict(ck['gate_state_dict'])
     gate.eval()
 
@@ -358,11 +372,11 @@ def test_eval_recipe_path(tmp_root):
     (p_mix, p_unif, p_ce, p_la, p_bs, l_ce, l_la, l_bs, w, labels,
      gate_logits) = extract_data(model, gate, loader, torch.device('cpu'),
                                  recipe)
-    check("eval path: p_mix sums to 1", np.allclose(p_mix.sum(1), 1.0, atol=1e-5))
-    check("eval path: p_unif sums to 1", np.allclose(p_unif.sum(1), 1.0, atol=1e-5))
-    check("eval path: weights shape", w.shape == (len(val_ds), 3))
-    check("eval path: gate logits finite", np.isfinite(gate_logits).all())
-    check("eval path: probs finite", np.isfinite(p_ce).all() and np.isfinite(p_la).all()
+    check(f"eval path ({tag}): p_mix sums to 1", np.allclose(p_mix.sum(1), 1.0, atol=1e-5))
+    check(f"eval path ({tag}): p_unif sums to 1", np.allclose(p_unif.sum(1), 1.0, atol=1e-5))
+    check(f"eval path ({tag}): weights shape", w.shape == (len(val_ds), 3))
+    check(f"eval path ({tag}): gate logits finite", np.isfinite(gate_logits).all())
+    check(f"eval path ({tag}): probs finite", np.isfinite(p_ce).all() and np.isfinite(p_la).all()
           and np.isfinite(p_bs).all())
 
 
@@ -383,8 +397,13 @@ def main():
     # Round-2 code paths: disagreement weighting + KL-to-uniform + dropout.
     run_e2e_case('mix_nll', 'logit', tmp_root, round2=True)
     run_e2e_case('correctness', 'logit', tmp_root, round2=True)
+    # Round-3 code paths: class-frequency features (+4 dims).
+    run_e2e_case('mix_nll', 'logit', tmp_root, round2={'freq': True})
+    run_e2e_case('mix_nll', 'logit', tmp_root,
+                 round2={'freq': True, 'kl': 3.0})
 
     test_eval_recipe_path(tmp_root)
+    test_eval_recipe_path(tmp_root, tag='mix_nll_logit_r2_freq')
 
     print("\n" + "=" * 60)
     if FAILURES:

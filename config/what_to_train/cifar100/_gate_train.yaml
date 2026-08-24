@@ -61,8 +61,20 @@ gate_dropout: 0.1
 # agree and routing provably cannot change the prediction).
 gate_disagree_weight: true
 # KL(w || uniform) regularizer: deviate from uniform only with evidence.
-# Tune after debug_routing_signal.py (H2 interpolation); 0 = off.
-gate_kl_uniform: 0.0
+# REQUIRED when gate_disagree_weight is on (otherwise agree-sample weights
+# stay at random init -> NLL/calibration suffer). Round-2 run used 0.0 and
+# the fitted gate_temp still hit the soft edge (tune wants a softer gate) —
+# 3.0 internalizes that softening into training.
+gate_kl_uniform: 3.0
+
+# --- Round-3 fixes (8/26): explicit head/tail signal for the gate ---
+# Class-frequency features (log-prior of each expert's predicted class + of
+# the uniform mixture's predicted class) appended to the gate input.
+# The round-2 run's tail gain (+0.67) came from routing tail->LA, but LA
+# ALONE already gets Low 12.21 vs the method's 12.08: the gate dilutes the
+# signal it can't reliably detect. These features make "predicted tail class
+# -> boost LA" directly learnable (LTDA-Router: frequency-aware routing).
+gate_freq_features: true
 
 # Point to the directory where _experts_train_90.yaml saved the checkpoints
 expert_ckpt_dir: checkpoint/experts_sweep_cifar100_calib

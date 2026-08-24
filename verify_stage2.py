@@ -101,8 +101,6 @@ def main():
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
 
-    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes), num_experts=3).to(device)
-
     print("\n[INFO] Caching raw expert logits on test set...")
     all_logits = [[], [], []]
     all_labels = []
@@ -157,13 +155,6 @@ def main():
 
         # FIX: Added weights_only=False for PyTorch 2.6+ compatibility
         ckpt = torch.load(g_path, map_location='cpu', weights_only=False)
-        try:
-            gate.load_state_dict(ckpt['gate_state_dict'])
-        except RuntimeError:
-            print(f"[WARNING] Skipping checkpoint {fname} due to architecture mismatch.")
-            continue
-        gate.to(device)
-        gate.eval()
 
         # Reconstruct this checkpoint's exact mixture recipe (training/eval
         # consistency; see imbalanceddl.utils.debug.evaluation).
@@ -175,6 +166,20 @@ def main():
         weight_floor = recipe['weight_floor']
         gate_temp = recipe['gate_temp']
         mix_temp = recipe['mix_temp']
+
+        # Gate input dim depends on the checkpoint's freq_features flag
+        # (round-3: 316 vs 312 dims) — build per checkpoint.
+        gate = GateMLP(
+            input_dim=gate_input_dim(cfg.num_classes,
+                                     freq_features=recipe['freq_features']),
+            num_experts=3,
+        ).to(device)
+        try:
+            gate.load_state_dict(ckpt['gate_state_dict'])
+        except RuntimeError:
+            print(f"[WARNING] Skipping checkpoint {fname} due to architecture mismatch.")
+            continue
+        gate.eval()
 
         with torch.no_grad():
             # Gate embeddings depend on the checkpoint's per-expert temps and

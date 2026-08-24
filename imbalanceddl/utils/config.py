@@ -195,6 +195,14 @@ def get_args():
                         help='Weight each sample\'s gate loss by expert disagreement '
                              '(0 on samples where all experts agree, where routing '
                              'cannot change the prediction)')
+
+    # Round-3 fixes (8/26): give the gate an explicit head/tail signal.
+    parser.add_argument('--gate_freq_features', default=False, type=bool,
+                        help='Append class-frequency features (log-prior of each '
+                             'expert\'s predicted class + of the uniform mixture\'s '
+                             'predicted class) to the gate input; makes the '
+                             '"predicted tail class -> route to LA" rule directly '
+                             'learnable instead of inferable from 100-dim probs')
     
     # update config from command line
     parser.set_defaults(**config)

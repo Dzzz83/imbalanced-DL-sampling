@@ -11,7 +11,7 @@ from imbalanceddl.utils.gate_features import (
 
 class ExpertEnsemble(nn.Module):
     def __init__(self, cfg, device, ckpt_paths, expert_T=None,
-                 normalize_blocks=True):
+                 normalize_blocks=True, freq_features=False):
         super().__init__()
         self.cfg = cfg
         self.device = device
@@ -26,6 +26,7 @@ class ExpertEnsemble(nn.Module):
         # trainer-side ExpertEnsemble (set from gate-checkpoint metadata).
         self.expert_T = list(expert_T) if expert_T is not None else [1.0, 1.0, 1.0]
         self.normalize_blocks = bool(normalize_blocks)
+        self.freq_features = bool(freq_features)
         self.experts = nn.ModuleList()
         for name, path in ckpt_paths.items():
             print(f"[INFO] Loading expert {name} from {path}")
@@ -54,13 +55,16 @@ class ExpertEnsemble(nn.Module):
         # Probability-space routing: build the exact same calibrated-
         # probability + confidence/agreement feature vector the trainer-side
         # ExpertEnsemble produces (per-expert temperatures + block
-        # normalization), so the gate is evaluated on the representation it
-        # was trained on.
+        # normalization + optional class-frequency features), so the gate is
+        # evaluated on the representation it was trained on.
         probs = calibrate_expert_probs(
             logits_list, self.cfg.cls_num_list, self.la_tau,
             T=1.0, per_expert_T=self.expert_T,
         )
-        embeddings = build_gate_input(probs, normalize_blocks=self.normalize_blocks)
+        embeddings = build_gate_input(
+            probs, normalize_blocks=self.normalize_blocks,
+            cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
+        )
         return logits_list, embeddings
 
 class GateMLP(nn.Module):

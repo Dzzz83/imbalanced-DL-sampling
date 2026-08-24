@@ -88,7 +88,7 @@ def calibrate_expert_probs(logits_list, cls_num_list, la_tau, T=1.0,
     ]
 
 
-def build_gate_input(probs, normalize_blocks=True):
+def build_gate_input(probs, normalize_blocks=True, cls_num_list=None):
     """Build the gate feature vector from calibrated expert probabilities.
 
     Parameters
@@ -97,11 +97,19 @@ def build_gate_input(probs, normalize_blocks=True):
     normalize_blocks : bool, L2-normalize each C-dim probability block before
         concatenation (removes overall probability-mass magnitude, which the
         gate otherwise latches onto as a trivial signal).
+    cls_num_list : optional per-class training counts. When given, appends
+        **class-frequency features** (round-3 fix): the log-prior of each
+        expert's predicted class and the log-prior of the uniform mixture's
+        predicted class. This gives the gate an explicit head/tail signal
+        (the single most learnable routing cue — "predicted class is a tail
+        class -> LA is the reliable expert") instead of forcing the MLP to
+        infer frequency implicitly from 100-dim distributions trained on
+        ~1.1k samples (LTDA-Router: frequency-aware routing).
 
     Returns
     -------
-    ``(B, num_experts*(C+3) + C(num_experts,2))`` feature tensor. For 3
-    experts and C=100 this is 312 columns.
+    ``(B, num_experts*(C+3) + C(num_experts,2) [+ 4])`` feature tensor. For 3
+    experts and C=100 this is 312 columns without, 316 with freq features.
     """
     # 1) Statistics on the *raw* probabilities (meaningful only unnormalized).
     stat_feats = []
@@ -126,14 +134,35 @@ def build_gate_input(probs, normalize_blocks=True):
     else:
         dist_feats = torch.cat(probs, dim=1)
 
-    return torch.cat([dist_feats] + stat_feats + agree_feats, dim=1)
+    feats = [dist_feats] + stat_feats + agree_feats
+
+    # 4) Class-frequency features (round-3): log-prior of each expert's
+    #    predicted class + of the uniform mixture's predicted class.
+    if cls_num_list is not None:
+        device = probs[0].device
+        cls_num_list = torch.as_tensor(cls_num_list, dtype=torch.float32,
+                                       device=device)
+        log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
+        for p in probs:
+            feats.append(log_prior[p.argmax(dim=1)].unsqueeze(1))
+        p_mix = sum(probs) / len(probs)
+        feats.append(log_prior[p_mix.argmax(dim=1)].unsqueeze(1))
+
+    return torch.cat(feats, dim=1)
 
 
-def gate_input_dim(num_classes, num_experts=3):
-    """Column count produced by :func:`build_gate_input`."""
+def gate_input_dim(num_classes, num_experts=3, freq_features=False):
+    """Column count produced by :func:`build_gate_input`.
+
+    ``freq_features=True`` adds 4 columns (per-expert predicted-class
+    log-priors + uniform-mixture predicted-class log-prior).
+    """
     per_expert = num_classes + 3
     pairwise = num_experts * (num_experts - 1) // 2
-    return num_experts * per_expert + pairwise
+    dim = num_experts * per_expert + pairwise
+    if freq_features:
+        dim += num_experts + 1
+    return dim
 
 
 def apply_weight_floor(weights, weight_floor):

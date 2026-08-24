@@ -92,28 +92,38 @@ class ExpertEnsemble(nn.Module):
         # Gate-input parameters (set after per-expert temperature fitting).
         self.expert_T = [1.0, 1.0, 1.0]
         self.normalize_blocks = True
+        self.freq_features = False
 
-    def set_gate_params(self, expert_T=None, normalize_blocks=True):
+    def set_gate_params(self, expert_T=None, normalize_blocks=True,
+                        freq_features=None):
         """Store the calibration/feature params used to build gate inputs."""
         if expert_T is not None:
             self.expert_T = list(expert_T)
         self.normalize_blocks = bool(normalize_blocks)
+        if freq_features is not None:
+            self.freq_features = bool(freq_features)
 
     @torch.no_grad()
     def forward(self, x):
         logits_list = []
+        hidden_list = []
         for expert in self.experts:
-            logits, _ = expert(x)
+            logits, hidden = expert(x)
             logits_list.append(logits)
+            hidden_list.append(hidden)
         # Probability-space gate features: bias-adjusted + per-expert
-        # temperature-scaled posteriors + confidence/entropy/agreement stats.
-        # T=1.0 here: the global sweep temperature only scales the *mixture*;
-        # per-expert temperatures (fit on tune) are the calibration knobs.
+        # temperature-scaled posteriors + confidence/entropy/agreement stats
+        # (+ class-frequency features, round-3). T=1.0 here: the global sweep
+        # temperature only scales the *mixture*; per-expert temperatures (fit
+        # on tune) are the calibration knobs.
         probs = calibrate_expert_probs(
             logits_list, self.cfg.cls_num_list, self.la_tau,
             T=1.0, per_expert_T=self.expert_T,
         )
-        embeddings = build_gate_input(probs, normalize_blocks=self.normalize_blocks)
+        embeddings = build_gate_input(
+            probs, normalize_blocks=self.normalize_blocks,
+            cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
+        )
         return logits_list, embeddings
 
 
@@ -179,6 +189,16 @@ class GateTrainer(BaseTrainer):
         self.kl_uniform = getattr(cfg, 'gate_kl_uniform', 0.0)
         self.disagree_weight = getattr(cfg, 'gate_disagree_weight', False)
         self.gate_dropout = getattr(cfg, 'gate_dropout', 0.0)
+        # Round-3 fix: explicit class-frequency features (head/tail signal).
+        self.freq_features = getattr(cfg, 'gate_freq_features', False)
+        if self.disagree_weight and self.kl_uniform <= 0.0:
+            self.logger.warning(
+                "[WARN] gate_disagree_weight=True with gate_kl_uniform=0: on "
+                "samples where all experts agree the loss is zero, so the "
+                "gate's weights there stay at their random init (accuracy is "
+                "unaffected — the prediction is fixed — but NLL/calibration "
+                "can suffer). Set gate_kl_uniform > 0 to pin them to uniform."
+            )
 
         self.model = ExpertEnsemble(cfg, self.device).to(self.device)
         self.model.eval()
@@ -188,7 +208,8 @@ class GateTrainer(BaseTrainer):
         self._split_dataset()
 
         self.gate = GateMLP(
-            input_dim=gate_input_dim(self.cfg.num_classes),
+            input_dim=gate_input_dim(self.cfg.num_classes,
+                                     freq_features=self.freq_features),
             num_experts=3,
             dropout=self.gate_dropout,
         ).to(self.device)
@@ -209,7 +230,8 @@ class GateTrainer(BaseTrainer):
             self.expert_T = self._fit_expert_temperatures()
         else:
             self.expert_T = [1.0, 1.0, 1.0]
-        self.model.set_gate_params(self.expert_T, self.norm_blocks)
+        self.model.set_gate_params(self.expert_T, self.norm_blocks,
+                                   self.freq_features)
         self.logger.info(
             f"[INFO] Per-expert temperatures: CE={self.expert_T[0]:.3f} | "
             f"LA={self.expert_T[1]:.3f} | BS={self.expert_T[2]:.3f}"
@@ -312,7 +334,10 @@ class GateTrainer(BaseTrainer):
             self.tune_logits, self.cfg.cls_num_list, self.la_tau,
             T=T, per_expert_T=self.expert_T,
         )
-        embeddings = build_gate_input(probs, normalize_blocks=self.norm_blocks)
+        embeddings = build_gate_input(
+            probs, normalize_blocks=self.norm_blocks,
+            cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
+        )
         return probs, embeddings
 
     def get_probs(self, logits_list, T):
@@ -737,6 +762,8 @@ class GateTrainer(BaseTrainer):
             'kl_uniform': self.kl_uniform,
             'disagree_weight': self.disagree_weight,
             'dropout': self.gate_dropout,
+            # Round-3 fix metadata.
+            'freq_features': self.freq_features,
         }
         if is_best:
             torch.save(state, path)
@@ -803,6 +830,18 @@ class GateTrainer(BaseTrainer):
 
         # FIX: Added weights_only=False for PyTorch 2.6+ compatibility
         ckpt = torch.load(best_gate_path, map_location='cpu', weights_only=False)
+        ckpt_freq = ckpt.get('freq_features', self.freq_features)
+        if ckpt_freq != self.freq_features:
+            self.logger.info(
+                f"[INFO] Checkpoint uses freq_features={ckpt_freq}; rebuilding "
+                f"gate with input_dim={gate_input_dim(self.cfg.num_classes, freq_features=ckpt_freq)}"
+            )
+            self.freq_features = ckpt_freq
+            self.gate = GateMLP(
+                input_dim=gate_input_dim(self.cfg.num_classes,
+                                         freq_features=self.freq_features),
+                num_experts=3, dropout=self.gate_dropout,
+            ).to(self.device)
         self.gate.load_state_dict(ckpt['gate_state_dict'])
         T = ckpt.get('temperature', 1.0)
         gate_temp = ckpt.get('gate_temp', 1.0)

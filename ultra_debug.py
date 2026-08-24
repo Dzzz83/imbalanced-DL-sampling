@@ -151,9 +151,12 @@ def main():
 
     model = ExpertEnsemble(cfg, device, ckpt_paths,
                            expert_T=recipe['expert_temps'],
-                           normalize_blocks=recipe['norm_blocks']).to(device)
+                           normalize_blocks=recipe['norm_blocks'],
+                           freq_features=recipe['freq_features']).to(device)
 
-    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes), num_experts=3).to(device)
+    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes,
+                                            freq_features=recipe['freq_features']),
+                   num_experts=3).to(device)
     print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
 
     gate.load_state_dict(gate_ckpt['gate_state_dict'])
