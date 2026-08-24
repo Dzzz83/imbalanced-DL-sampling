@@ -219,7 +219,7 @@ class FakeEnsemble(nn.Module):
         return z, embeddings
 
 
-def make_cfg(root_model, target_mode, mix_space, seed=42):
+def make_cfg(root_model, target_mode, mix_space, seed=42, round2=False):
     cfg = types.SimpleNamespace()
     cfg.dataset = 'cifar100'
     cfg.num_classes = NUM_CLASSES
@@ -268,15 +268,20 @@ def make_cfg(root_model, target_mode, mix_space, seed=42):
     cfg.fit_gate_temp = True
     cfg.fit_mix_temp = True
     cfg.expert_temperatures = None
+    # Round-2 flags.
+    cfg.gate_dropout = 0.1 if round2 else 0.0
+    cfg.gate_kl_uniform = 2.0 if round2 else 0.0
+    cfg.gate_disagree_weight = bool(round2)
     return cfg
 
 
-def run_e2e_case(target_mode, mix_space, tmp_root):
-    out_dir = os.path.join(tmp_root, f"{target_mode}_{mix_space}")
+def run_e2e_case(target_mode, mix_space, tmp_root, round2=False):
+    tag = f"{target_mode}_{mix_space}" + ("_r2" if round2 else "")
+    out_dir = os.path.join(tmp_root, tag)
     os.makedirs(out_dir, exist_ok=True)
-    cfg = make_cfg(out_dir, target_mode, mix_space)
+    cfg = make_cfg(out_dir, target_mode, mix_space, round2=round2)
     print(f"\n[5.{len(os.listdir(tmp_root))}] e2e GateTrainer "
-          f"target={target_mode} space={mix_space}")
+          f"target={target_mode} space={mix_space} round2={round2}")
 
     train_ds = FakeDataset(per_class=40, num_classes=NUM_CLASSES)   # 400
     val_ds = FakeDataset(per_class=20, num_classes=NUM_CLASSES)     # 200
@@ -289,7 +294,7 @@ def run_e2e_case(target_mode, mix_space, tmp_root):
     # --- checkpoints + metadata ---
     ckpts = sorted(os.listdir(out_dir))
     ckpt_files = [c for c in ckpts if c.endswith('.pth')]
-    check(f"checkpoint written ({target_mode}/{mix_space})", len(ckpt_files) >= 1)
+    check(f"checkpoint written ({tag})", len(ckpt_files) >= 1)
     if ckpt_files:
         ck = torch.load(os.path.join(out_dir, ckpt_files[0]),
                         map_location='cpu', weights_only=False)
@@ -300,16 +305,19 @@ def run_e2e_case(target_mode, mix_space, tmp_root):
         check("metadata target_mode matches", ck.get('target_mode') == target_mode)
         check("expert temps are positive floats",
               all(isinstance(t, float) and 0 < t <= 10 for t in ck['expert_temps']))
+        if round2:
+            check("metadata kl_uniform present", 'kl_uniform' in ck)
+            check("metadata disagree_weight present", 'disagree_weight' in ck)
 
     # --- extract_posteriors sanity ---
     p_mix, labels = trainer.extract_posteriors(
         DataLoader(val_ds, batch_size=32), T=1.0)
-    check(f"p_mix sums to 1 ({target_mode}/{mix_space})",
+    check(f"p_mix sums to 1 ({tag})",
           np.allclose(p_mix.sum(1), 1.0, atol=1e-5))
-    check(f"p_mix finite ({target_mode}/{mix_space})", np.isfinite(p_mix).all())
+    check(f"p_mix finite ({tag})", np.isfinite(p_mix).all())
 
     # --- plug-in eval ran (eval_best_model) without crashing ---
-    check(f"eval_best_model produced log lines ({target_mode}/{mix_space})",
+    check(f"eval_best_model produced log lines ({tag})",
           os.path.getsize(os.path.join(out_dir, 'log')) > 0 or True)
     return trainer
 
@@ -372,6 +380,9 @@ def main():
     for target_mode in ['mix_nll', 'logprob', 'correctness']:
         for mix_space in ['logit', 'prob']:
             run_e2e_case(target_mode, mix_space, tmp_root)
+    # Round-2 code paths: disagreement weighting + KL-to-uniform + dropout.
+    run_e2e_case('mix_nll', 'logit', tmp_root, round2=True)
+    run_e2e_case('correctness', 'logit', tmp_root, round2=True)
 
     test_eval_recipe_path(tmp_root)
 

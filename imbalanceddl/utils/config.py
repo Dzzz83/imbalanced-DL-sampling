@@ -185,6 +185,16 @@ def get_args():
                              'calibrates NLL/Brier/ECE)')
     parser.add_argument('--expert_temperatures', nargs=3, type=float, default=None,
                         help='Manual per-expert temperatures [T_ce, T_la, T_bs] (overrides fit)')
+
+    # Round-2 fixes (8/25): stop the gate from routing on noise.
+    parser.add_argument('--gate_kl_uniform', default=0.0, type=float,
+                        help='KL(w || uniform) regularization on the gate weights '
+                             '(deviate from uniform only with strong evidence; '
+                             'round-2 fix for noise-driven routing)')
+    parser.add_argument('--gate_disagree_weight', default=False, type=bool,
+                        help='Weight each sample\'s gate loss by expert disagreement '
+                             '(0 on samples where all experts agree, where routing '
+                             'cannot change the prediction)')
     
     # update config from command line
     parser.set_defaults(**config)

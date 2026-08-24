@@ -20,8 +20,7 @@ gate_epochs: 100
 eval_interval: 20          # Evaluates at epochs 20, 40, 60, 80, 100
 gate_hidden_size: 256
 gate_hidden_size2: 128
-gate_dropout: 0.0         # no dropout
-routing_sparsity: 2
+gate_dropout: 0.0         # set below (round-2: 0.1)
 gate_oracle_tau: 0.2      # soft-oracle sharpness (lower = closer to hard argmax)
 
 ce_bias: false
@@ -49,6 +48,21 @@ fit_expert_temps: true        # fit per-expert T on tune (minimize NLL)
 fit_gate_temp: true           # fit gate-logit T on tune (maximize bal acc)
 fit_mix_temp: true            # fit final mixture T on tune (logit space; calibrates NLL)
 expert_temperatures: null     # optional manual [T_ce, T_la, T_bs] (overrides fit)
+
+# --- Round-2 fixes (8/25): stop noise-driven routing ---
+# k=3 (full mixture, no truncation): the 8/25 run lost 2 pp on Head classes
+# because top-2 truncation discards the 3rd expert's vote; k=3 keeps it.
+# (Confirm on the existing checkpoint first: python debug_routing_signal.py)
+routing_sparsity: 3
+# Gate dropout: the gate trains on only ~1.1k samples (10% of CIFAR-100-LT);
+# the config previously advertised gate_dropout but GateMLP never used it.
+gate_dropout: 0.1
+# Weight each sample's gate loss by expert disagreement (0 where all experts
+# agree and routing provably cannot change the prediction).
+gate_disagree_weight: true
+# KL(w || uniform) regularizer: deviate from uniform only with evidence.
+# Tune after debug_routing_signal.py (H2 interpolation); 0 = off.
+gate_kl_uniform: 0.0
 
 # Point to the directory where _experts_train_90.yaml saved the checkpoints
 expert_ckpt_dir: checkpoint/experts_sweep_cifar100_calib

@@ -66,14 +66,15 @@ class ExpertEnsemble(nn.Module):
 class GateMLP(nn.Module):
     """Non-linear router matching the trainer-side architecture.
 
-    BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> Linear(64, 3), where
-    D = ``gate_input_dim(num_classes)``. Attribute names (bn, fc, act,
+    BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> [Dropout] -> Linear(64, 3),
+    where D = ``gate_input_dim(num_classes)``. Attribute names (bn, fc, act,
     fc_out) match ``_gate_trainer.GateMLP`` so trained state_dicts load
-    unchanged.
+    unchanged (dropout has no parameters).
     """
 
-    def __init__(self, input_dim=312, num_experts=3, hidden_dim=64):
+    def __init__(self, input_dim=312, num_experts=3, hidden_dim=64, dropout=0.0):
         super().__init__()
+        self.dropout = dropout
         self.bn = nn.BatchNorm1d(input_dim)
         self.fc = nn.Linear(input_dim, hidden_dim)
         self.act = nn.ReLU()
@@ -82,5 +83,7 @@ class GateMLP(nn.Module):
     def forward(self, x):
         x = self.bn(x)
         x = self.act(self.fc(x))
+        if self.dropout > 0.0:
+            x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.fc_out(x)
         return x

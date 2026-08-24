@@ -14,12 +14,16 @@ from ..utils.plugin_rule import define_groups, define_groups_2, compute_aurc_met
 from ..utils.gate_features import (
     calibrate_expert_probs, calibrate_expert_logits,
     build_gate_input, gate_input_dim, build_mixture, build_oracle_target,
+    expert_disagreement,
 )
 from ..net.network import build_model
 import glob
 
 # Grids for post-hoc calibration on the tune set (see literature review §7).
-GATE_TEMP_GRID = [0.3, 0.5, 0.8, 1.0, 1.3, 1.7, 2.2, 3.0]
+# The upper end of GATE_TEMP_GRID extends past 3.0: the 8/25 run fitted
+# gate_temp = 3.0 (the old grid edge), i.e. the tune set wanted the gate
+# *softer* than the grid allowed — direct evidence of noise-driven routing.
+GATE_TEMP_GRID = [0.3, 0.5, 0.8, 1.0, 1.3, 1.7, 2.2, 3.0, 4.0, 6.0]
 MIX_TEMP_GRID = [0.6, 0.8, 1.0, 1.25, 1.5, 2.0]
 EXPERT_TEMP_GRID = (0.5, 0.75, 1.0, 1.5, 2.0, 3.0)
 
@@ -122,15 +126,21 @@ class GateMLP(nn.Module):
     ReLU layer lets the gate suppress overconfident-but-wrong experts
     conditionally, and BatchNorm1d standardizes the feature scales.
 
-    Architecture: BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> Linear(64, 3),
-    where D = num_experts*(num_classes+3) + C(num_experts,2).
+    Architecture: BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> Dropout ->
+    Linear(64, 3), where D = num_experts*(num_classes+3) + C(num_experts,2).
+
+    Dropout is optional (``cfg.gate_dropout``) — the gate trains on a very
+    small split (~1.1k samples for CIFAR-100-LT), where dropout measurably
+    reduces overfitting. Dropout has no parameters, so state_dicts load
+    unchanged regardless of the rate.
 
     ``fc`` (hidden projection) keeps the legacy attribute name so
     ``GateTrainer.train_one_epoch`` can still log ``gate.fc.weight.grad``.
     """
 
-    def __init__(self, input_dim=312, num_experts=3, hidden_dim=64):
+    def __init__(self, input_dim=312, num_experts=3, hidden_dim=64, dropout=0.0):
         super().__init__()
+        self.dropout = dropout
         self.bn = nn.BatchNorm1d(input_dim)
         self.fc = nn.Linear(input_dim, hidden_dim)
         self.act = nn.ReLU()
@@ -139,6 +149,8 @@ class GateMLP(nn.Module):
     def forward(self, x):
         x = self.bn(x)
         x = self.act(self.fc(x))
+        if self.dropout > 0.0:
+            x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.fc_out(x)
         return x
 
@@ -163,6 +175,10 @@ class GateTrainer(BaseTrainer):
         self.tau_oracle = getattr(cfg, 'gate_oracle_tau', 0.2)
         self.k = getattr(cfg, 'routing_sparsity', 2)
         self.la_tau = getattr(cfg, 'la_tau', 1.5)
+        # Round-2 fixes: constrain the gate to deviate only with evidence.
+        self.kl_uniform = getattr(cfg, 'gate_kl_uniform', 0.0)
+        self.disagree_weight = getattr(cfg, 'gate_disagree_weight', False)
+        self.gate_dropout = getattr(cfg, 'gate_dropout', 0.0)
 
         self.model = ExpertEnsemble(cfg, self.device).to(self.device)
         self.model.eval()
@@ -173,7 +189,8 @@ class GateTrainer(BaseTrainer):
 
         self.gate = GateMLP(
             input_dim=gate_input_dim(self.cfg.num_classes),
-            num_experts=3
+            num_experts=3,
+            dropout=self.gate_dropout,
         ).to(self.device)
 
         self.gate_epochs = cfg.gate_epochs
@@ -408,6 +425,13 @@ class GateTrainer(BaseTrainer):
                 if bal > best_bal:
                     best_bal, best_Tg = bal, Tg
             gate_temp = best_Tg
+            if gate_temp >= GATE_TEMP_GRID[-1]:
+                self.logger.warning(
+                    "[WARN] Fitted gate_temp at grid edge (softest allowed). "
+                    "The tune set prefers the gate as close to uniform as "
+                    "possible — routing decisions may be net-negative noise. "
+                    "Consider gate_kl_uniform / gate_disagree_weight / k=3."
+                )
         else:
             gate_temp = 1.0
 
@@ -517,12 +541,15 @@ class GateTrainer(BaseTrainer):
                 weight_floor=self.weight_floor,
             )
 
+            # --- per-sample loss ---
             if self.target_mode == 'mix_nll':
                 # Mixture NLL of the final mixture. In logit space the
                 # gradient w.r.t. gate logits depends on logit *differences*,
                 # so it does not vanish when the mixture is confident or on
                 # tail samples (RC4 fix).
-                loss = F.nll_loss(torch.log(p_mix.clamp_min(1e-12)), labels)
+                per_sample = F.nll_loss(
+                    torch.log(p_mix.clamp_min(1e-12)), labels, reduction='none'
+                )
             elif self.target_mode == 'logprob':
                 # Soft-oracle KL with log-space sharpened target (RC1 fix):
                 # tail samples get a decisive target even when all p_i(y) are
@@ -531,12 +558,35 @@ class GateTrainer(BaseTrainer):
                     true_probs_experts, self.tau_oracle, space='logprob'
                 )
                 log_weights = F.log_softmax(gate_logits, dim=1)
-                loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
+                per_sample = F.kl_div(log_weights, soft_target,
+                                      reduction='none').sum(1)
             else:  # correctness
                 # L2D-style target: calibrated P(expert correct | max-prob).
                 soft_target = self._correctness_target(probs)
                 log_weights = F.log_softmax(gate_logits, dim=1)
-                loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
+                per_sample = F.kl_div(log_weights, soft_target,
+                                      reduction='none').sum(1)
+
+            # Round-2: route only where routing can matter. When all experts
+            # predict the same class, any convex mixture argmaxes to that
+            # class — the gate's loss on those samples only shapes noisy
+            # weight choices with zero accuracy benefit (verified: the tune
+            # set preferred gate_temp=3.0, i.e. as close to uniform as the
+            # grid allowed).
+            if self.disagree_weight:
+                disagree = expert_disagreement(probs)
+                per_sample = per_sample * disagree.float()
+            loss = per_sample.mean()
+
+            # Round-2: KL(w || uniform) — deviate from uniform only where the
+            # mixture gradient consistently beats the pull. Soft version of
+            # RIDE's "default = collective, add experts only when uncertain".
+            if self.kl_uniform > 0.0:
+                kl_u = (
+                    weights
+                    * (torch.log(weights.clamp_min(1e-12)) + math.log(3))
+                ).sum(1).mean()
+                loss = loss + self.kl_uniform * kl_u
 
             optimizer.zero_grad()
             loss.backward()
@@ -592,7 +642,7 @@ class GateTrainer(BaseTrainer):
             print(log_line)
             self.logger.info(log_line)
 
-        return avg_loss, avg_expert_match
+        return avg_loss, avg_expert_match, avg_acc
 
     def do_train_val(self):
         self.log_feature_statistics()
@@ -624,12 +674,16 @@ class GateTrainer(BaseTrainer):
                 best_mix_temp = 1.0
 
                 for epoch in range(self.gate_epochs):
-                    train_loss, train_gate_acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
+                    train_loss, train_gate_acc, train_mix_acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
 
                     # Evaluate the exact test-time mixture on the tune set.
                     val_mixture_acc, val_oracle_match, gate_temp, mix_temp = self.validate(T)
 
-                    print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={train_loss:.4f}, train_gate_acc={train_gate_acc:.2f}%, val_mixture_acc={val_mixture_acc:.2f}%, oracle_match={val_oracle_match:.2f}%")
+                    print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={train_loss:.4f}, train_mix_acc={train_mix_acc:.2f}%, val_mixture_acc={val_mixture_acc:.2f}%, oracle_match={val_oracle_match:.2f}%")
+                    if (epoch + 1) % 10 == 0 or epoch == 0:
+                        gap = train_mix_acc - val_mixture_acc
+                        flag = "  <-- overfitting" if gap > 3.0 else ""
+                        self.logger.info(f"    train-vs-val mixture acc gap: {gap:+.2f} pp{flag}")
 
                     if val_mixture_acc > best_val_acc:
                         best_val_acc = val_mixture_acc
@@ -679,6 +733,10 @@ class GateTrainer(BaseTrainer):
             'tau': self.tau_oracle,
             'norm_blocks': self.norm_blocks,
             'weight_floor': self.weight_floor,
+            # Round-2 fix metadata.
+            'kl_uniform': self.kl_uniform,
+            'disagree_weight': self.disagree_weight,
+            'dropout': self.gate_dropout,
         }
         if is_best:
             torch.save(state, path)

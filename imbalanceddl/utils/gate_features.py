@@ -237,3 +237,16 @@ def uniform_weights(batch_size, num_experts, device='cpu'):
     """Equal-weight routing (the uniform baseline) as a ``(B, E)`` tensor."""
     return torch.full((batch_size, num_experts), 1.0 / num_experts,
                       device=device)
+
+
+def expert_disagreement(probs):
+    """Per-sample mask: do the experts disagree on the argmax?
+
+    When all experts predict the same class ``k``, the routed mixture
+    (any convex combination, in prob *or* logit space) also argmaxes to
+    ``k`` — routing cannot change the prediction, so its learning signal
+    on those samples is noise. Returns ``True`` where routing can matter.
+    """
+    preds = torch.stack([p.argmax(dim=1) for p in probs], dim=1)  # (B, E)
+    agree = (preds == preds[:, :1]).all(dim=1)
+    return ~agree
