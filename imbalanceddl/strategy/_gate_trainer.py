@@ -6,15 +6,31 @@ import torch.optim as optim
 import numpy as np
 import math
 from sklearn.model_selection import train_test_split
+from sklearn.isotonic import IsotonicRegression
 from torch.utils.data import Subset, DataLoader, WeightedRandomSampler
 from .base import BaseTrainer
 from ..utils.debug_logger import get_debug_logger
 from ..utils.plugin_rule import define_groups, define_groups_2, compute_aurc_metrics
 from ..utils.gate_features import (
-    calibrate_expert_probs, build_gate_input, gate_input_dim,
+    calibrate_expert_probs, calibrate_expert_logits,
+    build_gate_input, gate_input_dim, build_mixture, build_oracle_target,
 )
 from ..net.network import build_model
 import glob
+
+# Grids for post-hoc calibration on the tune set (see literature review §7).
+GATE_TEMP_GRID = [0.3, 0.5, 0.8, 1.0, 1.3, 1.7, 2.2, 3.0]
+MIX_TEMP_GRID = [0.6, 0.8, 1.0, 1.25, 1.5, 2.0]
+EXPERT_TEMP_GRID = (0.5, 0.75, 1.0, 1.5, 2.0, 3.0)
+
+
+class _IdentityCalibrator:
+    """Fallback correctness calibrator when a tune group has too few
+    correct samples to fit an isotonic map."""
+
+    def __call__(self, conf):
+        return np.clip(conf, 0.05, 0.95)
+
 
 class ExpertEnsemble(nn.Module):
     def __init__(self, cfg, device):
@@ -50,24 +66,34 @@ class ExpertEnsemble(nn.Module):
                     raise FileNotFoundError(f"[ERROR] Expert checkpoint not found for pattern: {pattern}")
             else:
                 ckpt_path = sorted(files)[-1]
-            
+
             print(f"[INFO] Loading expert {i} from {ckpt_path}")
             ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
 
             has_bias = ckpt.get('bias', False)
             model = build_model(cfg)
-            
+
             actual_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             actual_model.classifier = nn.Linear(actual_model.feature_len, actual_model.num_classes, bias=has_bias).to(device)
-            
+
             state_dict = ckpt['state_dict']
             new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
             actual_model.load_state_dict(new_state_dict)
-            
+
             for param in actual_model.parameters():
                 param.requires_grad = False
             actual_model.eval()
             self.experts.append(actual_model.to(device))
+
+        # Gate-input parameters (set after per-expert temperature fitting).
+        self.expert_T = [1.0, 1.0, 1.0]
+        self.normalize_blocks = True
+
+    def set_gate_params(self, expert_T=None, normalize_blocks=True):
+        """Store the calibration/feature params used to build gate inputs."""
+        if expert_T is not None:
+            self.expert_T = list(expert_T)
+        self.normalize_blocks = bool(normalize_blocks)
 
     @torch.no_grad()
     def forward(self, x):
@@ -75,17 +101,17 @@ class ExpertEnsemble(nn.Module):
         for expert in self.experts:
             logits, _ = expert(x)
             logits_list.append(logits)
-        # Probability-space routing: the gate consumes calibrated class
-        # probabilities + confidence/margin/entropy/agreement features
-        # (T=1.0) instead of raw logits. This equalizes the wildly different
-        # CE/LA/BS logit scales, exposes each expert's prior bias, and gives
-        # the gate explicit "overconfident-but-wrong" signals, instead of
-        # acting as a naive peak-detector on raw logit magnitude.
+        # Probability-space gate features: bias-adjusted + per-expert
+        # temperature-scaled posteriors + confidence/entropy/agreement stats.
+        # T=1.0 here: the global sweep temperature only scales the *mixture*;
+        # per-expert temperatures (fit on tune) are the calibration knobs.
         probs = calibrate_expert_probs(
-            logits_list, self.cfg.cls_num_list, self.la_tau, T=1.0
+            logits_list, self.cfg.cls_num_list, self.la_tau,
+            T=1.0, per_expert_T=self.expert_T,
         )
-        embeddings = build_gate_input(probs)
+        embeddings = build_gate_input(probs, normalize_blocks=self.normalize_blocks)
         return logits_list, embeddings
+
 
 class GateMLP(nn.Module):
     """Non-linear router over calibrated probability features.
@@ -116,6 +142,7 @@ class GateMLP(nn.Module):
         x = self.fc_out(x)
         return x
 
+
 class GateTrainer(BaseTrainer):
     def __init__(self, cfg, dataset, **kwargs):
         self.debug = getattr(cfg, 'debug', False)
@@ -124,6 +151,18 @@ class GateTrainer(BaseTrainer):
 
         super(GateTrainer, self).__init__(cfg, dataset, **kwargs)
         self.device = torch.device(cfg.device if torch.cuda.is_available() else 'cpu')
+
+        # --- Stage-2 post-mortem flags (literature_review_moe_routing.md §7) ---
+        self.target_mode = getattr(cfg, 'gate_target_mode', 'mix_nll')
+        self.mix_space = getattr(cfg, 'mix_space', 'logit')
+        self.weight_floor = getattr(cfg, 'gate_weight_floor', 0.0)
+        self.norm_blocks = getattr(cfg, 'gate_norm_blocks', True)
+        self.fit_expert_temps = getattr(cfg, 'fit_expert_temps', True)
+        self.fit_gate_temp = getattr(cfg, 'fit_gate_temp', True)
+        self.fit_mix_temp = getattr(cfg, 'fit_mix_temp', True)
+        self.tau_oracle = getattr(cfg, 'gate_oracle_tau', 0.2)
+        self.k = getattr(cfg, 'routing_sparsity', 2)
+        self.la_tau = getattr(cfg, 'la_tau', 1.5)
 
         self.model = ExpertEnsemble(cfg, self.device).to(self.device)
         self.model.eval()
@@ -140,16 +179,44 @@ class GateTrainer(BaseTrainer):
         self.gate_epochs = cfg.gate_epochs
         self.eval_interval = getattr(cfg, 'eval_interval', 1)
         self.best_gate_acc = 0.0
-        
-        self.logger.info("[INFO] GateTrainer initialization complete (Supervised Routing Enabled).")
 
+        # Cache the tune set's raw expert logits once (validation + all
+        # calibration fitting reuse them; the gate is re-applied each epoch).
+        self._cache_tune_logits()
+
+        # Per-expert temperatures (calibration for mixing, BalPoE-style).
+        manual_temps = getattr(cfg, 'expert_temperatures', None)
+        if manual_temps is not None:
+            self.expert_T = list(manual_temps)
+        elif self.fit_expert_temps:
+            self.expert_T = self._fit_expert_temperatures()
+        else:
+            self.expert_T = [1.0, 1.0, 1.0]
+        self.model.set_gate_params(self.expert_T, self.norm_blocks)
+        self.logger.info(
+            f"[INFO] Per-expert temperatures: CE={self.expert_T[0]:.3f} | "
+            f"LA={self.expert_T[1]:.3f} | BS={self.expert_T[2]:.3f}"
+        )
+
+        # Correctness calibrators (learning-to-defer style targets).
+        self.calibrators = None
+        if self.target_mode == 'correctness':
+            self.calibrators = self._fit_correctness_calibrators()
+
+        self.logger.info("[INFO] GateTrainer initialization complete "
+                         f"(target={self.target_mode}, mix_space={self.mix_space}, "
+                         f"k={self.k}).")
+
+    # ------------------------------------------------------------------ #
+    # Dataset splits (unchanged)                                          #
+    # ------------------------------------------------------------------ #
     def _split_dataset(self):
         if isinstance(self.train_dataset, Subset):
             all_targets = np.array(self.train_dataset.dataset.targets)
             targets = all_targets[self.train_dataset.indices]
         else:
             targets = np.array(self.train_dataset.targets)
-            
+
         indices = np.arange(len(targets))
         train_idx, gate_idx = train_test_split(
             indices, test_size=1 - self.gate_split_ratio,
@@ -177,98 +244,231 @@ class GateTrainer(BaseTrainer):
             num_workers=self.cfg.workers,
             pin_memory=True
         )
-        
+
         if isinstance(self.val_dataset, Subset):
             all_val_targets = np.array(self.val_dataset.dataset.targets)
             val_targets = all_val_targets[self.val_dataset.indices]
         else:
             val_targets = np.array(self.val_dataset.targets)
-            
+
         val_indices = np.arange(len(val_targets))
         tune_idx, test_idx = train_test_split(
-            val_indices, test_size=0.8, 
+            val_indices, test_size=0.8,
             stratify=val_targets, random_state=self.cfg.seed
         )
-        
+
         self.tune_dataset = Subset(self.val_dataset, tune_idx)
         self.test_dataset = Subset(self.val_dataset, test_idx)
-        
+
         self.tune_loader = DataLoader(self.tune_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
         self.test_loader = DataLoader(self.test_dataset, batch_size=128, shuffle=False, num_workers=self.cfg.workers, pin_memory=True)
-        
+
         self.logger.info(f"[INFO] Gating split size: {len(self.gate_dataset)} (WeightedRandomSampler Enabled)")
         self.logger.info(f"[INFO] Plugin Tune size: {len(self.tune_dataset)} | Final Test size: {len(self.test_dataset)}")
 
     def get_criterion(self):
         return None
 
+    # ------------------------------------------------------------------ #
+    # Calibration / target construction on the tune set                   #
+    # ------------------------------------------------------------------ #
+    @torch.no_grad()
+    def _cache_tune_logits(self):
+        logits = [[], [], []]
+        labels = []
+        for images, lab in self.tune_loader:
+            images = images.to(self.device, non_blocking=True)
+            logits_list, _ = self.model(images)
+            for i in range(3):
+                logits[i].append(logits_list[i].cpu())
+            labels.append(lab.cpu())
+        self.tune_logits = [torch.cat(l, dim=0) for l in logits]
+        self.tune_labels = torch.cat(labels)
+        self.logger.info(
+            f"[INFO] Cached {self.tune_labels.size(0)} tune samples for "
+            f"validation and calibration fitting."
+        )
+
+    def _tune_calibrated(self, T):
+        """Calibrated probs + gate embeddings for the cached tune logits."""
+        probs = calibrate_expert_probs(
+            self.tune_logits, self.cfg.cls_num_list, self.la_tau,
+            T=T, per_expert_T=self.expert_T,
+        )
+        embeddings = build_gate_input(probs, normalize_blocks=self.norm_blocks)
+        return probs, embeddings
+
     def get_probs(self, logits_list, T):
         return calibrate_expert_probs(
-            logits_list, self.cfg.cls_num_list, self.cfg.la_tau, T
+            logits_list, self.cfg.cls_num_list, self.la_tau,
+            T, per_expert_T=self.expert_T,
         )
 
     @torch.no_grad()
+    def _fit_expert_temperatures(self, grid=EXPERT_TEMP_GRID):
+        """Fit one temperature per expert on the tune set (minimize
+        prior-weighted NLL of the calibrated posterior)."""
+        labels = self.tune_labels
+        N = labels.size(0)
+        cls_num_list = np.array(self.cfg.cls_num_list, dtype=np.float64)
+        priors = cls_num_list / cls_num_list.sum()
+        w = torch.from_numpy(priors[labels.numpy()]).float()
+        w = w / w.sum()
+
+        best_temps = []
+        for i in range(3):
+            best_T, best_nll = 1.0, float('inf')
+            for t in grid:
+                zcal = calibrate_expert_logits(
+                    self.tune_logits, self.cfg.cls_num_list, self.la_tau,
+                    T=t, per_expert_T=[1.0, 1.0, 1.0],
+                )
+                p = F.softmax(zcal[i], dim=1)
+                p_y = p[torch.arange(N), labels]
+                nll = -float((w * torch.log(p_y.clamp_min(1e-12))).sum())
+                if nll < best_nll:
+                    best_T, best_nll = t, nll
+            best_temps.append(best_T)
+        return best_temps
+
+    @torch.no_grad()
+    def _fit_correctness_calibrators(self):
+        """Fit per-expert maps `max-prob -> P(expert correct)` on the tune set
+        (isotonic regression; learning-to-defer style correctness targets)."""
+        labels = self.tune_labels
+        probs = calibrate_expert_probs(
+            self.tune_logits, self.cfg.cls_num_list, self.la_tau,
+            T=1.0, per_expert_T=self.expert_T,
+        )
+        calibrators = []
+        for p in probs:
+            conf = p.max(dim=1).values.numpy()
+            correct = (p.argmax(dim=1) == labels).numpy().astype(np.float64)
+            if correct.sum() < 20:
+                self.logger.info(
+                    f"[WARN] Too few correct tune samples ({correct.sum()}) "
+                    f"for isotonic fit; using clipped-confidence fallback."
+                )
+                calibrators.append(_IdentityCalibrator())
+            else:
+                iso = IsotonicRegression(out_of_bounds='clip',
+                                         y_min=0.02, y_max=0.98)
+                iso.fit(conf, correct)
+                calibrators.append(iso)
+        return calibrators
+
+    def _correctness_target(self, probs):
+        """(B, 3) target: normalized per-expert P(correct | max-prob)."""
+        confs = torch.stack([p.max(dim=1).values for p in probs], dim=1)
+        t = torch.zeros_like(confs)
+        for j, cal in enumerate(self.calibrators):
+            vals = cal(confs[:, j].cpu().numpy())
+            t[:, j] = torch.from_numpy(np.asarray(vals, dtype=np.float32)).to(confs.device)
+        return t / t.sum(dim=1, keepdim=True)
+
+    # ------------------------------------------------------------------ #
+    # Validation (cached tune set; fits gate & mixture temperatures)      #
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _bal_acc_from_probs(p_mix, labels):
+        preds = p_mix.argmax(dim=1).numpy()
+        labels = labels.numpy()
+        accs = [
+            np.mean(preds[labels == c] == c)
+            for c in range(p_mix.size(1)) if np.sum(labels == c) > 0
+        ]
+        return float(np.mean(accs)) * 100 if accs else 0.0
+
+    @torch.no_grad()
     def validate(self, T):
+        """Balanced accuracy of the final mixture on the tune set.
+
+        Uses the exact same mixture recipe as test-time evaluation
+        (build_mixture with the configured k/space/floor). Optionally fits a
+        gate-logit temperature (maximize bal acc) and a final mixture
+        temperature (minimize prior-weighted NLL, logit space only).
+        """
         self.gate.eval()
-        self.model.eval()
-        
-        all_preds = []
-        all_labels = []
-        all_oracle_matches = []
-        
-        for images, labels in self.tune_loader:
-            images = images.to(self.device, non_blocking=True)
-            labels = labels.to(self.device, non_blocking=True)
-            
-            logits_list, embeddings = self.model(images)
-            probs = self.get_probs(logits_list, T)
-            
-            gate_logits = self.gate(embeddings)
-            weights = F.softmax(gate_logits, dim=1)
-            
-            mix_prob = torch.zeros_like(probs[0])
-            for i in range(3):
-                mix_prob += weights[:, i:i+1] * probs[i]
-                
-            _, pred = mix_prob.max(dim=1)
-            all_preds.extend(pred.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+        probs, embeddings = self._tune_calibrated(T)
+        labels = self.tune_labels
 
-            B = labels.size(0)
-            true_probs_experts = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
-            target_expert = torch.argmax(true_probs_experts, dim=1)
-            gate_choice = torch.argmax(weights, dim=1)
-            all_oracle_matches.extend(gate_choice.eq(target_expert).cpu().numpy())
-            
-        all_preds = np.array(all_preds)
-        all_labels = np.array(all_labels)
-        
-        # Compute strict Balanced Accuracy
-        bal_acc = np.mean([np.mean(all_preds[all_labels == c] == c) for c in range(self.cfg.num_classes) if np.sum(all_labels == c) > 0]) * 100
+        gate_logits = self.gate(embeddings.to(self.device)).cpu()
 
-        # Oracle Match Accuracy: fraction of samples where the gate's routing
-        # choice equals the oracle expert (highest true-class probability).
-        oracle_match_acc = np.mean(all_oracle_matches) * 100
+        if self.fit_gate_temp:
+            best_bal, best_Tg = -1.0, 1.0
+            for Tg in GATE_TEMP_GRID:
+                weights = F.softmax(gate_logits / Tg, dim=1)
+                p_mix = build_mixture(
+                    self.tune_logits, weights, self.cfg.cls_num_list,
+                    self.la_tau, T=T, per_expert_T=self.expert_T,
+                    k=self.k, space=self.mix_space,
+                    weight_floor=self.weight_floor,
+                )
+                bal = self._bal_acc_from_probs(p_mix, labels)
+                if bal > best_bal:
+                    best_bal, best_Tg = bal, Tg
+            gate_temp = best_Tg
+        else:
+            gate_temp = 1.0
 
-        return bal_acc, oracle_match_acc
+        weights = F.softmax(gate_logits / gate_temp, dim=1)
+        p_mix = build_mixture(
+            self.tune_logits, weights, self.cfg.cls_num_list,
+            self.la_tau, T=T, per_expert_T=self.expert_T,
+            k=self.k, space=self.mix_space, weight_floor=self.weight_floor,
+        )
+        bal_acc = self._bal_acc_from_probs(p_mix, labels)
+
+        # Oracle match: does the gate's argmax equal the expert with the
+        # highest true-class probability?
+        B = labels.size(0)
+        true_probs_experts = torch.stack(
+            [p[torch.arange(B), labels] for p in probs], dim=1
+        )
+        target_expert = torch.argmax(true_probs_experts, dim=1)
+        gate_choice = torch.argmax(weights, dim=1)
+        oracle_match_acc = float((gate_choice == target_expert).float().mean()) * 100
+
+        # Final mixture temperature (calibration only; does not change argmax).
+        mix_temp = 1.0
+        if self.mix_space == 'logit' and self.fit_mix_temp:
+            cls_num_list = np.array(self.cfg.cls_num_list, dtype=np.float64)
+            priors = cls_num_list / cls_num_list.sum()
+            w = torch.from_numpy(priors[labels.numpy()]).float()
+            w = w / w.sum()
+            best_nll = float('inf')
+            for Tm in MIX_TEMP_GRID:
+                p = build_mixture(
+                    self.tune_logits, weights, self.cfg.cls_num_list,
+                    self.la_tau, T=T, per_expert_T=self.expert_T,
+                    k=self.k, space=self.mix_space,
+                    weight_floor=self.weight_floor,
+                    mix_temperature=Tm,
+                )
+                p_y = p[torch.arange(B), labels]
+                nll = -float((w * torch.log(p_y.clamp_min(1e-12))).sum())
+                if nll < best_nll:
+                    best_nll, mix_temp = nll, Tm
+
+        return bal_acc, oracle_match_acc, gate_temp, mix_temp
 
     @torch.no_grad()
     def log_feature_statistics(self):
         self.gate.eval()
         self.model.eval()
         all_embeddings = []
-        
+
         for i, (images, _) in enumerate(self.gate_loader):
-            if i >= 5: 
+            if i >= 5:
                 break
             images = images.to(self.device)
             _, embeddings = self.model(images)
             all_embeddings.append(embeddings.cpu())
-            
+
         all_embeddings = torch.cat(all_embeddings, dim=0)
         mean_emb = all_embeddings.mean(dim=0)
         std_emb = all_embeddings.std(dim=0)
-        
+
         self.logger.info("\n" + "="*80)
         self.logger.info(f"GATE INPUT FEATURE STATISTICS "
                          f"({all_embeddings.size(1)}-dim)")
@@ -277,13 +477,16 @@ class GateTrainer(BaseTrainer):
         self.logger.info(f"Min Val: {all_embeddings.min().item():.4f} | Max Val: {all_embeddings.max().item():.4f}")
         self.logger.info("="*80 + "\n")
 
+    # ------------------------------------------------------------------ #
+    # Training                                                           #
+    # ------------------------------------------------------------------ #
     def train_one_epoch(self, epoch, T, gate_loader, optimizer, scheduler):
         self.gate.train()
         total_loss = 0.0
         total_correct = 0
         total_samples = 0
         total_expert_match = 0
-        
+
         total_weights_sum = torch.zeros(3, device=self.device)
 
         for batch_idx, (images, labels) in enumerate(gate_loader):
@@ -299,48 +502,67 @@ class GateTrainer(BaseTrainer):
             weights = F.softmax(gate_logits, dim=1)
             B = labels.size(0)
 
-            true_probs_experts = torch.stack([p[torch.arange(B), labels] for p in probs], dim=1)
+            true_probs_experts = torch.stack(
+                [p[torch.arange(B), labels] for p in probs], dim=1
+            )
             target_expert = torch.argmax(true_probs_experts, dim=1)
 
-            # (kept only for the mixture-accuracy metric below; not in loss)
-            mix_prob_full = torch.zeros_like(probs[0])
-            for i in range(3):
-                mix_prob_full += weights[:, i:i+1] * probs[i]
+            # The mixture is built with the EXACT same recipe used at
+            # validation/test time (k, space, weight floor) — the gate is
+            # trained on the operation it is scored with (RC2 fix).
+            p_mix = build_mixture(
+                logits_list, weights, self.cfg.cls_num_list,
+                self.la_tau, T=T, per_expert_T=self.expert_T,
+                k=self.k, space=self.mix_space,
+                weight_floor=self.weight_floor,
+            )
 
-            # Soft-oracle supervision: route proportional to each expert's
-            # true-class confidence. This per-sample KL target has a strong,
-            # per-sample gradient and cannot collapse to uniform lazy routing
-            # (unlike mixture NLL, whose gradient ~ 0 when experts agree).
-            tau_oracle = getattr(self.cfg, 'gate_oracle_tau', 0.2)
-            soft_target = F.softmax(true_probs_experts / tau_oracle, dim=1)
-            log_weights = F.log_softmax(gate_logits, dim=1)
-            loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
+            if self.target_mode == 'mix_nll':
+                # Mixture NLL of the final mixture. In logit space the
+                # gradient w.r.t. gate logits depends on logit *differences*,
+                # so it does not vanish when the mixture is confident or on
+                # tail samples (RC4 fix).
+                loss = F.nll_loss(torch.log(p_mix.clamp_min(1e-12)), labels)
+            elif self.target_mode == 'logprob':
+                # Soft-oracle KL with log-space sharpened target (RC1 fix):
+                # tail samples get a decisive target even when all p_i(y) are
+                # tiny.
+                soft_target = build_oracle_target(
+                    true_probs_experts, self.tau_oracle, space='logprob'
+                )
+                log_weights = F.log_softmax(gate_logits, dim=1)
+                loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
+            else:  # correctness
+                # L2D-style target: calibrated P(expert correct | max-prob).
+                soft_target = self._correctness_target(probs)
+                log_weights = F.log_softmax(gate_logits, dim=1)
+                loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
 
             optimizer.zero_grad()
             loss.backward()
-            
+
             if batch_idx == 0 and ((epoch + 1) % 10 == 0 or epoch == 0):
                 self.logger.info("\n" + "="*80)
                 self.logger.info(f"🔍 DIAGNOSTIC LOG: EPOCH {epoch+1} | BATCH 0")
                 self.logger.info("="*80)
-                
-                self.logger.info(f"Loss (soft-oracle KL): {loss.item():.4f}")
-                
+
+                self.logger.info(f"Loss ({self.target_mode}): {loss.item():.4f}")
+
                 emb_mean = embeddings.mean().item()
                 emb_std = embeddings.std().item()
                 self.logger.info(f"Input Embeddings -> Mean: {emb_mean:.4f} | Std: {emb_std:.4f}")
-                
+
                 logits_std = gate_logits.std(dim=0).mean().item()
                 weights_std = weights.std(dim=0).mean().item()
                 avg_weights = weights.mean(dim=0).tolist()
                 self.logger.info(f"Gate Logits (pre-softmax) -> Avg Std across batch: {logits_std:.6f}")
                 self.logger.info(f"Weights (post-softmax) -> Avg Std across batch: {weights_std:.6f} | Mean: {[f'{w:.4f}' for w in avg_weights]}")
-                
+
                 target_dist = torch.zeros(3, device=self.device)
                 for i in range(3):
                     target_dist[i] = (target_expert == i).float().mean()
                 self.logger.info(f"Target Expert Distribution: CE={target_dist[0]:.3f} | LA={target_dist[1]:.3f} | BS={target_dist[2]:.3f}")
-                
+
                 grad_norm_fc = self.gate.fc.weight.grad.norm().item() if self.gate.fc.weight.grad is not None else 0.0
                 self.logger.info(f"Gradient Norms -> FC (Linear Router): {grad_norm_fc:.6f}")
                 self.logger.info("="*80 + "\n")
@@ -352,8 +574,8 @@ class GateTrainer(BaseTrainer):
 
             gate_preds = torch.argmax(gate_logits, dim=1)
             total_expert_match += gate_preds.eq(target_expert).sum().item()
-            
-            _, pred = mix_prob_full.max(dim=1)
+
+            _, pred = p_mix.max(dim=1)
             total_correct += pred.eq(labels).sum().item()
             total_samples += images.size(0)
 
@@ -361,25 +583,25 @@ class GateTrainer(BaseTrainer):
         avg_loss = total_loss / total_samples
         avg_acc = total_correct / total_samples * 100
         avg_expert_match = total_expert_match / total_samples * 100
-        
+
         epoch_avg_weights = total_weights_sum / total_samples
-        
+
         if (epoch + 1) % 10 == 0 or epoch == 0:
             w_ce, w_la, w_bs = epoch_avg_weights[0].item(), epoch_avg_weights[1].item(), epoch_avg_weights[2].item()
             log_line = f"  Epoch {epoch+1} Train Routing -> Avg Weights: CE={w_ce:.3f}, LA={w_la:.3f}, BS={w_bs:.3f} | Gate Acc: {avg_expert_match:.2f}%"
             print(log_line)
             self.logger.info(log_line)
-            
+
         return avg_loss, avg_expert_match
 
     def do_train_val(self):
         self.log_feature_statistics()
-        
+
         batch_sizes = getattr(self.cfg, 'gate_batch_sizes', [128])
         temperatures = getattr(self.cfg, 'gate_temperatures', [1.0])
-        
+
         self.logger.info(f"\n[INFO] Starting Gate Sweep. Batch Sizes: {batch_sizes}, Temperatures: {temperatures}")
-        
+
         sweep_results = []
 
         for bs in batch_sizes:
@@ -395,25 +617,33 @@ class GateTrainer(BaseTrainer):
                 self.logger.info(f"SWEEP: Batch Size={bs}, Temp={T}")
 
                 self._reset_gate_and_optimizer()
-                
+
                 best_val_acc = 0.0
                 best_epoch = -1
+                best_gate_temp = 1.0
+                best_mix_temp = 1.0
 
                 for epoch in range(self.gate_epochs):
                     train_loss, train_gate_acc = self.train_one_epoch(epoch, T, gate_loader, self.optimizer, self.scheduler)
-                    
-                    # Evaluate validation mixture accuracy every epoch
-                    val_mixture_acc, val_oracle_match = self.validate(T)
-                    
+
+                    # Evaluate the exact test-time mixture on the tune set.
+                    val_mixture_acc, val_oracle_match, gate_temp, mix_temp = self.validate(T)
+
                     print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={train_loss:.4f}, train_gate_acc={train_gate_acc:.2f}%, val_mixture_acc={val_mixture_acc:.2f}%, oracle_match={val_oracle_match:.2f}%")
 
                     if val_mixture_acc > best_val_acc:
                         best_val_acc = val_mixture_acc
                         best_epoch = epoch
-                        self.save_gate_checkpoint(epoch, bs, T, val_mixture_acc, is_best=True)
-                        
+                        best_gate_temp = gate_temp
+                        best_mix_temp = mix_temp
+                        self.save_gate_checkpoint(
+                            epoch, bs, T, val_mixture_acc, is_best=True,
+                            gate_temp=gate_temp, mix_temp=mix_temp,
+                        )
+
                 sweep_results.append({
-                    'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1, 'best_val_acc': best_val_acc
+                    'batch_size': bs, 'temp': T, 'best_epoch': best_epoch + 1,
+                    'best_val_acc': best_val_acc,
                 })
                 print(f"[INFO] Finished BS={bs}, T={T}. Best Epoch: {best_epoch+1} with Val Mixture Acc: {best_val_acc:.4f}")
 
@@ -425,10 +655,11 @@ class GateTrainer(BaseTrainer):
         for r in sweep_results:
             print(f"{r['batch_size']:<5} | {r['temp']:<5} | {r['best_epoch']:<10} | {r['best_val_acc']:<20.4f}")
         print("="*100)
-        
+
         self.eval_best_model()
 
-    def save_gate_checkpoint(self, epoch, bs, T, val_acc, is_best=False):
+    def save_gate_checkpoint(self, epoch, bs, T, val_acc, is_best=False,
+                             gate_temp=1.0, mix_temp=1.0):
         os.makedirs(self.cfg.root_model, exist_ok=True)
         path = os.path.join(self.cfg.root_model, f"gate_checkpoint_bs{bs}_T{T}_epoch{epoch}.pth")
         state = {
@@ -437,7 +668,17 @@ class GateTrainer(BaseTrainer):
             'temperature': T,
             'gate_state_dict': self.gate.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'val_acc': val_acc
+            'val_acc': val_acc,
+            # Stage-2 fix metadata: the exact recipe used for this checkpoint.
+            'gate_temp': gate_temp,
+            'mix_temp': mix_temp,
+            'expert_temps': list(self.expert_T),
+            'k': self.k,
+            'mix_space': self.mix_space,
+            'target_mode': self.target_mode,
+            'tau': self.tau_oracle,
+            'norm_blocks': self.norm_blocks,
+            'weight_floor': self.weight_floor,
         }
         if is_best:
             torch.save(state, path)
@@ -462,8 +703,11 @@ class GateTrainer(BaseTrainer):
             self.optimizer, lr_lambda=lambda epoch: 1.0
         )
 
+    # ------------------------------------------------------------------ #
+    # Final evaluation                                                   #
+    # ------------------------------------------------------------------ #
     @torch.no_grad()
-    def extract_posteriors(self, loader, T):
+    def extract_posteriors(self, loader, T, gate_temp=1.0, mix_temp=1.0):
         self.gate.eval()
         self.model.eval()
         all_p_mix = []
@@ -471,24 +715,19 @@ class GateTrainer(BaseTrainer):
         for batch_idx, (images, labels) in enumerate(loader):
             images = images.to(self.device, non_blocking=True)
             logits_list, embeddings = self.model(images)
-            probs = self.get_probs(logits_list, T)
 
-            gate_logits = self.gate(embeddings)
+            gate_logits = self.gate(embeddings) / gate_temp
             weights = F.softmax(gate_logits, dim=1)
 
-            k = getattr(self.cfg, 'routing_sparsity', 2)
-            topk_weights, topk_indices = torch.topk(weights, k, dim=1)
-            topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True) 
+            p_mix = build_mixture(
+                logits_list, weights, self.cfg.cls_num_list,
+                self.la_tau, T=T, per_expert_T=self.expert_T,
+                k=self.k, space=self.mix_space,
+                weight_floor=self.weight_floor,
+                mix_temperature=mix_temp,
+            )
 
-            stacked_probs = torch.stack(probs, dim=1)
-            mix_prob = torch.zeros_like(stacked_probs[:, 0, :])
-            for i in range(k):
-                idx = topk_indices[:, i]
-                w = topk_weights[:, i].unsqueeze(1)
-                expert_probs = stacked_probs[torch.arange(images.size(0)), idx, :]
-                mix_prob += w * expert_probs
-
-            all_p_mix.append(mix_prob.cpu().numpy())
+            all_p_mix.append(p_mix.cpu().numpy())
             all_labels.append(labels.numpy())
         return np.concatenate(all_p_mix, axis=0), np.concatenate(all_labels, axis=0)
 
@@ -496,37 +735,49 @@ class GateTrainer(BaseTrainer):
         self.logger.info("\n" + "="*80)
         self.logger.info("STAGE 3: PLUG-IN EVALUATION")
         self.logger.info("="*80)
-        
+
         files = glob.glob(os.path.join(self.cfg.root_model, "gate_checkpoint_*.pth"))
         if not files:
             self.logger.error("Best gate checkpoint not found! Run training first.")
             return
-            
+
         best_gate_path = max(files, key=os.path.getmtime)
-            
+
         # FIX: Added weights_only=False for PyTorch 2.6+ compatibility
         ckpt = torch.load(best_gate_path, map_location='cpu', weights_only=False)
         self.gate.load_state_dict(ckpt['gate_state_dict'])
-        T = ckpt['temperature']
-        self.logger.info(f"Loaded best gate from {best_gate_path} (Epoch {ckpt['epoch']}) with T={T}")
-        
+        T = ckpt.get('temperature', 1.0)
+        gate_temp = ckpt.get('gate_temp', 1.0)
+        mix_temp = ckpt.get('mix_temp', 1.0)
+        self.expert_T = list(ckpt.get('expert_temps', [1.0, 1.0, 1.0]))
+        self.k = ckpt.get('k', getattr(self.cfg, 'routing_sparsity', 2))
+        self.mix_space = ckpt.get('mix_space', self.mix_space)
+        self.weight_floor = ckpt.get('weight_floor', self.weight_floor)
+        self.norm_blocks = ckpt.get('norm_blocks', self.norm_blocks)
+        self.model.set_gate_params(self.expert_T, self.norm_blocks)
+        self.logger.info(
+            f"Loaded best gate from {best_gate_path} (Epoch {ckpt['epoch']}) "
+            f"with T={T}, gate_temp={gate_temp:.3f}, mix_temp={mix_temp:.3f}, "
+            f"expert_temps={[f'{t:.3f}' for t in self.expert_T]}"
+        )
+
         self.logger.info("Extracting posteriors for tune (val) and test sets...")
-        p_mix_val, labels_val = self.extract_posteriors(self.tune_loader, T)
-        p_mix_test, labels_test = self.extract_posteriors(self.test_loader, T)
-        
+        p_mix_val, labels_val = self.extract_posteriors(self.tune_loader, T, gate_temp, mix_temp)
+        p_mix_test, labels_test = self.extract_posteriors(self.test_loader, T, gate_temp, mix_temp)
+
         group_ids = define_groups_2(self.cfg.cls_num_list)
-        
+
         mode = self.cfg.plugin_algo
         self.logger.info(f"Running Plug-in [{mode}] evaluation...")
-        
+
         metrics = compute_aurc_metrics(
-            p_mix_val, labels_val, 
-            p_mix_test, labels_test, 
-            group_ids, 
-            cls_num_list=self.cfg.cls_num_list, 
+            p_mix_val, labels_val,
+            p_mix_test, labels_test,
+            group_ids,
+            cls_num_list=self.cfg.cls_num_list,
             mode=mode
         )
-        
+
         self.logger.info("\n" + "-"*40)
         self.logger.info(f"AURC: {metrics['AURC']:.4f}")
         self.logger.info(f"NLL: {metrics['NLL']:.4f}")

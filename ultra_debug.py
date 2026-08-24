@@ -29,7 +29,7 @@ from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
 from imbalanceddl.utils.gate_features import gate_input_dim
 from imbalanceddl.utils.debug.evaluation import (
     extract_data, run_metric_comparisons, run_temperature_comparison,
-    run_saves_the_day_checks,
+    run_saves_the_day_checks, recipe_from_checkpoint,
     run_raw_prob_inspection, run_oracle_diagnostic
 )
 from imbalanceddl.utils.debug.metrics import compute_all_metrics
@@ -132,38 +132,41 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
-    model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
-    
-    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes), num_experts=3).to(device)
-    print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
-    
+
     # FIX: Added weights_only=False
     gate_ckpt = torch.load(custom_args.gate_ckpt, map_location='cpu', weights_only=False)
-    gate.load_state_dict(gate_ckpt['gate_state_dict'])
-    gate.eval()
-
-    T = gate_ckpt.get('temperature', 1.0)
-    print(f"[INFO] Using Temperature T={T} extracted from gate checkpoint")
 
     la_tau = 1.5
     match_tau = re.search(r't([\d\.]+)', os.path.basename(custom_args.la_path))
     if match_tau:
         la_tau = float(match_tau.group(1))
     print(f"[INFO] Using LA Tau = {la_tau} parsed from filename")
-    
-    cls_num_list = torch.tensor(cfg.cls_num_list, device=device, dtype=torch.float32)
-    log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
-    log_spc = torch.log(cls_num_list + 1e-12)
-    k = getattr(cfg, 'routing_sparsity', 2)
+
+    # Reconstruct the exact mixture recipe the checkpoint was trained with
+    # (per-expert temperatures, k, mixture space, gate/mixture temperatures).
+    recipe = recipe_from_checkpoint(gate_ckpt, cfg, la_tau=la_tau)
+    print(f"[INFO] Recipe: T={recipe['T']} | expert_temps={recipe['expert_temps']} | "
+          f"k={recipe['k']} | space={recipe['space']} | gate_temp={recipe['gate_temp']:.3f} | "
+          f"mix_temp={recipe['mix_temp']:.3f}")
+
+    model = ExpertEnsemble(cfg, device, ckpt_paths,
+                           expert_T=recipe['expert_temps'],
+                           normalize_blocks=recipe['norm_blocks']).to(device)
+
+    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes), num_experts=3).to(device)
+    print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
+
+    gate.load_state_dict(gate_ckpt['gate_state_dict'])
+    gate.eval()
 
     print("\n[INFO] Extracting posteriors...")
-    (p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_bs_tune, 
+    (p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_bs_tune,
      l_ce_tune, l_la_tune, l_bs_tune, w_tune, labels_tune,
-     gate_logits_tune) = extract_data(model, gate, tune_loader, T, la_tau, log_prior, log_spc, k, device)
-     
-    (p_mix_test, p_unif_test, p_ce_test, p_la_test, p_bs_test, 
+     gate_logits_tune) = extract_data(model, gate, tune_loader, device, recipe)
+
+    (p_mix_test, p_unif_test, p_ce_test, p_la_test, p_bs_test,
      l_ce_test, l_la_test, l_bs_test, w_test, labels_test,
-     gate_logits_test) = extract_data(model, gate, test_loader, T, la_tau, log_prior, log_spc, k, device)
+     gate_logits_test) = extract_data(model, gate, test_loader, device, recipe)
 
     group_ids_2 = define_groups_2(cfg.cls_num_list)
 
@@ -216,13 +219,14 @@ def main():
     
     # 3. Temperature Comparison
     # m_unif / m_method = metrics of the Uniform and Gate-routed Method
-    # posteriors at the gate temperature T (p_unif_test / p_mix_test were
-    # extracted by extract_data at T). They fill the "Unif @ T={T}" and
-    # "Method @ T={T}" columns of the comparison table; the T=1.0 columns
-    # are computed inside run_temperature_comparison.
+    # posteriors under the checkpoint recipe (p_unif_test / p_mix_test were
+    # extracted by extract_data). The T=1.0 columns are computed inside
+    # run_temperature_comparison (with the corrected la_tau bias).
     m_unif = compute_all_metrics(p_unif_test, labels_test, None, cfg, train_dataset)
     m_method = compute_all_metrics(p_mix_test, labels_test, None, cfg, train_dataset)
-    run_temperature_comparison(T, l_ce_test, l_la_test, l_bs_test, w_test, k, log_prior, log_spc, labels_test, cfg, train_dataset, m_unif, m_method)
+    run_temperature_comparison(recipe, l_ce_test, l_la_test, l_bs_test,
+                               gate_logits_test, labels_test, cfg,
+                               train_dataset, m_unif, m_method)
     
     # 4. Routing Statistics
     label_groups_test = group_ids_2[labels_test]
@@ -231,7 +235,7 @@ def main():
     print_per_class_extreme_routing(w_test, labels_test, cfg)
     
     # 5. LA Saves the Day & Raw Prob Inspection
-    la_saves_day_indices = run_saves_the_day_checks(p_ce_test, p_la_test, p_bs_test, w_test, labels_test, label_groups_test, k)
+    la_saves_day_indices = run_saves_the_day_checks(p_ce_test, p_la_test, p_bs_test, w_test, labels_test, label_groups_test, recipe['k'])
     run_raw_prob_inspection(la_saves_day_indices, p_ce_test, p_la_test, p_bs_test, w_test, labels_test)
     
     # 6. Oracle Diagnostic

@@ -161,6 +161,30 @@ def get_args():
     parser.add_argument('--gate_batch_sizes', nargs='+', type=int, default=[128], help='List of batch sizes to sweep for the gate')
     parser.add_argument('--gate_temperatures', nargs='+', type=float, default=[1.0], help='List of temperatures to sweep for the gate')
     parser.add_argument('--eval_interval', default=10, type=int, help='Evaluate gate every N epochs to find the best one')
+
+    # Stage-2 post-mortem fixes (8/24): supervision + protocol consistency
+    parser.add_argument('--gate_target_mode', default='mix_nll', type=str,
+                        choices=['mix_nll', 'logprob', 'correctness'],
+                        help='Gate training target: mix_nll (mixture NLL of the final '
+                             'mixture; recommended), logprob (soft-oracle KL with '
+                             'log-space sharpening), correctness (L2D-style calibrated '
+                             'P(expert correct) targets)')
+    parser.add_argument('--mix_space', default='logit', type=str, choices=['logit', 'prob'],
+                        help='Mixture space used by the single shared recipe: logit '
+                             '(product-of-experts, BalPoE; recommended) or prob')
+    parser.add_argument('--gate_weight_floor', default=0.0, type=float,
+                        help='Minimum per-expert mixture weight (capacity floor, 0=off)')
+    parser.add_argument('--gate_norm_blocks', default=True, type=bool,
+                        help='L2-normalize each expert probability block in the gate input')
+    parser.add_argument('--fit_expert_temps', default=True, type=bool,
+                        help='Fit per-expert temperatures on the tune set (minimize NLL)')
+    parser.add_argument('--fit_gate_temp', default=True, type=bool,
+                        help='Fit a gate-logit temperature on the tune set during validation')
+    parser.add_argument('--fit_mix_temp', default=True, type=bool,
+                        help='Fit a final mixture temperature on the tune set (logit space; '
+                             'calibrates NLL/Brier/ECE)')
+    parser.add_argument('--expert_temperatures', nargs=3, type=float, default=None,
+                        help='Manual per-expert temperatures [T_ce, T_la, T_bs] (overrides fit)')
     
     # update config from command line
     parser.set_defaults(**config)

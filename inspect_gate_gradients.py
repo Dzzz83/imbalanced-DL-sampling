@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # inspect_gate_gradients.py
-# Diagnostic: soft-oracle KL loss gradient on the gate (single forward/backward).
+# Diagnostic: replicate the checkpoint's training loss and inspect gate
+# gradients (single forward/backward).
 #
 # Usage:
 #   python inspect_gate_gradients.py \
@@ -16,6 +17,7 @@ import re
 import numpy as np
 import torch
 import torch.nn.functional as F
+from sklearn.isotonic import IsotonicRegression
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 
@@ -34,17 +36,17 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
 from imbalanceddl.utils.gate_features import (
-    calibrate_expert_probs, gate_input_dim,
+    calibrate_expert_probs, gate_input_dim, build_mixture,
+    build_oracle_target,
 )
 
 
 class GateGradientInspector:
-    """Inspects soft-oracle KL gradient pressure on the gate router.
+    """Replicates the checkpoint's training loss and reports gradient pressure.
 
-    Runs one batch through the exact ``train_one_epoch`` forward pass
-    (probability+feature embeddings at T=1.0, soft-oracle target at the
-    checkpoint temperature) and backprops the soft-oracle KL loss so the
-    ``gate.fc.weight`` gradient norm and routing weights can be reported.
+    The loss is rebuilt from the checkpoint's metadata (target mode, tau,
+    per-expert temperatures, k, mixture space) so the reported gradient is
+    the one the gate actually trained with.
     """
 
     NUM_EXPERTS = 3
@@ -55,15 +57,27 @@ class GateGradientInspector:
         self.device = device
         self.la_tau = self._resolve_la_tau(cfg, la_path)
 
+        gate_ckpt = torch.load(gate_ckpt_path, map_location='cpu',
+                               weights_only=False)
+        # Recipe metadata (with safe defaults for old checkpoints).
+        self.target_mode = gate_ckpt.get('target_mode', 'logprob')
+        self.tau = gate_ckpt.get('tau', 0.2)
+        self.T = gate_ckpt.get('temperature', 1.0)
+        self.expert_T = list(gate_ckpt.get('expert_temps', [1.0, 1.0, 1.0]))
+        self.k = gate_ckpt.get('k', getattr(cfg, 'routing_sparsity', 2))
+        self.space = gate_ckpt.get('mix_space', getattr(cfg, 'mix_space', 'logit'))
+        self.weight_floor = gate_ckpt.get('weight_floor', 0.0)
+        self.gate_temp = gate_ckpt.get('gate_temp', 1.0)
+        self.norm_blocks = gate_ckpt.get('norm_blocks', True)
+        self.calibrators = None  # fitted from a loader when target is correctness
+
         self.model = ExpertEnsemble(
-            cfg, device, {'CE': ce_path, 'LA': la_path, 'BS': bs_path}
+            cfg, device, {'CE': ce_path, 'LA': la_path, 'BS': bs_path},
+            expert_T=self.expert_T, normalize_blocks=self.norm_blocks,
         )
         self.gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes),
                             num_experts=3).to(device)
-        gate_ckpt = torch.load(gate_ckpt_path, map_location='cpu',
-                               weights_only=False)
         self.gate.load_state_dict(gate_ckpt['gate_state_dict'])
-        self.T = gate_ckpt.get('temperature', 1.0)
         # Replicate training-time forward: BN uses batch statistics.
         self.gate.train()
 
@@ -76,13 +90,50 @@ class GateGradientInspector:
         return float(match_tau.group(1)) if match_tau else 1.5
 
     def _get_probs(self, logits_list, T):
-        """Calibrated expert posteriors (shared math)."""
+        """Calibrated expert posteriors (shared math, per-expert temps)."""
         return calibrate_expert_probs(
-            logits_list, self.cfg.cls_num_list, self.la_tau, T
+            logits_list, self.cfg.cls_num_list, self.la_tau,
+            T, per_expert_T=self.expert_T,
         )
 
+    def fit_calibrators(self, loader, max_batches=8):
+        """Fit per-expert correctness calibrators (target_mode='correctness')."""
+        confs = [[], [], []]
+        corrects = [[], [], []]
+        with torch.no_grad():
+            for i, (images, labels) in enumerate(loader):
+                if i >= max_batches:
+                    break
+                images = images.to(self.device, non_blocking=True)
+                labels = labels.to(self.device, non_blocking=True)
+                logits_list, _ = self.model(images)
+                probs = self._get_probs(logits_list, 1.0)
+                for j, p in enumerate(probs):
+                    confs[j].append(p.max(dim=1).values.cpu().numpy())
+                    corrects[j].append(
+                        (p.argmax(dim=1) == labels).cpu().numpy().astype(float))
+        self.calibrators = []
+        for j in range(3):
+            conf = np.concatenate(confs[j])
+            correct = np.concatenate(corrects[j])
+            if correct.sum() < 20:
+                self.calibrators.append(lambda c: np.clip(c, 0.05, 0.95))
+            else:
+                iso = IsotonicRegression(out_of_bounds='clip',
+                                         y_min=0.02, y_max=0.98)
+                iso.fit(conf, correct)
+                self.calibrators.append(iso)
+
+    def _correctness_target(self, probs):
+        confs = torch.stack([p.max(dim=1).values for p in probs], dim=1)
+        t = torch.zeros_like(confs)
+        for j, cal in enumerate(self.calibrators):
+            vals = cal(confs[:, j].cpu().numpy())
+            t[:, j] = torch.from_numpy(np.asarray(vals, dtype=np.float32)).to(confs.device)
+        return t / t.sum(dim=1, keepdim=True)
+
     def run(self, images, labels):
-        """Forward one batch, backprop the soft-oracle KL loss."""
+        """Forward one batch, backprop the checkpoint's training loss."""
         images = images.to(self.device, non_blocking=True)
         labels = labels.to(self.device, non_blocking=True)
 
@@ -92,34 +143,56 @@ class GateGradientInspector:
 
         gate_logits = self.gate(embeddings)
         weights = F.softmax(gate_logits, dim=1)
-
         B = labels.size(0)
-        true_probs = torch.stack(
-            [p[torch.arange(B), labels] for p in probs], dim=1
-        )
-        tau_oracle = getattr(self.cfg, 'gate_oracle_tau', 0.2)
-        soft_target = F.softmax(true_probs / tau_oracle, dim=1)
-        log_weights = F.log_softmax(gate_logits, dim=1)
-        loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
+
+        if self.target_mode == 'mix_nll':
+            p_mix = build_mixture(
+                logits_list, weights, self.cfg.cls_num_list, self.la_tau,
+                T=self.T, per_expert_T=self.expert_T, k=self.k,
+                space=self.space, weight_floor=self.weight_floor,
+            )
+            loss = F.nll_loss(torch.log(p_mix.clamp_min(1e-12)), labels)
+            loss_name = 'mixture NLL (logit space)'
+        elif self.target_mode == 'logprob':
+            true_probs = torch.stack(
+                [p[torch.arange(B), labels] for p in probs], dim=1
+            )
+            soft_target = build_oracle_target(true_probs, self.tau,
+                                              space='logprob')
+            log_weights = F.log_softmax(gate_logits, dim=1)
+            loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
+            loss_name = 'soft-oracle KL (log-space target)'
+        else:  # correctness
+            if self.calibrators is None:
+                raise RuntimeError(
+                    "target_mode='correctness' requires fit_calibrators(loader)"
+                    " before run().")
+            soft_target = self._correctness_target(probs)
+            log_weights = F.log_softmax(gate_logits, dim=1)
+            loss = F.kl_div(log_weights, soft_target, reduction='batchmean')
+            loss_name = 'correctness KL (L2D-style)'
 
         self.gate.zero_grad()
         loss.backward()
         grad_norm = self.gate.fc.weight.grad.norm().item()
 
-        self._print_report(loss.item(), grad_norm, weights)
+        self._print_report(loss.item(), grad_norm, weights, loss_name)
 
-    def _print_report(self, loss_value, grad_norm, weights):
+    def _print_report(self, loss_value, grad_norm, weights, loss_name):
         fc_weight = self.gate.fc.weight.detach()
         avg_weights = weights.mean(dim=0).tolist()
 
         print("\n" + "=" * 80)
-        print("GATE GRADIENT INSPECTION: SOFT-ORACLE KL LOSS")
+        print("GATE GRADIENT INSPECTION")
         print("=" * 80)
+        print(f"Loss                   : {loss_name}")
         print(f"Gate temperature T      : {self.T}")
         print(f"LA tau                  : {self.la_tau}")
+        print(f"Per-expert temps        : {[f'{t:.3f}' for t in self.expert_T]}")
+        print(f"k / mix_space           : {self.k} / {self.space}")
         print(f"Batch size              : {weights.size(0)}")
         print("-" * 80)
-        print(f"soft-oracle KL loss     : {loss_value:.6f}")
+        print(f"loss                    : {loss_value:.6f}")
         print(f"||grad|| (fc.weight)    : {grad_norm:.6f}")
         print("-" * 80)
         print(f"fc.weight mean          : {fc_weight.mean().item():+.6f}")
@@ -158,6 +231,9 @@ def main():
         cfg, custom_args.ce_path, custom_args.la_path,
         custom_args.bs_path, custom_args.gate_ckpt, device
     )
+    if inspector.target_mode == 'correctness':
+        print("[INFO] Fitting correctness calibrators on the test set...")
+        inspector.fit_calibrators(test_loader)
 
     images, labels = next(iter(test_loader))
     print(f"[INFO] Evaluating gradients on one batch "

@@ -22,7 +22,11 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.metrics import shot_acc
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
-from imbalanceddl.utils.gate_features import gate_input_dim
+from imbalanceddl.utils.gate_features import (
+    gate_input_dim, calibrate_expert_probs, build_gate_input,
+    build_mixture, uniform_weights,
+)
+from imbalanceddl.utils.debug.evaluation import recipe_from_checkpoint
 from torch.utils.data import DataLoader
 
 # ExpertEnsemble / GateMLP are imported from imbalanceddl.utils.debug.models,
@@ -96,66 +100,61 @@ def main():
 
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
-    
+
     gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes), num_experts=3).to(device)
-    
-    print("\n[INFO] Caching expert logits and embeddings on test set...")
+
+    print("\n[INFO] Caching raw expert logits on test set...")
     all_logits = [[], [], []]
-    all_embeddings = []
     all_labels = []
-    
+
     with torch.no_grad():
         for images, labels in val_loader:
             images = images.to(device)
-            logits_list, embeddings = model(images)
+            logits_list, _ = model(images)
             for i in range(3):
                 all_logits[i].append(logits_list[i].cpu())
-            all_embeddings.append(embeddings.cpu())
             all_labels.append(labels)
-            
+
     all_logits = [torch.cat(l, dim=0) for l in all_logits]
-    all_embeddings = torch.cat(all_embeddings, dim=0)
     labels = torch.cat(all_labels, dim=0).numpy()
 
     gate_files = sorted(glob.glob(os.path.join(custom_args.gate_dir, "*.pth")))
     if not gate_files:
         print(f"[ERROR] No checkpoints found in {custom_args.gate_dir}")
         sys.exit(1)
-        
+
     print(f"[INFO] Found {len(gate_files)} gate checkpoints to evaluate.")
-    
-    la_tau = 1.0
+
+    la_tau = 1.5
     match_tau = re.search(r't([\d\.]+)', os.path.basename(custom_args.la_path))
     if match_tau:
         la_tau = float(match_tau.group(1))
     print(f"[INFO] Using LA Tau = {la_tau} parsed from filename")
-    
-    cls_num_list = torch.tensor(cfg.cls_num_list, device=device, dtype=torch.float32)
-    log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
-    log_spc = torch.log(cls_num_list + 1e-12)
 
+    # Uniform baseline: first checkpoint's recipe with equal weights over all
+    # experts (the fair "did routing help" comparison).
     first_fname = os.path.basename(gate_files[0])
-    match = re.search(r'T([\d\.]+)', first_fname)
-    T_unif = float(match.group(1)) if match else 1.0
-    
-    print(f"[INFO] Computing Uniform Ensemble baseline (T={T_unif})...")
-    p_ce = F.softmax(all_logits[0] / T_unif, dim=1)
-    p_la = F.softmax((all_logits[1] + la_tau * log_prior.cpu()) / T_unif, dim=1)
-    p_bs = F.softmax((all_logits[2] + log_spc.cpu()) / T_unif, dim=1)
-    probs_unif = (p_ce + p_la + p_bs) / 3.0
-    
-    accs_unif = get_accs(probs_unif.numpy(), labels, cfg, train_dataset)
-    cal_unif = get_calib(probs_unif.numpy(), labels, cfg)
-    
+    first_ckpt = torch.load(gate_files[0], map_location='cpu', weights_only=False)
+    recipe0 = recipe_from_checkpoint(first_ckpt, cfg, la_tau=la_tau)
+    print(f"[INFO] Computing Uniform Ensemble baseline (recipe of {first_fname}): "
+          f"T={recipe0['T']}, expert_temps={recipe0['expert_temps']}, "
+          f"space={recipe0['space']}")
+    with torch.no_grad():
+        unif_w = uniform_weights(labels.shape[0], 3)
+        p_unif = build_mixture(
+            all_logits, unif_w, cfg.cls_num_list, la_tau,
+            T=recipe0['T'], per_expert_T=recipe0['expert_temps'], k=None,
+            space=recipe0['space'], mix_temperature=1.0,
+        )
+    accs_unif = get_accs(p_unif.numpy(), labels, cfg, train_dataset)
+    cal_unif = get_calib(p_unif.numpy(), labels, cfg)
+
     results = []
 
     for g_path in gate_files:
         fname = os.path.basename(g_path)
         clean_name = fname.replace("gate_checkpoint_", "").replace(".pth", "")
-        
-        match = re.search(r'T([\d\.]+)', fname)
-        T = float(match.group(1)) if match else 1.0
-        
+
         # FIX: Added weights_only=False
         ckpt = torch.load(g_path, map_location='cpu', weights_only=False)
         try:
@@ -166,42 +165,56 @@ def main():
             continue
         gate.to(device)
         gate.eval()
-        
+
+        # Reconstruct this checkpoint's exact mixture recipe (training/eval
+        # consistency; see imbalanceddl.utils.debug.evaluation).
+        recipe = recipe_from_checkpoint(ckpt, cfg, la_tau=la_tau)
+        T = recipe['T']
+        expert_temps = recipe['expert_temps']
+        k = recipe['k']
+        space = recipe['space']
+        weight_floor = recipe['weight_floor']
+        gate_temp = recipe['gate_temp']
+        mix_temp = recipe['mix_temp']
+
         with torch.no_grad():
-            adj_probs = [
-                F.softmax(all_logits[0] / T, dim=1),
-                F.softmax((all_logits[1] + la_tau * log_prior.cpu()) / T, dim=1),
-                F.softmax((all_logits[2] + log_spc.cpu()) / T, dim=1)
-            ]
-            
-            gate_logits = gate(all_embeddings.to(device))
-            weights = F.softmax(gate_logits, dim=1)
-            
-            k = 2  
-            topk_weights, topk_indices = torch.topk(weights, k, dim=1)
-            topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
-            
-            stacked_probs = torch.stack(adj_probs, dim=1).to(device)
-            p_mix = torch.zeros_like(stacked_probs[:, 0, :])
-            N = stacked_probs.size(0)
-            for i in range(k):
-                idx = topk_indices[:, i]
-                w = topk_weights[:, i].unsqueeze(1)
-                expert_probs = stacked_probs[torch.arange(N), idx, :]
-                p_mix += w * expert_probs
-                
-            p_mix_np = p_mix.cpu().numpy()
+            # Gate embeddings depend on the checkpoint's per-expert temps and
+            # block-normalization, so build them per checkpoint from raw logits.
+            probs = calibrate_expert_probs(
+                all_logits, cfg.cls_num_list, la_tau, T=1.0,
+                per_expert_T=expert_temps,
+            )
+            embeddings = build_gate_input(probs, normalize_blocks=recipe['norm_blocks'])
+
+            gate_logits = gate(embeddings.to(device))
+            weights = F.softmax(gate_logits / gate_temp, dim=1)
+
+            p_mix = build_mixture(
+                all_logits, weights.cpu(), cfg.cls_num_list, la_tau,
+                T=T, per_expert_T=expert_temps, k=k, space=space,
+                weight_floor=weight_floor, mix_temperature=mix_temp,
+            )
+            # Fair per-checkpoint uniform baseline (same recipe, equal weights).
+            unif_w = uniform_weights(weights.size(0), 3)
+            p_unif_cur = build_mixture(
+                all_logits, unif_w, cfg.cls_num_list, la_tau,
+                T=T, per_expert_T=expert_temps, k=None, space=space,
+                mix_temperature=1.0,
+            )
+
+            p_mix_np = p_mix.numpy()
             weights_np = weights.cpu().numpy()
-            
+
             accs_mix = get_accs(p_mix_np, labels, cfg, train_dataset)
             cal_mix = get_calib(p_mix_np, labels, cfg)
-            
+            accs_unif_cur = get_accs(p_unif_cur.numpy(), labels, cfg, train_dataset)
+
             avg_w_ce = np.mean(weights_np[:, 0])
             avg_w_la = np.mean(weights_np[:, 1])
             avg_w_bs = np.mean(weights_np[:, 2])
-            
-            beats_unif = "✅" if accs_mix[0] >= accs_unif[0] else "❌"
-            
+
+            beats_unif = "✅" if accs_mix[0] >= accs_unif_cur[0] else "❌"
+
             results.append({
                 'name': clean_name,
                 'bal_acc': accs_mix[0], 'many': accs_mix[1], 'med': accs_mix[2], 'low': accs_mix[3],

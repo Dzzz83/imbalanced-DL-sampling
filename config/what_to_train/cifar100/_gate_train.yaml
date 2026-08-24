@@ -36,7 +36,19 @@ bs_ls: 0.0
 
 # FIX: Define the sweep lists for Stage 2
 gate_batch_sizes: [128]
-gate_temperatures: [1.0, 2.0, 5.0, 10.0]
+# Per-expert temperatures (fit on tune) now do the calibration work; the
+# global T=2/5/10 sweep was degenerate (NLL ~3.4) and is dropped.
+gate_temperatures: [1.0]
+
+# --- Stage-2 post-mortem fixes (8/24) ---
+gate_target_mode: mix_nll     # mix_nll (recommended) | logprob | correctness
+mix_space: logit              # logit (recommended, BalPoE) | prob
+gate_weight_floor: 0.0        # minimum per-expert mixture weight (0 = off)
+gate_norm_blocks: true        # L2-normalize each expert's prob block in gate input
+fit_expert_temps: true        # fit per-expert T on tune (minimize NLL)
+fit_gate_temp: true           # fit gate-logit T on tune (maximize bal acc)
+fit_mix_temp: true            # fit final mixture T on tune (logit space; calibrates NLL)
+expert_temperatures: null     # optional manual [T_ce, T_la, T_bs] (overrides fit)
 
 # Point to the directory where _experts_train_90.yaml saved the checkpoints
 expert_ckpt_dir: checkpoint/experts_sweep_cifar100_calib

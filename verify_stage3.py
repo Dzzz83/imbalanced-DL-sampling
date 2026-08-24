@@ -22,7 +22,8 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.plugin_rule import define_groups_2, tune_plugin_for_rho, evaluate_plugin_for_rho
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
-from imbalanceddl.utils.gate_features import gate_input_dim
+from imbalanceddl.utils.gate_features import gate_input_dim, build_mixture
+from imbalanceddl.utils.debug.evaluation import recipe_from_checkpoint
 from torch.utils.data import DataLoader, Subset
 
 def chows_rule_risk_balanced(p_tune, labels_tune, p_test, labels_test, group_ids, rho, mode='bal'):
@@ -78,26 +79,36 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
-    model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
-    
-    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes), num_experts=3).to(device)
+
     print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
     gate_ckpt = torch.load(custom_args.gate_ckpt, map_location='cpu', weights_only=False)
-    gate.load_state_dict(gate_ckpt['gate_state_dict'])
-    gate.eval()
 
-    T = gate_ckpt.get('temperature', 1.0)
-    print(f"[INFO] Using Temperature T={T} from gate checkpoint")
-
+    # Reconstruct the checkpoint's exact mixture recipe (per-expert temps,
+    # k, mixture space, gate/mixture temperatures).
     la_tau = 1.5
     match_tau = re.search(r't([\d\.]+)', os.path.basename(custom_args.la_path))
     if match_tau:
         la_tau = float(match_tau.group(1))
     print(f"[INFO] Using LA Tau = {la_tau} parsed from filename")
-    
-    cls_num_list = torch.tensor(cfg.cls_num_list, device=device, dtype=torch.float32)
-    log_prior = torch.log(cls_num_list / cls_num_list.sum() + 1e-12)
-    log_spc = torch.log(cls_num_list + 1e-12)
+
+    recipe = recipe_from_checkpoint(gate_ckpt, cfg, la_tau=la_tau)
+    T = recipe['T']
+    expert_temps = recipe['expert_temps']
+    k = recipe['k']
+    space = recipe['space']
+    weight_floor = recipe['weight_floor']
+    gate_temp = recipe['gate_temp']
+    mix_temp = recipe['mix_temp']
+    print(f"[INFO] Recipe: T={T}, expert_temps={expert_temps}, k={k}, "
+          f"space={space}, gate_temp={gate_temp:.3f}, mix_temp={mix_temp:.3f}")
+
+    model = ExpertEnsemble(cfg, device, ckpt_paths,
+                           expert_T=expert_temps,
+                           normalize_blocks=recipe['norm_blocks']).to(device)
+
+    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes), num_experts=3).to(device)
+    gate.load_state_dict(gate_ckpt['gate_state_dict'])
+    gate.eval()
 
     def extract_posteriors(loader):
         all_p_mix = []
@@ -106,29 +117,17 @@ def main():
             for images, labels in loader:
                 images = images.to(device)
                 logits_list, embeddings = model(images)
-                
-                p_ce = F.softmax(logits_list[0] / T, dim=1)
-                p_la = F.softmax((logits_list[1] + la_tau * log_prior) / T, dim=1)
-                p_bs = F.softmax((logits_list[2] + log_spc) / T, dim=1)
-                probs = [p_ce, p_la, p_bs]
-                
-                # Use 192-dim embeddings directly
-                gate_logits = gate(embeddings)
-                weights = F.softmax(gate_logits, dim=1)
-                
-                k = getattr(cfg, 'routing_sparsity', 2)
-                topk_weights, topk_indices = torch.topk(weights, k, dim=1)
-                topk_weights = topk_weights / topk_weights.sum(dim=1, keepdim=True)
-                
-                stacked_probs = torch.stack(probs, dim=1)
-                mix_prob = torch.zeros_like(stacked_probs[:, 0, :])
-                for i in range(k):
-                    idx = topk_indices[:, i]
-                    w = topk_weights[:, i].unsqueeze(1)
-                    expert_probs = stacked_probs[torch.arange(images.size(0)), idx, :]
-                    mix_prob += w * expert_probs
 
-                all_p_mix.append(mix_prob.cpu().numpy())
+                gate_logits = gate(embeddings) / gate_temp
+                weights = F.softmax(gate_logits, dim=1)
+
+                p_mix = build_mixture(
+                    logits_list, weights, cfg.cls_num_list, la_tau,
+                    T=T, per_expert_T=expert_temps, k=k, space=space,
+                    weight_floor=weight_floor, mix_temperature=mix_temp,
+                )
+
+                all_p_mix.append(p_mix.cpu().numpy())
                 all_labels.append(labels.numpy())
         return np.concatenate(all_p_mix, axis=0), np.concatenate(all_labels, axis=0)
 
