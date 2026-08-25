@@ -70,6 +70,7 @@ class GateGradientInspector:
         self.gate_temp = gate_ckpt.get('gate_temp', 1.0)
         self.norm_blocks = gate_ckpt.get('norm_blocks', True)
         self.freq_features = gate_ckpt.get('freq_features', False)
+        self.linear_router = gate_ckpt.get('linear_router', False)
         self.calibrators = None  # fitted from a loader when target is correctness
 
         self.model = ExpertEnsemble(
@@ -79,7 +80,8 @@ class GateGradientInspector:
         )
         self.gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes,
                                                      freq_features=self.freq_features),
-                            num_experts=3).to(device)
+                            num_experts=3,
+                            linear_router=self.linear_router).to(device)
         self.gate.load_state_dict(gate_ckpt['gate_state_dict'])
         # Replicate training-time forward: BN uses batch statistics.
         self.gate.train()

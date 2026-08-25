@@ -68,12 +68,16 @@ class ExpertEnsemble(nn.Module):
         return logits_list, embeddings
 
 class GateMLP(nn.Module):
-    """Non-linear router matching the trainer-side architecture.
+    """Linear or non-linear router matching the trainer-side architecture.
 
-    BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> [Dropout] -> Linear(64, 3),
-    where D = ``gate_input_dim(num_classes)``. Attribute names (bn, fc, act,
-    fc_out) match ``_gate_trainer.GateMLP`` so trained state_dicts load
-    unchanged (dropout has no parameters).
+    When ``linear_router=True`` (recommended):
+      ``Linear(D, 3)`` — no BatchNorm, no hidden layer.
+    When ``linear_router=False`` (legacy):
+      ``BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> [Dropout] -> Linear(64, 3)``
+    where D = ``gate_input_dim(num_classes)``.
+
+    Attribute names (bn, fc, act, fc_out) match ``_gate_trainer.GateMLP`` so
+    trained state_dicts load unchanged (dropout has no parameters).
 
     To reduce the risk of dimension mismatch between the BN layer and the
     actual gate-input feature vector, the caller may supply *either*
@@ -83,8 +87,10 @@ class GateMLP(nn.Module):
     """
 
     def __init__(self, input_dim=None, num_experts=3, hidden_dim=64,
-                 dropout=0.0, num_classes=None, freq_features=False):
+                 dropout=0.0, num_classes=None, freq_features=False,
+                 linear_router=False):
         super().__init__()
+        self.linear_router = linear_router
         self.dropout = dropout
         # Compute input_dim from num_classes/freq_features when provided,
         # falling back to the explicit (or default 312) input_dim.
@@ -94,10 +100,15 @@ class GateMLP(nn.Module):
         elif input_dim is None:
             input_dim = 312  # safe default for CIFAR-100, no freq_features
         self._input_dim = input_dim
-        self.bn = nn.BatchNorm1d(input_dim)
-        self.fc = nn.Linear(input_dim, hidden_dim)
-        self.act = nn.ReLU()
-        self.fc_out = nn.Linear(hidden_dim, num_experts)
+        if linear_router:
+            # Single linear layer — no BN, no ReLU.
+            self.fc = nn.Linear(input_dim, num_experts)
+            self.fc_out = self.fc
+        else:
+            self.bn = nn.BatchNorm1d(input_dim)
+            self.fc = nn.Linear(input_dim, hidden_dim)
+            self.act = nn.ReLU()
+            self.fc_out = nn.Linear(hidden_dim, num_experts)
 
     def forward(self, x):
         # Runtime dimension guard — catches gate-input mismatches early
@@ -111,9 +122,10 @@ class GateMLP(nn.Module):
                 f"cls_num_list=...)) and the freq_features used to "
                 f"initialize the GateMLP. Ensure both paths agree."
             )
+        if self.linear_router:
+            return self.fc(x)
         x = self.bn(x)
         x = self.act(self.fc(x))
         if self.dropout > 0.0:
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.fc_out(x)
-        return x
+        return self.fc_out(x)

@@ -30,6 +30,7 @@ def recipe_from_checkpoint(gate_ckpt, cfg, la_tau=None, T=None):
         'mix_temp': gate_ckpt.get('mix_temp', 1.0),
         'norm_blocks': gate_ckpt.get('norm_blocks', True),
         'freq_features': gate_ckpt.get('freq_features', False),
+        'linear_router': gate_ckpt.get('linear_router', False),
         'cls_num_list': list(cfg.cls_num_list),
     }
 

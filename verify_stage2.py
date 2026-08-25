@@ -173,6 +173,7 @@ def main():
             input_dim=gate_input_dim(cfg.num_classes,
                                      freq_features=recipe['freq_features']),
             num_experts=3,
+            linear_router=recipe.get('linear_router', False),
         ).to(device)
         try:
             gate.load_state_dict(ckpt['gate_state_dict'])

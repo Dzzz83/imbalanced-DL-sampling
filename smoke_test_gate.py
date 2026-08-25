@@ -363,7 +363,8 @@ def test_eval_recipe_path(tmp_root, tag='mix_nll_logit'):
     from imbalanceddl.utils.debug.models import GateMLP
     gate = GateMLP(input_dim=gate_input_dim(NUM_CLASSES,
                                             freq_features=recipe['freq_features']),
-                   num_experts=3)
+                   num_experts=3,
+                   linear_router=recipe.get('linear_router', False))
     gate.load_state_dict(ck['gate_state_dict'])
     gate.eval()
 

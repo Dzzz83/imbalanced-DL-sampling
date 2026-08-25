@@ -128,41 +128,51 @@ class ExpertEnsemble(nn.Module):
 
 
 class GateMLP(nn.Module):
-    """Non-linear router over calibrated probability features.
+    """Linear or non-linear router over calibrated probability features.
 
     The input is ``build_gate_input(probs)``: the three experts' calibrated
     probability distributions + per-expert confidence/margin/entropy +
-    pairwise agreement (see ``imbalanceddl.utils.gate_features``). The hidden
-    ReLU layer lets the gate suppress overconfident-but-wrong experts
-    conditionally, and BatchNorm1d standardizes the feature scales.
+    pairwise agreement (see ``imbalanceddl.utils.gate_features``).
 
-    Architecture: BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> Dropout ->
-    Linear(64, 3), where D = num_experts*(num_classes+3) + C(num_experts,2).
+    When ``linear_router=True`` (recommended for small training sets):
+      ``Linear(D, 3)`` — no BatchNorm, no hidden layer.
+      Matches the finding from Liu et al. (TMLR 2024) that MLP routers don't
+      beat linear routers in vision MoE, and is better matched to the limited
+      gate training data (~1,125 samples for CIFAR-100-LT).
 
-    Dropout is optional (``cfg.gate_dropout``) — the gate trains on a very
-    small split (~1.1k samples for CIFAR-100-LT), where dropout measurably
-    reduces overfitting. Dropout has no parameters, so state_dicts load
-    unchanged regardless of the rate.
+    When ``linear_router=False`` (legacy):
+      ``BatchNorm1d(D) -> Linear(D, 64) -> ReLU -> Dropout -> Linear(64, 3)``
 
-    ``fc`` (hidden projection) keeps the legacy attribute name so
-    ``GateTrainer.train_one_epoch`` can still log ``gate.fc.weight.grad``.
+    ``fc`` keeps the legacy attribute name so
+    ``GateTrainer.train_one_epoch`` can still log ``gate.fc.weight.grad``
+    when using the non-linear variant (for linear, fc.weight is the same
+    as fc_out.weight post-forward — logging is a no-op).
     """
 
-    def __init__(self, input_dim=312, num_experts=3, hidden_dim=64, dropout=0.0):
+    def __init__(self, input_dim=312, num_experts=3, hidden_dim=64,
+                 dropout=0.0, linear_router=False):
         super().__init__()
-        self.dropout = dropout
-        self.bn = nn.BatchNorm1d(input_dim)
-        self.fc = nn.Linear(input_dim, hidden_dim)
-        self.act = nn.ReLU()
-        self.fc_out = nn.Linear(hidden_dim, num_experts)
+        self.linear_router = linear_router
+        if linear_router:
+            # Single linear layer: 316/312-dim features → 3 expert weights.
+            # No BN, no ReLU — the softmax is applied outside in the loss.
+            self.fc = nn.Linear(input_dim, num_experts)
+            self.fc_out = self.fc  # alias for backward compat
+        else:
+            self.dropout = dropout
+            self.bn = nn.BatchNorm1d(input_dim)
+            self.fc = nn.Linear(input_dim, hidden_dim)
+            self.act = nn.ReLU()
+            self.fc_out = nn.Linear(hidden_dim, num_experts)
 
     def forward(self, x):
+        if self.linear_router:
+            return self.fc(x)
         x = self.bn(x)
         x = self.act(self.fc(x))
         if self.dropout > 0.0:
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.fc_out(x)
-        return x
+        return self.fc_out(x)
 
 
 class GateTrainer(BaseTrainer):
@@ -212,6 +222,7 @@ class GateTrainer(BaseTrainer):
                                      freq_features=self.freq_features),
             num_experts=3,
             dropout=self.gate_dropout,
+            linear_router=getattr(cfg, 'gate_linear_router', False),
         ).to(self.device)
 
         self.gate_epochs = cfg.gate_epochs
@@ -764,6 +775,8 @@ class GateTrainer(BaseTrainer):
             'dropout': self.gate_dropout,
             # Round-3 fix metadata.
             'freq_features': self.freq_features,
+            # Linear router flag (architectural — must reconstruct correctly).
+            'linear_router': self.gate.linear_router,
         }
         if is_best:
             torch.save(state, path)
@@ -841,6 +854,7 @@ class GateTrainer(BaseTrainer):
                 input_dim=gate_input_dim(self.cfg.num_classes,
                                          freq_features=self.freq_features),
                 num_experts=3, dropout=self.gate_dropout,
+                linear_router=ckpt.get('linear_router', False),
             ).to(self.device)
         self.gate.load_state_dict(ckpt['gate_state_dict'])
         T = ckpt.get('temperature', 1.0)

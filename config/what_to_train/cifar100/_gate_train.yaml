@@ -47,7 +47,10 @@ gate_norm_blocks: true        # L2-normalize each expert's prob block in gate in
 fit_expert_temps: true        # fit per-expert T on tune (minimize NLL)
 fit_gate_temp: true           # fit gate-logit T on tune (maximize bal acc)
 fit_mix_temp: true            # fit final mixture T on tune (logit space; calibrates NLL)
-expert_temperatures: [2.0, 1.0, 1.5]  # Manual: CE hot (soften overconfidence), LA cold (sharpen tail), BS moderate
+expert_temperatures: [1.5, 1.2, 1.5]  # Balanced: CE default, LA slightly sharper (tail specialist), BS default
+gate_linear_router: true               # Linear router (316→3, no hidden layer). Matches Liu et al. (TMLR 2024)
+                                        # finding that MLP routers don't beat linear in vision MoE, and is
+                                        # better matched to the ~1,125-sample gate training set.
 
 # --- Round-2 fixes (8/25): stop noise-driven routing ---
 # k=3 (full mixture, no truncation): the 8/25 run lost 2 pp on Head classes

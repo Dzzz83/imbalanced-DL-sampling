@@ -125,7 +125,8 @@ def main():
                            freq_features=recipe['freq_features']).to(device)
     gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes,
                                             freq_features=recipe['freq_features']),
-                   num_experts=3).to(device)
+                   num_experts=3,
+                   linear_router=recipe.get('linear_router', False)).to(device)
     gate.load_state_dict(gate_ckpt['gate_state_dict'])
     gate.eval()
 
