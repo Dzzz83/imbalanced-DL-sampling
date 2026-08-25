@@ -32,8 +32,11 @@ class _IdentityCalibrator:
     """Fallback correctness calibrator when a tune group has too few
     correct samples to fit an isotonic map."""
 
-    def __call__(self, conf):
+    def predict(self, conf):
         return np.clip(conf, 0.05, 0.95)
+
+    def __call__(self, conf):
+        return self.predict(conf)
 
 
 class ExpertEnsemble(nn.Module):
@@ -415,7 +418,7 @@ class GateTrainer(BaseTrainer):
         confs = torch.stack([p.max(dim=1).values for p in probs], dim=1)
         t = torch.zeros_like(confs)
         for j, cal in enumerate(self.calibrators):
-            vals = cal(confs[:, j].cpu().numpy())
+            vals = cal.predict(confs[:, j].cpu().numpy())
             t[:, j] = torch.from_numpy(np.asarray(vals, dtype=np.float32)).to(confs.device)
         return t / t.sum(dim=1, keepdim=True)
 
