@@ -1,0 +1,119 @@
+# =============================================================================
+# Exp 19 — Penultimate Feature Routing
+# =============================================================================
+# 
+# Replaces the 316-dim calibrated probability gate input with the 192-dim
+# concatenated penultimate embeddings (3 frozen ResNet32 experts × 64-dim
+# hidden features before the classifier head).
+#
+# Rationale:
+# The diagnostic phase (Exp 12–18) proved the probability-space gate input has
+# an SNR bottleneck: mean pairwise block correlation r ≈ 0.68, 70% shared
+# variance across experts. The 192-dim penultimate embeddings, however, have
+# r ≈ 0.0181 (97.3% lower)—they preserve the expert-specific discrimnative
+# signal that the softmax + L2 normalization step destroys.
+#
+# The gate is a Linear(192, 3) router with 579 trainable params (vs 951 for
+# the 316-dim linear router or 20k for the MLP), well matched to the ~1,125
+# gate training samples.
+#
+# Reference:
+#   Experiment 19 in experiment-log.md
+#   Decision tree: current-task.md §4
+#   Correlation evidence: ultra_debug.py ——diagnose_embeddings output
+# =============================================================================
+
+dataset: cifar100
+num_classes: 100
+imb_type: exp
+imb_factor: 0.01
+data_path: ./data
+classifier: 'dot_product_classifier'
+augmentation: weak
+
+selection_method: none
+selection_ratio: 1.0
+
+strategy: Gate
+
+# --- Gate input mode (Exp 19, penultimate feature routing) ---
+# 'penultimate' → 192-dim concatenated backbone embeddings (3 × 64)
+# 'probability' → 316-dim calibrated probability features (legacy/default)
+gate_input_mode: penultimate
+
+# Paper-specified hyperparameters (FIXED)
+lambda_ent: 0.0
+lambda_bal: 0.0
+gate_lr: 0.001
+gate_weight_decay: 0.0001
+gate_epochs: 100
+eval_interval: 20
+gate_hidden_size: 256
+gate_hidden_size2: 128
+gate_dropout: 0.0
+gate_oracle_tau: 0.2
+
+ce_bias: false
+ce_ls: 0.0
+
+la_bias: false
+la_ls: 0.0
+la_tau: 1.5
+
+bs_bias: false
+bs_ls: 0.0
+
+# FIX: Define the sweep lists for Stage 2
+gate_batch_sizes: [128]
+gate_temperatures: [1.0]
+
+# --- Stage-2 post-mortem fixes (identical to best-known config) ---
+gate_target_mode: logprob      # logprob (sharp log-space target, fixes tail gradient starvation)
+mix_space: logit               # logit (recommended, BalPoE)
+gate_weight_floor: 0.0         # minimum per-expert mixture weight (0 = off)
+gate_norm_blocks: true         # ignored in penultimate mode (kept for backward compat)
+fit_expert_temps: true         # fit per-expert T on tune (minimize NLL); still needed for mixture
+fit_gate_temp: true            # fit gate-logit T on tune (maximize bal acc)
+fit_mix_temp: true             # fit final mixture T on tune (logit space; calibrates NLL)
+expert_temperatures: [1.5, 1.2, 1.5]  # Balanced per-expert calibration temps
+
+# --- Round-2 fixes ---
+routing_sparsity: 3            # full mixture (k=3, no truncation)
+gate_dropout: 0.1
+gate_disagree_weight: false
+gate_kl_uniform: 0.0
+
+# --- Round-3 fixes ---
+# freq_features are ignored in penultimate mode (the penultimate embeddings
+# already capture class-frequency information implicitly in the backbone
+# features). Kept for backward compatibility.
+gate_freq_features: false
+
+# Point to the directory where _experts_train_90.yaml saved the checkpoints
+expert_ckpt_dir: checkpoint/experts_sweep_cifar100_calib
+gate_split_ratio: 0.9      # 10% gate split
+
+# Backbone training hyperparameters (ignored by gate, but required by config parser)
+epochs: 256
+start_epoch: 0
+print_freq: 10
+batch_size: 128
+lr: 0.4
+momentum: 0.9
+weight_decay: 1e-4
+gamma: 0.1
+rand_number: 42
+workers: 4
+optimizer: sgd
+
+root_log: results/gate_cifar100_penultimate
+root_model: checkpoint/gate_cifar100_penultimate
+store_name: cifar100_exp0.01_Gate_penultimate_seed42
+cifar_root: ./data
+
+device: cuda
+gpu: 1
+
+seed: 42
+
+debug: true

@@ -34,6 +34,15 @@ Feature layout (num_experts=3, num_classes=100 -> 312 dims)
 The statistics/agreement features are always computed on the *unnormalized*
 probabilities (max-prob, entropy, agreement are only meaningful on real
 probabilities); only the 300 distribution dims are normalized.
+
+Penultimate feature routing (``gate_input_mode='penultimate'``)
+---------------------------------------------------------------
+When the gate consumes the per-expert penultimate embeddings (ResNet32 64-dim
+features *before* the classifier head), the input is simply the concatenation
+of the three 64-dim hidden vectors → 192-dim feature vector. No calibration,
+temperature scaling, L2 normalization, or statistics are computed on these
+raw backbone features — they are the expert-specific signal before the
+softmax transformation destroys cross-expert diversity.
 """
 import torch
 import torch.nn.functional as F
@@ -279,3 +288,37 @@ def expert_disagreement(probs):
     preds = torch.stack([p.argmax(dim=1) for p in probs], dim=1)  # (B, E)
     agree = (preds == preds[:, :1]).all(dim=1)
     return ~agree
+
+
+# ---------------------------------------------------------------------------
+# Penultimate feature routing (Exp 19)
+# ---------------------------------------------------------------------------
+PENULTIMATE_INPUT_DIM = 192  # 3 experts × 64-dim ResNet32 penultimate features
+
+
+def compute_gate_input_dim(num_classes, num_experts=3, freq_features=False,
+                           gate_input_mode='probability'):
+    """Return the gate input dimension for the requested mode.
+
+    Parameters
+    ----------
+    num_classes : int
+        Number of output classes (needed for probability-mode dimension).
+    num_experts : int
+        Number of experts (default 3).
+    freq_features : bool
+        Whether class-frequency features are appended (probability mode only).
+    gate_input_mode : str
+        ``'probability'`` (default, 316-dim calibrated features) or
+        ``'penultimate'`` (192-dim concatenated embeddings).
+
+    Returns
+    -------
+    int
+        The input feature dimension for the gate.
+    """
+    if gate_input_mode == 'penultimate':
+        return PENULTIMATE_INPUT_DIM
+    # Probability mode: delegate to the existing gate_input_dim.
+    return gate_input_dim(num_classes, num_experts=num_experts,
+                          freq_features=freq_features)

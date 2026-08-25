@@ -14,7 +14,7 @@ from ..utils.plugin_rule import define_groups, define_groups_2, compute_aurc_met
 from ..utils.gate_features import (
     calibrate_expert_probs, calibrate_expert_logits,
     build_gate_input, gate_input_dim, build_mixture, build_oracle_target,
-    expert_disagreement,
+    expert_disagreement, compute_gate_input_dim,
 )
 from ..net.network import build_model
 import glob
@@ -44,6 +44,7 @@ class ExpertEnsemble(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.device = device
+        self.gate_input_mode = getattr(cfg, 'gate_input_mode', 'probability')
         self.experts = nn.ModuleList()
         expert_dir = getattr(cfg, 'expert_ckpt_dir', cfg.root_model)
 
@@ -98,13 +99,15 @@ class ExpertEnsemble(nn.Module):
         self.freq_features = False
 
     def set_gate_params(self, expert_T=None, normalize_blocks=True,
-                        freq_features=None):
+                        freq_features=None, gate_input_mode=None):
         """Store the calibration/feature params used to build gate inputs."""
         if expert_T is not None:
             self.expert_T = list(expert_T)
         self.normalize_blocks = bool(normalize_blocks)
         if freq_features is not None:
             self.freq_features = bool(freq_features)
+        if gate_input_mode is not None:
+            self.gate_input_mode = gate_input_mode
 
     @torch.no_grad()
     def forward(self, x):
@@ -114,19 +117,29 @@ class ExpertEnsemble(nn.Module):
             logits, hidden = expert(x)
             logits_list.append(logits)
             hidden_list.append(hidden)
-        # Probability-space gate features: bias-adjusted + per-expert
-        # temperature-scaled posteriors + confidence/entropy/agreement stats
-        # (+ class-frequency features, round-3). T=1.0 here: the global sweep
-        # temperature only scales the *mixture*; per-expert temperatures (fit
-        # on tune) are the calibration knobs.
-        probs = calibrate_expert_probs(
-            logits_list, self.cfg.cls_num_list, self.la_tau,
-            T=1.0, per_expert_T=self.expert_T,
-        )
-        embeddings = build_gate_input(
-            probs, normalize_blocks=self.normalize_blocks,
-            cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
-        )
+
+        if self.gate_input_mode == 'penultimate':
+            # Penultimate feature routing (Exp 19): concatenate the three
+            # 64-dim per-expert embeddings directly, bypassing the calibrated-
+            # probability + statistics pipeline entirely. The ResNet32 backbone
+            # features preserve cross-expert diversity (mean pairwise block
+            # correlation r ≈ 0.02) that the softmax / L2-normalization step
+            # in the probability pipeline destroys (r ≈ 0.68).
+            embeddings = torch.cat(hidden_list, dim=1)  # (B, 192)
+        else:
+            # Default probability-space gate features: bias-adjusted +
+            # per-expert temperature-scaled posteriors + confidence/entropy/
+            # agreement stats (+ class-frequency features, round-3). T=1.0
+            # here: the global sweep temperature only scales the *mixture*;
+            # per-expert temperatures (fit on tune) are the calibration knobs.
+            probs = calibrate_expert_probs(
+                logits_list, self.cfg.cls_num_list, self.la_tau,
+                T=1.0, per_expert_T=self.expert_T,
+            )
+            embeddings = build_gate_input(
+                probs, normalize_blocks=self.normalize_blocks,
+                cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
+            )
         return logits_list, embeddings
 
 
@@ -204,6 +217,8 @@ class GateTrainer(BaseTrainer):
         self.gate_dropout = getattr(cfg, 'gate_dropout', 0.0)
         # Round-3 fix: explicit class-frequency features (head/tail signal).
         self.freq_features = getattr(cfg, 'gate_freq_features', False)
+        # Exp 19: penultimate feature routing mode (192-dim embeddings).
+        self.gate_input_mode = getattr(cfg, 'gate_input_mode', 'probability')
         if self.disagree_weight and self.kl_uniform <= 0.0:
             self.logger.warning(
                 "[WARN] gate_disagree_weight=True with gate_kl_uniform=0: on "
@@ -221,8 +236,11 @@ class GateTrainer(BaseTrainer):
         self._split_dataset()
 
         self.gate = GateMLP(
-            input_dim=gate_input_dim(self.cfg.num_classes,
-                                     freq_features=self.freq_features),
+            input_dim=compute_gate_input_dim(
+                self.cfg.num_classes,
+                freq_features=self.freq_features,
+                gate_input_mode=self.gate_input_mode,
+            ),
             num_experts=3,
             dropout=self.gate_dropout,
             linear_router=getattr(cfg, 'gate_linear_router', False),
@@ -245,7 +263,7 @@ class GateTrainer(BaseTrainer):
         else:
             self.expert_T = [1.0, 1.0, 1.0]
         self.model.set_gate_params(self.expert_T, self.norm_blocks,
-                                   self.freq_features)
+                                   self.freq_features, self.gate_input_mode)
         self.logger.info(
             f"[INFO] Per-expert temperatures: CE={self.expert_T[0]:.3f} | "
             f"LA={self.expert_T[1]:.3f} | BS={self.expert_T[2]:.3f}"
@@ -329,25 +347,44 @@ class GateTrainer(BaseTrainer):
     def _cache_tune_logits(self):
         logits = [[], [], []]
         labels = []
+        if self.gate_input_mode == 'penultimate':
+            tune_emb = []
         for images, lab in self.tune_loader:
             images = images.to(self.device, non_blocking=True)
-            logits_list, _ = self.model(images)
+            logits_list, embeddings = self.model(images)
             for i in range(3):
                 logits[i].append(logits_list[i].cpu())
             labels.append(lab.cpu())
+            if self.gate_input_mode == 'penultimate':
+                tune_emb.append(embeddings.cpu())
         self.tune_logits = [torch.cat(l, dim=0) for l in logits]
         self.tune_labels = torch.cat(labels)
+        if self.gate_input_mode == 'penultimate':
+            self.tune_embeddings = torch.cat(tune_emb, dim=0)
+            self.logger.info(
+                f"[INFO] Cached {self.tune_labels.size(0)} tune samples + "
+                f"{self.tune_embeddings.size(1)}-dim penultimate embeddings "
+                f"for validation."
+            )
         self.logger.info(
             f"[INFO] Cached {self.tune_labels.size(0)} tune samples for "
             f"validation and calibration fitting."
         )
 
     def _tune_calibrated(self, T):
-        """Calibrated probs + gate embeddings for the cached tune logits."""
+        """Calibrated probs + gate embeddings for the cached tune logits.
+
+        For ``gate_input_mode='penultimate'`` the embeddings are the cached
+        penultimate hidden states (no calibration needed); the probability
+        distributions are still returned (from calibrated logits) for oracle
+        match / target computation.
+        """
         probs = calibrate_expert_probs(
             self.tune_logits, self.cfg.cls_num_list, self.la_tau,
             T=T, per_expert_T=self.expert_T,
         )
+        if self.gate_input_mode == 'penultimate':
+            return probs, self.tune_embeddings
         embeddings = build_gate_input(
             probs, normalize_blocks=self.norm_blocks,
             cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
@@ -778,6 +815,8 @@ class GateTrainer(BaseTrainer):
             'dropout': self.gate_dropout,
             # Round-3 fix metadata.
             'freq_features': self.freq_features,
+            # Exp 19:
+            'gate_input_mode': self.gate_input_mode,
             # Linear router flag (architectural — must reconstruct correctly).
             'linear_router': self.gate.linear_router,
         }
@@ -846,16 +885,23 @@ class GateTrainer(BaseTrainer):
 
         # FIX: Added weights_only=False for PyTorch 2.6+ compatibility
         ckpt = torch.load(best_gate_path, map_location='cpu', weights_only=False)
+        ckpt_mode = ckpt.get('gate_input_mode', 'probability')
         ckpt_freq = ckpt.get('freq_features', self.freq_features)
-        if ckpt_freq != self.freq_features:
-            self.logger.info(
-                f"[INFO] Checkpoint uses freq_features={ckpt_freq}; rebuilding "
-                f"gate with input_dim={gate_input_dim(self.cfg.num_classes, freq_features=ckpt_freq)}"
-            )
+        if ckpt_mode != self.gate_input_mode or ckpt_freq != self.freq_features:
+            self.gate_input_mode = ckpt_mode
             self.freq_features = ckpt_freq
+            new_dim = compute_gate_input_dim(
+                self.cfg.num_classes,
+                freq_features=self.freq_features,
+                gate_input_mode=self.gate_input_mode,
+            )
+            self.logger.info(
+                f"[INFO] Checkpoint uses gate_input_mode={ckpt_mode} "
+                f"(freq_features={ckpt_freq}); rebuilding gate with "
+                f"input_dim={new_dim}"
+            )
             self.gate = GateMLP(
-                input_dim=gate_input_dim(self.cfg.num_classes,
-                                         freq_features=self.freq_features),
+                input_dim=new_dim,
                 num_experts=3, dropout=self.gate_dropout,
                 linear_router=ckpt.get('linear_router', False),
             ).to(self.device)
@@ -868,7 +914,8 @@ class GateTrainer(BaseTrainer):
         self.mix_space = ckpt.get('mix_space', self.mix_space)
         self.weight_floor = ckpt.get('weight_floor', self.weight_floor)
         self.norm_blocks = ckpt.get('norm_blocks', self.norm_blocks)
-        self.model.set_gate_params(self.expert_T, self.norm_blocks)
+        self.model.set_gate_params(self.expert_T, self.norm_blocks,
+                                   self.freq_features, self.gate_input_mode)
         self.logger.info(
             f"Loaded best gate from {best_gate_path} (Epoch {ckpt['epoch']}) "
             f"with T={T}, gate_temp={gate_temp:.3f}, mix_temp={mix_temp:.3f}, "
