@@ -15,9 +15,9 @@
 - **Coding Constraints**: All code must strictly follow Object-Oriented Programming (OOP) and modular design principles.
 
 ## 4. CURRENT STATUS
-- **Progress**: **85%** (Root cause chain fully mapped — see below).
-- **Blockers**: None — root cause identified. Next fix is ready.
-- **Next Step**: Switch to correctness targets (`gate_target_mode: correctness`).
+- **Progress**: **90%** (Diagnostic phase complete — 5 experiments, all bottlenecks mapped).
+- **Blockers**: **Feature collinearity** — the 316-dim calibrated probability features from the same ResNet32 backbone are near-collinear. No target (logprob, correctness) or architecture (MLP, linear) can extract per-sample routing signal from these features. The gate can only learn per-class biases.
+- **Next Step**: Change gate input features to penultimate features (192-dim embeddings), or implement DaWin-style confidence routing (3-dim).
 
 ## 5. TECHNICAL DECISIONS & WORKFLOW RULES
 - **Decision Log**:
@@ -29,18 +29,19 @@
   - **Exp 12** (mix_nll): Confirmed gradient starvation. Gradient norm = 0.251. Fixed by logprob target.
   - **Exp 13** (logprob + MLP): Fixed gradient starvation (norm = 0.892), but MLP overparameterized (20k params / 1,125 samples, fc.weight std = 0.074). Fixed by linear router.
   - **Exp 14** (logprob + linear): Fixed overparameterization (951 params, fc.weight std = 0.20), but **feature collinearity** confirmed: three calibrated probability distributions from same backbone are near-collinear. Blocks indistinguishable (0.201, 0.203, 0.200). Linear (43.97%) ≈ MLP (44.16%).
+  - **Exp 15** (correctness + linear): L2D correctness targets failed — isotonic calibrators on 625 tune samples produce near-uniform targets. Gate temp = 2.200 (highest ever). Routing collapsed below baseline (43.34%). Theoretical guarantees don't hold under data-limited conditions.
 
-**Root cause chain (complete):**
+**Root cause chain (complete — all bottlenecks identified and tested):**
 1. Gradient starvation (Exp 12) → FIXED by logprob target
 2. Overparameterization (Exp 13) → FIXED by linear router
-3. Feature collinearity (Exp 14) → NEXT FIX: correctness targets (L2D)
+3. Feature collinearity (Exp 14) → **PERSISTS** — no target/architecture change can fix this
+4. L2D calibrators data-limited (Exp 15) → FAILED — additional bottleneck
 
-**Current diagnosis evidence (Exp 14):**
-- fc.weight blocks: CE=0.201, LA=0.203, BS=0.200 — statistically identical means/std
-- Per-class routing shows class-level biases (class 0: w_LA=0.177; class 99: w_LA=0.455) but no per-sample specialization
-- LA-saves-the-day routing works (w_LA=0.583 on 136 samples) — proves gate can specialize when signal exists
-- Oracle gap: 8.12 pp remaining
-- Paper gap: our NLL (1.222) is 4.22% worse than paper (1.18); our tail-ECE (0.336) is 0.248 worse than paper (0.088)
+**Best known config reverted:**
+- `gate_target_mode: logprob` (not correctness)
+- MLP architecture (not linear router) — though MLP (44.16%) ≈ linear (43.97%)
+- `expert_temperatures: [1.5, 1.2, 1.5]`
+- k=3, logit mixing
 
 ## 6. RESOURCES
 - **Reference Code**: `imbalanceddl/strategy/_gate_trainer.py`, `ultra_debug.py`, `inspect_gate_gradients.py`

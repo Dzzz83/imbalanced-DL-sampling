@@ -121,17 +121,35 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 1. Exp 12: mixture NLL → gradient starvation on tail (∂L/∂g_j ≈ 0)
 2. Exp 13: logprob target → fixed gradient starvation, but MLP overparameterized (20k params / 1,125 samples → ReLU collapse → fc.weight std=0.074)
 3. Exp 14: linear router → fixed overparameterization (951 params, fc.weight std=0.20), but **features are the bottleneck** — three calibrated probability distributions are near-collinear
+4. Exp 15: correctness targets → **failed worse** — isotonic calibrators on 625 tune samples produce near-uniform targets; routing completely collapses (gate_temp=2.200, LA-saves-the-day w_LA=0.311)
 
 **Empirical proof of feature bottleneck:**
 - fc.weight blocks indistinguishable despite healthy std (0.201 vs 0.203 vs 0.200)
 - Per-class routing shows class-level biases (head→CE, tail→LA) but no per-sample specialization
 - Gradient norm is healthy (0.370) yet weights remain near-uniform
 - LA-saves-the-day shows the gate CAN specialize when signal is clear (w_LA=0.583 on 136 samples), confirming the gate works — it's the features that don't support per-sample routing
-**Next Step:** Switch to correctness targets (`gate_target_mode: correctness`). The L2D-style target `t_j = P(expert j correct | x)` is:
-1. Non-zero for ALL experts on ALL samples (fixes residual gradient weakness)
-2. Theoretically consistent with the Bayes-optimal router (Mozannar & Sontag 2020)
-3. Already implemented in `_gate_trainer.py` (isotonic regression on max-prob vs correctness)
-4. Does NOT depend on p_i(y|x) which is tiny on tail — uses binary correctness signal instead
+**Next Step:** Revert to Exp 13 best config (logprob + MLP, 44.16% bal acc). The linear router and correctness targets both failed to improve over this. The fundamental bottleneck is **feature collinearity** which no target or architecture change can fix with 316-dim calibrated probability features. Next line of attack: change the gate input features to penultimate features (192-dim embeddings), which are richer and less correlated.
+
+---
+
+### Experiment 15: Correctness Targets (L2D) — Failed
+**Date:** 2025-07-18
+**Hypothesis:** Correctness targets `t_j = P(expert j correct | x)` would give non-zero gradient on all samples (even when p_j(y|x) is tiny), and the binary correctness signal would be less corrupted by feature collinearity than the logprob target's softmax over true-class probabilities.
+**Changes:** `gate_target_mode: correctness` (was logprob). All other settings identical to Exp 14: linear router, [1.5, 1.2, 1.5] temps, k=3, logit mixing. No code changes needed (correctness target was already implemented via `_fit_correctness_calibrators` + `_correctness_target`).
+**Results:**
+- Best bal acc: **43.34%** (epoch 3) vs Uniform **43.53%** (−0.19 pp — **BELOW BASELINE**)
+- Tail acc: **11.43%** vs Uniform **11.60%** (−0.17 pp — **BELOW BASELINE**)
+- Head acc: **70.83%** vs Uniform **70.80%** (+0.03 pp, flat)
+- NLL: **1.201** (same as uniform 1.200)
+- Gate routing weights: w_CE=0.320, w_LA=0.345, w_BS=0.335 (completely uniform)
+- fc.weight block std: CE=0.080, LA=0.081, BS=0.081 (collapsed from Exp 14's 0.20)
+- **Gate temperature fitted to 2.200** (highest ever — tune set wants gate dead)
+- LA-saves-the-day w_LA: **0.311** (completely uniform — down from 0.583 in Exp 14)
+- Gate pre-softmax std: 0.219 (healthy scale but uniform direction)
+- Only 7 epochs evaluated; training stopped because all checkpoints below baseline
+**Outcome:** ❌ FAILED (worse than baseline — first experiment to regress below uniform)
+**Root Cause / Why It Failed:** The isotonic regression calibrators (fit on only ~625 tune samples) produce `P(correct | max-prob)` values with extremely limited dynamic range (0.05–0.25 for most samples). After normalization to a simplex, the target is near-uniform [~0.333, ~0.333, ~0.334] for all samples. The KL gradient `∂L/∂g = w − t` therefore pushes `w` toward uniform for every sample, collapsing the routing. The tune set confirms this by selecting gate_temp=2.200 (making the softmax output as near-uniform as possible). This is a practical failure of the L2D approach under data-limited conditions: the correctness calibrators need much more tune data to learn a stable mapping for 100 classes.
+**Next Step:** Revert to Exp 13 best config (logprob + MLP, 44.16% bal acc). The correctness target joins the logprob linear router in the FAILED list. The fundamental bottleneck is **feature collinearity** — next line of attack must change the gate input features.
 
 ---
 
@@ -143,6 +161,7 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 | 2 | Probability Routing + Switch Load Balancing Loss | Switch loss successfully balanced routing weights (fixing BS starvation), but probability-space mixing caused the gate to collapse to uniform routing (~33% for all experts), failing to beat the baseline. | 11 | 2024-05-30 |
 | 3 | Mixture NLL in logit space + disagree_weight + kl_uniform=3.0 (current config before diagnosis) | Gradient `∂L/∂g_j = w_j · (p_mix(y) − p_j(y))` vanishes on tail samples (all `p_j(y)` tiny). The gate receives zero gradient on ~95% of tail samples. Per-expert calibration also failed (all temps = 1.5), and train/eval k mismatch wasted the 3rd expert's gradient. Regularizers (disagree_weight + kl_uniform) actively fought the remaining signal. | 12 | 2025-07-15 |
 | 4 | Logprob target + linear router + balanced temps [1.5, 1.2, 1.5] | **Feature bottleneck**: three calibrated probability distributions from the same ResNet32 backbone are near-collinear. The fc.weight blocks have healthy std (0.20, 2.7× MLP) but are statistically indistinguishable across experts (CE=0.201, LA=0.203, BS=0.200). The gate learns per-class biases (head→CE, tail→LA) but cannot learn per-sample routing because the input features don't contain enough per-sample discriminative signal. Linear router (43.97%) performs essentially identically to MLP (44.16%), confirming architecture is not the bottleneck. | 14 | 2025-07-17 |
+| 5 | Correctness targets (L2D) + linear router + balanced temps [1.5, 1.2, 1.5] | Isotonic regression calibrators on only ~625 tune samples produce `P(correct | max-prob)` targets with negligible dynamic range. After normalization, targets are near-uniform [~1/3] for all samples. KL gradient `∂L/∂g = w − t` therefore pushes `w` toward uniform, collapsing routing. Gate temp=2.200 (highest ever) confirms tune set wants gate dead. LA-saves-the-day w_LA=0.311 (completely uniform). First experiment to regress below uniform baseline. | 15 | 2025-07-18 |
 
 ---
 
@@ -152,9 +171,9 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 |---|------|--------|----------|-------|
 | 1 | Disagreement Gating | Proposed | MED | Only train/invoke the gate when experts disagree. Removes easy samples, allowing gate to focus on hard, tail-heavy samples. |
 | 2 | Log-Space Sharpened Target (build_oracle_target with space='logprob') | **Tested — see Exp 13, 14** | FAILED | Fixes gradient starvation but features are the bottleneck. The logprob target gives non-zero gradients, but the calibrated probability features are near-collinear. |
-| 3 | Correctness Targets (L2D family) | **In progress (Exp 15)** | **HIGH** | Fit per-expert isotonic correctness calibrators on tune set; replace target with P(expert correct \| x). Consistent (Mozannar–Sontag 2020), calibrated (Cao), tail-safe. Already implemented in `_gate_trainer.py`. Key advantage: target is always non-zero (unlike logprob which is tiny on tail), and the binary correctness signal is less corrupted by feature collinearity. |
-| 4 | Penultimate Feature Routing (192-dim) | Proposed | MED | Replace 316-dim calibrated probability features with 192-dim penultimate features (3 × 64-dim embeddings). These features are richer and less correlated. Requires significant pipeline change: expert checkpoints must save penultimate features, gate input dimension changes. |
-| 5 | DaWin-Style Confidence Routing (3-dim) | Proposed | LOW | Training-free: route by softmax of per-expert max-confidence. Just 3 parameters. Matches DaWin (Oh et al., NeurIPS 2024). Simple enough to implement as a baseline first. |
+| 3 | Correctness Targets (L2D family) | **Tested — see Exp 15** | FAILED | Fit per-expert isotonic correctness calibrators on tune set; replace target with P(expert correct \| x). **Practical failure**: isotonic calibrators on only ~625 tune samples produce near-uniform targets. Gate temp=2.200 (highest ever). Routing collapsed below uniform baseline (43.34% vs 43.53%). Theoretical guarantees don't hold under data-limited (625 samples, 100-class) conditions. |
+| 4 | Penultimate Feature Routing (192-dim) | Proposed | **HIGH** | Replace 316-dim calibrated probability features with 192-dim penultimate features (3 × 64-dim embeddings from frozen experts). These features are richer and less correlated. Requires pipeline change: `ExpertEnsemble.forward()` currently returns only last expert's embeddings; needs per-expert embeddings. |
+| 5 | DaWin-Style Confidence Routing (3-dim) | Proposed | **HIGH** | Training-free: route by `softmax(conf_j / T)` where `conf_j = max_k p_j(y=k\|x)`. Just 3 numbers, eliminates feature collinearity problem entirely. Matches DaWin (Oh et al., NeurIPS 2024) which proves this beats learned routers for frozen experts. Can be evaluated as a post-hoc baseline without training. |
 | 6 | Two-Stage Routing (RIDE-style) | Proposed | LOW | Default = uniform mixture. Only activate per-sample router when expert disagreement is high. Reduces routing noise on easy/ambiguous samples. |
 | 7 | Max-KL Routing (track the third expert) | Proposed | LOW | Change verify_stage2.py to use recipe['k'] instead of hard-coded top-2. Ultra_debug already does this correctly. |
 
@@ -199,3 +218,4 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 | 12 | mix_nll + MLP | **Gradient starvation** on tail | ∂L/∂g_j ≈ 0 for 95% of tail samples. Gradient norm = 0.251. |
 | 13 | logprob + MLP | **Overparameterization** (20k params / 1,125 samples) | fc.weight std = 0.074 (dead hidden layer). ReLU collapses near-identical features. Gradient norm = 0.892 (fixed). |
 | 14 | logprob + linear | **Feature collinearity** (probabilities from same backbone) | fc.weight blocks indistinguishable (0.201, 0.203, 0.200). Linear (43.97%) ≈ MLP (44.16%). Gate learns class bias, not per-sample routing. |
+| 15 | correctness + linear | **L2D calibrators need more data** | Isotonic fit on 625 tune samples → near-uniform targets → gate_temp=2.200 (highest ever) → routing collapsed below baseline (43.34%). |

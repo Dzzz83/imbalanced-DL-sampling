@@ -726,38 +726,30 @@ A 316→3 linear router (or 316→64→3 MLP) is trying to separate three near-i
 
 ### 10.8 Updated Recommendation
 
-**The feature bottleneck is now the confirmed root cause.** The remaining recommended fixes are prioritized:
+**The feature bottleneck is now the confirmed root cause, and the L2D correctness-target approach has been empirically ruled out** under our data-limited conditions. The remaining recommended fixes are:
 
-**P0 — Switch to correctness targets (L2D family).** Set `gate_target_mode: correctness`. The isotonic-calibrated target `t_j = P(expert j correct | x)` is:
-- Non-zero for ALL experts on ALL samples (no gradient starvation)
-- Theoretically consistent with the Bayes-optimal router (Mozannar & Sontag, 2020)
-- Already implemented in `_gate_trainer.py` (§ lines 388–420)
-- Uses binary correctness signal, not tiny `p_j(y|x)` values
-- Isotonic regression on max-probability vs correctness is well-calibrated even on small tune sets
+**P0 — Revert to logprob target + MLP (best known config).** Exp 13 (logprob + MLP) achieved 44.16% bal acc and 13.67% tail acc — the best results across all 15 experiments. Despite the dead hidden layer (fc.weight std = 0.074), this config outperforms all alternatives.
 
-**P1 — Per-expert penultimate feature routing.** If correctness targets also fail, the features need to change. Replace 316-dim calibrated probability features with 192-dim penultimate features (3 × 64-dim embeddings from the frozen experts). These features are richer and less correlated. Requires pipeline changes (expert checkpoints must save penultimate features).
+**P1 — Change gate input features.** The fundamental bottleneck is that the 316-dim calibrated probability features are near-collinear. Two options:
+- **Penultimate feature routing (192-dim):** Replace 316-dim calibrated probabilities with 192-dim penultimate features (3 × 64-dim embeddings from frozen experts). These features are richer and less correlated. Requires pipeline changes (expert checkpoints must save penultimate features, gate input dimension changes).
+- **DaWin-style confidence routing (3-dim):** Training-free routing by `softmax(conf_j / T)`. Just 3 parameters. Matches DaWin (Oh et al., NeurIPS 2024). Simple enough to implement as a baseline first.
 
-**P2 — DaWin-style confidence routing (training-free).** If no learned router works, fall back to `softmax(conf_j / T)` as the routing rule. Just 3 parameters. Matches DaWin (Oh et al., NeurIPS 2024) which proves this beats learned routers in comparable settings. Ready to implement as a baseline while investigating deeper fixes.
+**P2 — Two-stage routing (RIDE-style).** Default = uniform mixture. Only activate per-sample router when expert disagreement is high. Reduces routing noise on easy/ambiguous samples.
 
-### 10.9 Correctness Target — How It Works (from `_gate_trainer.py`)
+### 10.9 Correctness Target Failure Analysis
 
-The correctness target pipeline:
+Exp 15 empirically demonstrated that correctness targets fail under data-limited conditions:
 
-1. **On tune set** (training phase initialization, `_fit_correctness_calibrators`):
-   - For each expert j, compute `conf = max_j p_j(y|x)` and `correct = (argmax p_j == label)` over all tune samples
-   - Fit isotonic regression `conf ↔ correct` (maps [0,1] → [0,1] calibrated correctness probability)
-   - Produces `calibrator_j`: `P(expert j is correct | max-probability_j = c)`
+**Why isotonic regression on tune set fails:**
+1. **Small tune set** (~625 samples from 100 classes) — the isotonic fit has high variance
+2. **Weak predictor** — `max-probability` is a poor predictor of `P(correct)` on 100-class problems. Random accuracy is 1%, and even well-calibrated experts have P(correct) spanning only 0.05-0.25 for most samples
+3. **Limited dynamic range** — after isotonic regression, `t_j = P(correct_j | x)` values are 0.05-0.25 for all three experts. Normalizing to a simplex gives near-uniform targets
+4. **Gradient collapse** — KL gradient `∂L/∂g = w − t` pushes `w` toward uniform for every sample when `t ≈ [1/3, 1/3, 1/3]`
+5. **Definitive signal** — tune set selected gate_temp = 2.200 (highest ever), explicitly preferring no routing
 
-2. **Per batch** (training, `_correctness_target`):
-   - Compute per-expert max-probability: `confs = [p.max(dim=1) for p in probs]`
-   - Apply calibrators: `t_j = calibrator_j(confs[:, j])`
-   - Normalize: `t = t / sum(t)` → simplex target
+**Theoretical vs practical gap:** The L2D consistency guarantees (Mozannar & Sontag, 2020; Cao et al., 2023) assume access to accurate `P(expert correct | x)` estimates. On a 100-class problem with only 625 calibration samples, these estimates are too noisy to be useful. The isotronic regression would need at least 10× more samples to learn a stable calibration map for 100 classes.
 
-3. **Gradient**: `∂L/∂g = w − t` (KL divergence), non-zero as long as any `t_j ≠ w_j`
-
-The key advantage over logprob: `t_j` is the probability that expert j is *correct*, not the probability of the *true class*. Even when `p_j(y|x) ≈ 0` (true class probability is tiny), `P(expert j correct | x)` can be large if the expert's argmax is reliable. This gives the gate gradient on every sample.
-
-### 10.10 Updated References (Added for Exp 14 Analysis)
+### 10.10 References (Updated for Exp 14-15 Analysis)
 
 - Liu et al., 2024 — *Routers in Vision Mixture of Experts: An Empirical Study* — TMLR 2024. **Key finding: deep MLP routers do not outperform simple linear routers in vision MoE.** Confirmed by our Exp 13 vs Exp 14 (MLP 44.16% vs linear 43.97%).
 - Oh et al., 2024 — *DaWin: Training-free Dynamic Weight Interpolation* — NeurIPS 2024. Training-free confidence-weighted routing. Proves that for frozen experts, `softmax(confidence / T)` is a provably good router.
