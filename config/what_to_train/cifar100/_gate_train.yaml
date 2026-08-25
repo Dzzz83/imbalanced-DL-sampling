@@ -47,7 +47,7 @@ gate_norm_blocks: true        # L2-normalize each expert's prob block in gate in
 fit_expert_temps: true        # fit per-expert T on tune (minimize NLL)
 fit_gate_temp: true           # fit gate-logit T on tune (maximize bal acc)
 fit_mix_temp: true            # fit final mixture T on tune (logit space; calibrates NLL)
-expert_temperatures: null     # optional manual [T_ce, T_la, T_bs] (overrides fit)
+expert_temperatures: [2.0, 1.0, 1.5]  # Manual: CE hot (soften overconfidence), LA cold (sharpen tail), BS moderate
 
 # --- Round-2 fixes (8/25): stop noise-driven routing ---
 # k=3 (full mixture, no truncation): the 8/25 run lost 2 pp on Head classes
