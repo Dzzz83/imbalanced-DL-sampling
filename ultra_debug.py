@@ -774,7 +774,17 @@ def main():
                    linear_router=recipe.get('linear_router', False)).to(device)
     print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
 
-    gate.load_state_dict(gate_ckpt['gate_state_dict'])
+    try:
+        gate.load_state_dict(gate_ckpt['gate_state_dict'])
+    except RuntimeError as e:
+        print(f"[ERROR] Gate architecture mismatch.\n"
+              f"  Recipe: freq_features={recipe['freq_features']}, "
+              f"linear_router={recipe['linear_router']}\n"
+              f"  GateMLP input_dim={gate._input_dim}\n"
+              f"  Checkpoint fc.weight shape: "
+              f"{gate_ckpt['gate_state_dict']['fc.weight'].shape}\n"
+              f"  Error: {e}")
+        sys.exit(1)
     gate.eval()
 
     print("\n[INFO] Extracting posteriors...")

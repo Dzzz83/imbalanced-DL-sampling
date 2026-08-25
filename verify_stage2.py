@@ -177,8 +177,15 @@ def main():
         ).to(device)
         try:
             gate.load_state_dict(ckpt['gate_state_dict'])
-        except RuntimeError:
-            print(f"[WARNING] Skipping checkpoint {fname} due to architecture mismatch.")
+        except RuntimeError as e:
+            print(f"[WARNING] Skipping checkpoint {fname} due to architecture "
+                  f"mismatch.\n"
+                  f"  Recipe: freq_features={recipe['freq_features']}, "
+                  f"linear_router={recipe['linear_router']}\n"
+                  f"  GateMLP input_dim={gate._input_dim}\n"
+                  f"  Checkpoint fc.weight shape: "
+                  f"{ckpt['gate_state_dict']['fc.weight'].shape}\n"
+                  f"  Error: {e}")
             continue
         gate.eval()
 

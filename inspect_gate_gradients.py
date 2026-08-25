@@ -60,6 +60,8 @@ class GateGradientInspector:
         gate_ckpt = torch.load(gate_ckpt_path, map_location='cpu',
                                weights_only=False)
         # Recipe metadata (with safe defaults for old checkpoints).
+        # freq_features and linear_router are inferred from weight shapes
+        # for robustness against missing metadata.
         self.target_mode = gate_ckpt.get('target_mode', 'logprob')
         self.tau = gate_ckpt.get('tau', 0.2)
         self.T = gate_ckpt.get('temperature', 1.0)
@@ -69,8 +71,11 @@ class GateGradientInspector:
         self.weight_floor = gate_ckpt.get('weight_floor', 0.0)
         self.gate_temp = gate_ckpt.get('gate_temp', 1.0)
         self.norm_blocks = gate_ckpt.get('norm_blocks', True)
-        self.freq_features = gate_ckpt.get('freq_features', False)
-        self.linear_router = gate_ckpt.get('linear_router', False)
+        # Infer architecture from weight shapes (robust to missing metadata).
+        _sd = gate_ckpt['gate_state_dict']
+        _in_features = _sd['fc.weight'].shape[1]
+        self.freq_features = (_in_features >= 316)
+        self.linear_router = not any(k.startswith('bn.') for k in _sd)
         self.calibrators = None  # fitted from a loader when target is correctness
 
         self.model = ExpertEnsemble(
@@ -82,7 +87,17 @@ class GateGradientInspector:
                                                      freq_features=self.freq_features),
                             num_experts=3,
                             linear_router=self.linear_router).to(device)
-        self.gate.load_state_dict(gate_ckpt['gate_state_dict'])
+        try:
+            self.gate.load_state_dict(gate_ckpt['gate_state_dict'])
+        except RuntimeError as e:
+            print(f"[ERROR] Gate architecture mismatch.\n"
+                  f"  Inferred: freq_features={self.freq_features}, "
+                  f"linear_router={self.linear_router}\n"
+                  f"  GateMLP input_dim={self.gate._input_dim}\n"
+                  f"  Checkpoint fc.weight shape: "
+                  f"{gate_ckpt['gate_state_dict']['fc.weight'].shape}\n"
+                  f"  Error: {e}")
+            sys.exit(1)
         # Replicate training-time forward: BN uses batch statistics.
         self.gate.train()
 

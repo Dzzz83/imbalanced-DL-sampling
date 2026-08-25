@@ -11,14 +11,47 @@ from .metrics import print_uniform_comparison, print_method_vs_uniform_compariso
 from .diagnostics import print_expert_agreement, print_stage3_plugin_params, print_per_class_extreme_routing
 
 
+def _infer_architecture(gate_ckpt, num_classes=100):
+    """Infer freq_features flag and linear_router from checkpoint weight shapes.
+
+    This is more reliable than reading metadata, which may be missing from
+    checkpoints saved before the metadata field was added (or stale).
+    """
+    sd = gate_ckpt['gate_state_dict']
+    fc_w = sd['fc.weight']                     # (out_features, in_features)
+    in_features = fc_w.shape[1]
+    has_bn = any(k.startswith('bn.') for k in sd)
+
+    # Input dimension: 316 → freq_features=True, 312 → freq_features=False.
+    if in_features >= 316:
+        inferred_freq = True
+    elif in_features >= 312:
+        inferred_freq = False
+    else:
+        # Unknown dimension — fall back to metadata default.
+        inferred_freq = gate_ckpt.get('freq_features', False)
+
+    # Linear router: MLP has BatchNorm; linear router does not.
+    inferred_linear_router = not has_bn
+
+    return inferred_freq, inferred_linear_router
+
+
 def recipe_from_checkpoint(gate_ckpt, cfg, la_tau=None, T=None):
     """Extract the exact mixture recipe a gate checkpoint was trained with.
 
     Every eval script must use this recipe (via ``extract_data`` /
     ``build_mixture``) so evaluation matches training (RC2 fix). Keys that
     predate the metadata get safe defaults.
+
+    ``freq_features`` and ``linear_router`` are **inferred from the checkpoint
+    weight shapes** rather than read from metadata, making the recipe robust
+    to checkpoints saved before these metadata fields existed.
     """
     expert_temps = list(gate_ckpt.get('expert_temps', [1.0, 1.0, 1.0]))
+    inferred_freq, inferred_linear = _infer_architecture(
+        gate_ckpt, cfg.num_classes
+    )
     return {
         'T': T if T is not None else gate_ckpt.get('temperature', 1.0),
         'la_tau': la_tau if la_tau is not None else 1.5,
@@ -29,8 +62,8 @@ def recipe_from_checkpoint(gate_ckpt, cfg, la_tau=None, T=None):
         'gate_temp': gate_ckpt.get('gate_temp', 1.0),
         'mix_temp': gate_ckpt.get('mix_temp', 1.0),
         'norm_blocks': gate_ckpt.get('norm_blocks', True),
-        'freq_features': gate_ckpt.get('freq_features', False),
-        'linear_router': gate_ckpt.get('linear_router', False),
+        'freq_features': inferred_freq,
+        'linear_router': inferred_linear,
         'cls_num_list': list(cfg.cls_num_list),
     }
 
