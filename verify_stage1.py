@@ -189,7 +189,10 @@ def main():
                 all_logits, cfg.cls_num_list, la_tau, T=1.0,
                 per_expert_T=expert_temps,
             )
-            embeddings = build_gate_input(probs, normalize_blocks=recipe['norm_blocks'])
+            embeddings = build_gate_input(
+                probs, normalize_blocks=recipe['norm_blocks'],
+                cls_num_list=cfg.cls_num_list if recipe['freq_features'] else None,
+            )
 
             gate_logits = gate(embeddings.to(device))
             weights = F.softmax(gate_logits / gate_temp, dim=1)

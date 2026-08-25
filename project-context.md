@@ -1,1 +1,0 @@
-/home/dzzz83/Documents/code/context_files/harness/project-context.md

@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import numpy as np
 from imbalanceddl.net.network import build_model
 from imbalanceddl.utils.gate_features import (
-    calibrate_expert_probs, build_gate_input,
+    calibrate_expert_probs, build_gate_input, gate_input_dim,
 )
 
 class ExpertEnsemble(nn.Module):
@@ -74,17 +74,43 @@ class GateMLP(nn.Module):
     where D = ``gate_input_dim(num_classes)``. Attribute names (bn, fc, act,
     fc_out) match ``_gate_trainer.GateMLP`` so trained state_dicts load
     unchanged (dropout has no parameters).
+
+    To reduce the risk of dimension mismatch between the BN layer and the
+    actual gate-input feature vector, the caller may supply *either*
+    ``input_dim`` (legacy) or ``num_classes`` + ``freq_features`` (preferred).
+    When ``num_classes`` is given, ``input_dim`` is computed automatically
+    via ``gate_input_dim(num_classes, freq_features=freq_features)``.
     """
 
-    def __init__(self, input_dim=312, num_experts=3, hidden_dim=64, dropout=0.0):
+    def __init__(self, input_dim=None, num_experts=3, hidden_dim=64,
+                 dropout=0.0, num_classes=None, freq_features=False):
         super().__init__()
         self.dropout = dropout
+        # Compute input_dim from num_classes/freq_features when provided,
+        # falling back to the explicit (or default 312) input_dim.
+        if num_classes is not None:
+            input_dim = gate_input_dim(num_classes,
+                                       freq_features=bool(freq_features))
+        elif input_dim is None:
+            input_dim = 312  # safe default for CIFAR-100, no freq_features
+        self._input_dim = input_dim
         self.bn = nn.BatchNorm1d(input_dim)
         self.fc = nn.Linear(input_dim, hidden_dim)
         self.act = nn.ReLU()
         self.fc_out = nn.Linear(hidden_dim, num_experts)
 
     def forward(self, x):
+        # Runtime dimension guard — catches gate-input mismatches early
+        # with a descriptive message instead of PyTorch's terse BN error.
+        if x.size(-1) != self._input_dim:
+            raise RuntimeError(
+                f"GateMLP: expected input with {self._input_dim} features, "
+                f"but received {x.size(-1)}. This is usually caused by a "
+                f"mismatch between the freq_features setting used to build "
+                f"the gate input (via build_gate_input(..., "
+                f"cls_num_list=...)) and the freq_features used to "
+                f"initialize the GateMLP. Ensure both paths agree."
+            )
         x = self.bn(x)
         x = self.act(self.fc(x))
         if self.dropout > 0.0:
