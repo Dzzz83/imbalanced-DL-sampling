@@ -172,7 +172,29 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 **Outcome:** ⏳ INCONCLUSIVE (hypothesis PARTIALLY REFUTED — not strict collinearity, but the refined bottleneck is confirmed)
 **Root Cause / Why It Worked:** The three probability blocks are **moderately correlated** (r ≈ 0.68, not > 0.95) and each has **high effective rank** (~75/100). Strict collinearity is refuted. However, **70% of total feature variance is shared across experts** (top 5 PCs), and the residual expert-discriminative signal is spread thinly across ~66 components. With only **1,125 training samples** and **316 input dimensions**, the gate cannot extract this fine-grained per-sample signal — it converges to the one robust signal: per-class biases from the 4 frequency features (which have 11× the variance of individual probability dims). The true bottleneck is an **SNR problem**: the per-sample routing signal is a tiny fraction of total feature variance, too diluted for the available training data. The class-level profile correlations (r = 0.91–0.94) confirm that on average, all experts favor the same classes — the differences are in the fine-grained tails.
 
-**Next Step:** The diagnostic phase is now **conclusive**. A research phase has been completed producing a ranked report of 10 candidate routing strategies. The immediate next step is to evaluate DaWin confidence routing as a post-hoc baseline (see PLANNED EXPERIMENTS below).
+**Next Step:** The diagnostic phase is now **conclusive**. A research phase has been completed producing a ranked report of 10 candidate routing strategies. The immediate next step was to evaluate DaWin confidence routing as a post-hoc baseline (see PLANNED EXPERIMENTS below).
+
+---
+
+### Experiment 17: DaWin Assumption Verification — Confidently-Wrong Diagnostic
+**Date:** 2025-07-22
+**Hypothesis:** DaWin confidence routing (routing by `softmax(conf_j / T̂)`) is safe for this ensemble because the most confident expert is usually correct.
+**Changes:** No training run. The `run_confident_wrong_diagnostic` function (added to `ultra_debug.py`) was executed on the existing epoch-82 checkpoint (MLP, logprob target, [1.5, 1.2, 1.5] temps). The diagnostic computed per-expert confidence (max-prob), identified the most confident expert per sample, and measured how often that expert is wrong — broken down by class group, with DaWin simulation (grid-search T̂ on 625 tune samples).
+**Results:**
+- Confidently-wrong rate (overall): **57.96%** — the most confident expert is wrong more often than correct
+- By group: Head 30.00% | Mid 58.75% | **Tail 89.67%**
+- Avg conf when correct: 0.8464 | Avg conf when wrong: 0.6245
+- Most-confident expert identity: CE=27.6% (39.3% correct), LA=51.2% (45.4% correct), BS=21.1% (37.5% correct)
+- **On 81.6% of confidently-wrong samples, all three experts are wrong together** (3,784/4,637 samples). Only 18.4% have another expert correct.
+- DaWin simulation: best T̂ = 1.00 (tune bal acc 42.95%)
+- **DaWin test bal acc: 42.75% vs Uniform: 42.88% vs Gate MLP: 44.26%** — DaWin underperforms uniform
+- On confidently-wrong samples: DaWin 2.93% vs Uniform 3.71%
+- Expert individual bal acc (from `ultra_debug.py` Table 2): CE=38.94% | LA=40.70% | BS=39.35% | Uniform=43.61%
+- Uniform ensemble (43.61%) beats the paper's reported uniform baseline (43.28%) — experts are well-trained
+- Oracle bal acc: 52.09% (confirming expert diversity exists but is hidden in features)
+**Outcome:** ❌ FAILED (DaWin assumption conclusively violated)
+**Root Cause / Why It Worked:** The most confident expert is wrong 58% of the time because all three experts share the same backbone and training data — their probability outputs are too correlated for confidence to be a reliable routing signal. On tail classes (89.67% confidently-wrong), the problem is compounded by insufficient training data (5–6 samples/class): no expert has learned reliable features, so confidence is essentially random. The 81.6% "all experts wrong" rate reveals a hard ceiling: on ~48% of all test samples, no expert knows the correct answer, so no routing method can help.
+**Next Step:** Abandon DaWin. The remaining viable approach is **penultimate feature routing (192-dim embeddings, Linear(192,3), 579 params)**. However, this requires a correlation check on the 192-dim embedding space first: if per-expert penultimate embeddings are also highly correlated (r ≥ 0.5), the project must pivot to expert diversification strategies.
 
 ---
 
@@ -185,6 +207,7 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 | 3 | Mixture NLL in logit space + disagree_weight + kl_uniform=3.0 (current config before diagnosis) | Gradient `∂L/∂g_j = w_j · (p_mix(y) − p_j(y))` vanishes on tail samples (all `p_j(y)` tiny). The gate receives zero gradient on ~95% of tail samples. Per-expert calibration also failed (all temps = 1.5), and train/eval k mismatch wasted the 3rd expert's gradient. Regularizers (disagree_weight + kl_uniform) actively fought the remaining signal. | 12 | 2025-07-15 |
 | 4 | Logprob target + linear router + balanced temps [1.5, 1.2, 1.5] | **SNR bottleneck** (refined from 'near-collinear' by Exp 16): three calibrated probability distributions from the same ResNet32 backbone are **moderately correlated** (per-sample r ≈ 0.68, not > 0.95). Each block has high effective rank (~75/100). However, **70% of total feature variance is shared across experts** (top 5 PCs), and the residual expert-discriminative signal (~30% variance) is spread across ~66 components. With only **1,125 training samples**, the gate cannot extract this fine-grained per-sample signal — it converges to per-class biases from the 4 frequency features (11× the variance of individual probability dims). Linear router (43.97%) ≈ MLP (44.16%), confirming architecture is not the bottleneck. Exp 16 direct measurement confirms: not strict collinearity, but an **SNR bottleneck** that no target/architecture change on 316-dim features can overcome. | 14, 16 | 2025-07-22 |
 | 5 | Correctness targets (L2D) + linear router + balanced temps [1.5, 1.2, 1.5] | Isotonic regression calibrators on only ~625 tune samples produce `P(correct | max-prob)` targets with negligible dynamic range. After normalization, targets are near-uniform [~1/3] for all samples. KL gradient `∂L/∂g = w − t` therefore pushes `w` toward uniform, collapsing routing. Gate temp=2.200 (highest ever) confirms tune set wants gate dead. LA-saves-the-day w_LA=0.311 (completely uniform). First experiment to regress below uniform baseline. | 15 | 2025-07-18 |
+| 6 | **DaWin confidence routing** (training-free, 3-dim) | Confidently-wrong rate = **57.96%** overall (89.67% on tail). The most confident expert is wrong more often than correct. On 81.6% of confidently-wrong samples, all three experts are wrong simultaneously — confidence is not a reliable routing signal. DaWin empirically underperforms the uniform baseline (42.75% vs 42.88% bal acc). The assumption that "high confidence → correct" does not hold for this ensemble because experts share the same backbone and training data, producing correlated probability outputs. | 17 | 2025-07-22 |
 
 ---
 
@@ -195,31 +218,31 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 | 1 | Disagreement Gating | Proposed | LOW | Only train/invoke the gate when experts disagree. Lowered from MED: since the gate cannot learn per-sample routing from 316-dim features, disagreement gating would not fix the fundamental SNR bottleneck — it merely removes easy samples where the gate already defaults to uniform. |
 | 2 | Log-Space Sharpened Target (build_oracle_target with space='logprob') | **Tested — see Exp 13, 14** | FAILED | Fixes gradient starvation but features are the bottleneck. The logprob target gives non-zero gradients (norm 0.89), but the 316-dim calibrated probability features have an SNR bottleneck: 70% of variance is shared across experts (Exp 16). |
 | 3 | Correctness Targets (L2D family) | **Tested — see Exp 15** | FAILED | Fit per-expert isotonic correctness calibrators on tune set; replace target with P(expert correct \| x). **Practical failure**: isotonic calibrators on only ~625 tune samples produce near-uniform targets. Gate temp=2.200 (highest ever). Routing collapsed below uniform baseline (43.34% vs 43.53%). Theoretical guarantees don't hold under data-limited (625 samples, 100-class) conditions. |
-| 4 | Two-Stage Routing (RIDE-style) | Proposed | LOW | Default = uniform mixture. Only activate per-sample router when expert disagreement is high. Reduces routing noise on easy/ambiguous samples. |
-| 5 | Max-KL Routing (track the third expert) | Proposed | LOW | Change verify_stage2.py to use recipe['k'] instead of hard-coded top-2. Ultra_debug already does this correctly. |
+| 4 | **DaWin confidence routing** | **Tested — see Exp 17** | FAILED | Training-free confidence routing. Confidently-wrong rate 57.96% — the most confident expert is wrong more often than correct. On tail classes, 89.67% confidently-wrong. DaWin (42.75%) underperforms uniform (42.88%). **Assumption violated — not viable for this ensemble.** |
+| 5 | Two-Stage Routing (RIDE-style) | Proposed | LOW | Default = uniform mixture. Only activate per-sample router when expert disagreement is high. Reduces routing noise on easy/ambiguous samples. |
+| 6 | Max-KL Routing (track the third expert) | Proposed | LOW | Change verify_stage2.py to use recipe['k'] instead of hard-coded top-2. Ultra_debug already does this correctly. |
 
 ---
 ---
 
 # PLANNED EXPERIMENTS (Ranked by Priority)
 
-The following experiments are ordered by the decision tree from the ranked research report. Each must be executed sequentially — the outcome of each determines which path to follow next.
+The following experiments are ordered after the completion of Exp 17 (DaWin — failed assumption). The next step is to verify whether penultimate feature routing is viable.
 
 | Order | Experiment | Strategy | Key Parameters | Verification Step | Expected Outcome & Next Action |
 |:-----:|:-----------|:---------|:---------------|:------------------|:------------------------------|
-| **1** | **Exp 17 — DaWin Baseline** | **DaWin confidence routing (training-free, 3-dim)** | `w_j = softmax(conf_j / T̂)`, `conf_j = max_k p_j(k\|x)`. Grid search T̂ ∈ [0.1, 0.3, 0.5, 0.8, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0] on tune set. **0 params, 0 training.** | Post-hoc eval on existing checkpoint. Add DaWin column to `ultra_debug.py` (≈10 lines). Compare DaWin bal acc vs gate (44.26%) vs uniform (43.61%). | **If ≥ 44.26%:** DaWin is the answer. STOP. **If 44.0–44.25%:** Confidence captures most signal; proceed to Exp 18. **If < 44.0%:** Confidence insufficient; skip to Exp 19. |
-| **2** | **Exp 18 — 3-Param Temperature Router** | **Per-expert temperature scalars** | `w_j = softmax(conf_j / exp(log_T_j))`. 3 learned params `log_T_j`. Train with logprob KL loss on 1,125 gate samples. | Full training run with `GateMLP` replaced by 3 `nn.Parameter` scalars. Compare bal acc against DaWin baseline. | **If > DaWin by ≥0.5 pp:** Per-expert calibration mismatches matter; this is the learned router. **If ≈ DaWin:** Confidence scores already capture full calibration signal. |
-| **3** | **Exp 19 — Penultimate Feature Routing** | **192-dim embeddings + Linear(192,3)** | Replace 316-dim probability features with concat of 3 × 64-dim penultimate embeddings. Linear router: 579 params. | **Phase A:** Diagnose 192-dim feature correlations first (modify `diagnose_feature_collinearity.py` to extract `hidden_list`). | **If cross-expert r < 0.5:** Proceed to full training run. **If r ≥ 0.5:** Features still correlated; fall back to DES or SADE. |
-| **4** | **Exp 20 — Stats-Only Logistic Router** | **13-dim stats + Linear(13,3)** | Discard all 300 probability dims. Keep only 9 stats dims + 4 freq features. Linear router: 42 params. | Add `gate_input_mode: stats_only` config option to `GateTrainer`. Train and compare bal acc against 316-dim baseline. | **If within 0.2 pp of 316-dim baseline:** SNR hypothesis confirmed — 300 prob dims contribute nothing. **If below baseline →** Routing signal requires probability dims after all (contradicts diagnostic, warrants re-investigation). |
+| **1** | **Exp 18 — 192-dim Embedding Correlation Check** | **Diagnose per-expert penultimate feature diversity** | Extract 3 × 64-dim hidden_list from `ExpertEnsemble.forward()`. Compute per-sample pairwise correlations, effective rank, and variance decomposition (same methodology as `diagnose_feature_collinearity.py`). | **Phase A (diagnostic):** Modify `ExpertEnsemble.forward()` to return per-expert `hidden_list` (currently collected but discarded). Run correlation metrics on 192-dim embedding space. No training. | **If cross-expert r < 0.5:** Embeddings are sufficiently diverse → proceed to Exp 19. **If r ≥ 0.5:** Embeddings share the same correlation problem → pivot to expert diversification (RIDE-style diversity losses, different backbone architectures, or non-parametric SADE routing). |
+| **2** | **Exp 19 — Penultimate Feature Routing** | **192-dim embeddings + Linear(192,3)** | Replace 316-dim probability features with concat of 3 × 64-dim penultimate embeddings. Linear router: 579 params. Train with logprob KL loss on 1,125 gate samples. | **Phase B (training):** Implement new `build_penultimate_input` function and `GateMLP_192` in `_gate_trainer.py`. Full training run. Compare bal acc against current best gate (44.26%) and uniform (43.61%). | **If bal acc > 44.26%:** Penultimate features carry more routing signal. Continue refinement. **If ≈ 44.26%:** Penultimate features no better than probability features — feature diversity is the fundamental limit. |
+| **3** | **Exp 20 — Stats-Only Logistic Router** | **13-dim stats + Linear(13,3)** | Discard all 300 probability dims. Keep only 9 stats dims + 4 freq features. Linear router: 42 params. | Add `gate_input_mode: stats_only` config option to `GateTrainer`. Train and compare bal acc against 316-dim baseline. | **If within 0.2 pp of 316-dim baseline:** SNR hypothesis confirmed — 300 prob dims contribute nothing. **If below baseline →** Routing signal requires probability dims after all (contradicts diagnostic, warrants re-investigation). |
 
-### Fallback Options (Lower-Ranked Candidates, Only If Top-4 Fail)
+### Fallback Options (Only If Penultimate Routing Fails)
 
 | Candidate | When to Consider | Implementation Complexity |
 |:----------|:-----------------|:--------------------------|
-| **DaWin + Disagreement Mask** (Hybrid of #1 + disagreement gating) | If DaWin alone < 44.0% but disagreement signal is strong (known: 61% correct-agree vs 23% incorrect-agree = 38 pp gap) | Low — `expert_disagreement()` already exists in `gate_features.py` |
-| **SADE Test-Time Optimization** (Zhang et al., NeurIPS 2022) | If all learned routers fail and training-free methods are needed | High — per-sample optimization loop with augmentations |
+| **SADE Test-Time Optimization** (Zhang et al., NeurIPS 2022) | If all learned routers fail and training-free methods are needed (note: DaWin also failed, so SADE is the remaining training-free option) | High — per-sample optimization loop with augmentations |
 | **DES Competence Routing** (DESlib, OLA/LCA/META-DES) | If penultimate features (Exp 19) have meaningful distance structure but linear router fails | Moderate — requires 192-dim feature pipeline first |
-| **Meta-Learning Router** (MAML-style, few-shot) | Only if per-class oracle analysis shows clear class-level expert preferences (Exp 13–16 data suggests within-class variance is high, so this is unlikely) | Very high — MAML inner-loop, episode sampling |
+| **Expert Diversification** (RIDE-style diversity losses, different backbones) | If Exp 18 shows penultimate features are also highly correlated (r ≥ 0.5) — fundamental lack of expert diversity that no routing method can fix | Very high — requires re-training Stage 1 experts with diversity objectives |
+| **Meta-Learning Router** (MAML-style, few-shot) | Only if per-class oracle shows clear expert preferences (Exp 13–17 data suggests within-class variance is high, so this is unlikely) | Very high — MAML inner-loop, episode sampling |
 
 ---
 
@@ -255,7 +278,7 @@ The following experiments are ordered by the decision tree from the ranked resea
 
 *Paper reports 0.088 tail-ECE for CRISP method. Our oracle achieves this for the *oracle-picked* expert, not the mixture — listed as reference ceiling only.
 
-**Diagnostic Conclusion (2025-07-22):** The feature correlation is moderate (r ≈ 0.68), not collinear (r > 0.95), but 70% of variance is shared across experts. The true bottleneck is **SNR-limited**: the per-sample routing signal is too diluted across ~66 residual components for 1,125 training samples to extract. No further tuning of targets, architectures, or hyperparameters on 316-dim calibrated probability features will yield meaningful improvement. **Diagnostic phase complete — proceed to new routing strategy design.**
+**Diagnostic Conclusion (2025-07-22 — updated after Exp 17):** The feature correlation is moderate (r ≈ 0.68), not collinear (r > 0.95), but 70% of variance is shared across experts. The true bottleneck is **SNR-limited**: the per-sample routing signal is too diluted across ~66 residual components for 1,125 training samples to extract. No further tuning of targets, architectures, or hyperparameters on 316-dim calibrated probability features will yield meaningful improvement. DaWin confidence routing was tested (Exp 17) and failed — confidently-wrong rate 57.96%, DaWin underperforms uniform (42.75% vs 42.88%). **The next verification step is to check whether the 192-dim penultimate embeddings are more diverse than the probability outputs. If they are not, the project must pivot to expert diversification.**
 
 **Diagnostic Trace (Root Cause Progression):**
 
@@ -266,3 +289,4 @@ The following experiments are ordered by the decision tree from the ranked resea
 | 14 | logprob + linear | **Feature collinearity** (probabilities from same backbone) | fc.weight blocks indistinguishable (0.201, 0.203, 0.200). Linear (43.97%) ≈ MLP (44.16%). Gate learns class bias, not per-sample routing. |
 | 15 | correctness + linear | **L2D calibrators need more data** | Isotonic fit on 625 tune samples → near-uniform targets → gate_temp=2.200 (highest ever) → routing collapsed below baseline (43.34%). |
 | 16 | feature correlation measurement | **SNR bottleneck** (refined from 'near-collinear') | Per-sample block corr r ≈ 0.68 (not >0.95). Effective rank ~75/100 per block. Top 5 PCs explain 70% variance (shared). Residual routing signal ~30% across ~66 components. Gate cannot extract per-sample signal from 1,125 samples. |
+| 17 | DaWin confidence-wrong diagnostic | **DaWin assumption violated** — confidence not reliable | Conf-wrong rate 57.96% overall, 89.67% on tail. 81.6% of conf-wrong samples have all 3 experts wrong. DaWin (42.75%) < Uniform (42.88%). |

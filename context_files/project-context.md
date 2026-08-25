@@ -4,7 +4,8 @@
 - **Name:** Imbalanced-DL-Sampling
 - **Goal:** Address class imbalance in deep learning by training a Mixture of Experts (CE, Logit Adjusted, Balanced Softmax) and developing a routing mechanism to direct head samples to CE and tail samples to LA.
 - **Current Phase:** Stage 2 - Diagnostic phase [COMPLETE]; transitioning to new routing strategy design.
-- **Diagnostic Status (2025-07-22):** Six experiments (Exp 12-16) have conclusively identified the routing bottleneck as an **SNR-to-sample-size mismatch**: the three 100-dim L2-normalized probability blocks have moderate per-sample correlation (r approx 0.68), not strict collinearity, and each has high effective rank (~75/100). However, 70% of total 316-dim feature variance is shared across experts (top 5 PCs), and the residual expert-discriminative routing signal (~30% variance spread across ~66 components) is too diluted for the gate's 1,125 training samples to extract. The gate converges to per-class biases (from 4 frequency features) but cannot learn per-sample routing. No target function (mix_nll, logprob, correctness) or architecture (MLP, linear) can overcome this within the 316-dim calibrated probability feature space. Recommended next strategies: (1) DaWin-style confidence routing (3-dim, training-free), or (2) penultimate feature routing (192-dim embeddings).
+- **Diagnostic Status (2025-07-22):** Six experiments (Exp 12-16) have conclusively identified the routing bottleneck as an **SNR-to-sample-size mismatch**: the three 100-dim L2-normalized probability blocks have moderate per-sample correlation (r approx 0.68), not strict collinearity, and each has high effective rank (~75/100). However, 70% of total 316-dim feature variance is shared across experts (top 5 PCs), and the residual expert-discriminative routing signal (~30% variance spread across ~66 components) is too diluted for the gate's 1,125 training samples to extract. The gate converges to per-class biases (from 4 frequency features) but cannot learn per-sample routing. No target function (mix_nll, logprob, correctness) or architecture (MLP, linear) can overcome this within the 316-dim calibrated probability feature space.
+- **Exp 17 (2025-07-22) — DaWin Assumption Violated:** DaWin confidence routing was tested post-hoc via the `run_confident_wrong_diagnostic` function added to `ultra_debug.py`. The confidently-wrong rate is **57.96%** overall (89.67% on tail classes). On 81.6% of confidently-wrong samples, all three experts are wrong simultaneously — meaning no routing method can salvage them. DaWin empirically underperforms the uniform baseline (42.75% vs 42.88% bal acc). **DaWin is ruled out.** The next candidate is penultimate feature routing (192-dim embeddings), pending a correlation check on the embedding space.
 - **Language:** Python 3.x
 - **Framework:** PyTorch, torchvision
 - **Key Libraries:** `scikit-learn`, `numpy`, `pyyaml`
@@ -27,15 +28,28 @@
 
 **Network Structure:**
 
+### Diagnostic Findings (Exp 12–17)
+
+The diagnostic phase has produced the following refined understanding:
+
+| Finding | Evidence | Impact |
+|:--------|:---------|:-------|
+| **Experts are well-trained** (Stage 1 correct) | Individual bal acc: CE=38.94%, LA=40.70%, BS=39.35%. Uniform ensemble (43.61%) beats paper's reported uniform baseline (43.28%). | No retraining of Stage 1 experts needed. |
+| **316-dim probability features have SNR bottleneck** (Exp 16) | r ≈ 0.68 per-sample block correlation. 70% shared variance across experts. Residual routing signal (~30%) too diluted for 1,125 samples. | No target/architecture change on these features can work. |
+| **DaWin assumption violated** (Exp 17) | Confidently-wrong rate = 57.96% overall, 89.67% on tail. 81.6% of confidently-wrong samples have all 3 experts wrong. DaWin (42.75%) < Uniform (42.88%). | Confidence-based routing is not viable for this ensemble. |
+| **Expert diversity exists at oracle level** | Oracle ceiling = 52.09% bal acc (+8.5 pp over uniform). Oracle distribution: CE=30.3%, LA=40.0%, BS=29.7%. | Routing can theoretically gain +8.5 pp, but current features hide the diversity. |
+| **81.6% "all experts wrong" rate is a data limit, not a training issue** | On tail classes with 5–6 training samples, no expert can learn reliable features. Oracle itself only gets 17.83% on tail. | ~48% of test samples have no correct expert — this is a hard ceiling on routing improvement. |
+| **Next verification: 192-dim embedding correlation** | Need to check whether per-expert penultimate embeddings (before the classifier head) are more diverse than the probability outputs. | If r < 0.5, penultimate routing is viable. If r ≥ 0.5, pivot to expert diversification strategies. |
+
 ### Candidate Routing Designs (Post-Diagnostic, Under Evaluation)
 
-The diagnostic phase (Exp 12–16) proved the 316-dim calibrated probability feature space has an **SNR bottleneck**: 70% of variance is shared across experts, and the residual routing signal is too diluted for 1,125 training samples. The following candidate designs replace the current `GateMLP` input and have been ranked by feasibility, theoretical fit, and implementation risk.
+The diagnostic phase (Exp 12–17) proved the 316-dim calibrated probability feature space has an **SNR bottleneck**. DaWin confidence routing has been **tested and failed** (Exp 17). The primary remaining candidate is penultimate feature routing, pending an embedding correlation check.
 
-| Rank | Design | Input Dim | Params | Training Required | Key Advantage |
-|:----:|:-------|:---------:|:------:|:-----------------|:--------------|
-| **1** | **DaWin confidence routing** | 3 (max-prob per expert) | 0 (just scalar T̂) | No (post-hoc) | Bypasses 316-dim space entirely; proven to beat learned routers for frozen experts |
-| **2** | **Penultimate feature routing** | 192 (3 × 64-dim embeddings) | 579 (linear) | Yes (1,125 samples) | Richer features, lower expected cross-expert correlation |
-| **3** | **Stats-only logistic routing** | 13 (9 stats + 4 freq) | 42 (linear) | Yes (1,125 samples) | Tests whether 300 prob dims contribute any signal |
+| Rank | Design | Input Dim | Params | Training Required | Status |
+|:----:|:-------|:---------:|:------:|:-----------------|:-------|
+| **1** | **Penultimate feature routing** | 192 (3 × 64-dim embeddings) | 579 (linear) | Yes (1,125 samples) | **Next to test** — requires embedding correlation check first |
+| **2** | **Stats-only logistic routing** | 13 (9 stats + 4 freq) | 42 (linear) | Yes (1,125 samples) | Tests whether 300 prob dims contribute any signal |
+| ❌ | **DaWin confidence routing** | 3 (max-prob per expert) | 0 (just scalar T̂) | No (post-hoc) | **Tested — FAILED** (Exp 17). Conf-wrong rate 57.96%. Assumption violated. |
 
 See `experiment-log.md` → PLANNED EXPERIMENTS for the ordered evaluation plan with decision tree.
 

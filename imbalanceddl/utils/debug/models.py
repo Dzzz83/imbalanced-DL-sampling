@@ -67,6 +67,40 @@ class ExpertEnsemble(nn.Module):
         )
         return logits_list, embeddings
 
+    @torch.no_grad()
+    def forward_with_hidden(self, x):
+        """Like forward(), but also returns per-expert penultimate embeddings.
+
+        The ResNet32 backbone outputs 64-dim features after avg_pool (the
+        ``hidden`` tensor returned by ``Network(x)``). These are the features
+        *before* the classifier head — richer and less correlated across
+        experts than the L2-normalized probability vectors.
+
+        Returns
+        -------
+        logits_list : list of 3 tensors, each (B, C)
+            Raw expert logits (same as forward).
+        embeddings : (B, D) tensor
+            Gate-input features (316-dim calibrated probabilities + stats).
+        hidden_list : list of 3 tensors, each (B, 64)
+            Per-expert penultimate (pre-classifier) embeddings.
+        """
+        logits_list = []
+        hidden_list = []
+        for expert in self.experts:
+            logits, hidden = expert(x)
+            logits_list.append(logits)
+            hidden_list.append(hidden)
+        probs = calibrate_expert_probs(
+            logits_list, self.cfg.cls_num_list, self.la_tau,
+            T=1.0, per_expert_T=self.expert_T,
+        )
+        embeddings = build_gate_input(
+            probs, normalize_blocks=self.normalize_blocks,
+            cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
+        )
+        return logits_list, embeddings, hidden_list
+
 class GateMLP(nn.Module):
     """Linear or non-linear router matching the trainer-side architecture.
 

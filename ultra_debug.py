@@ -20,6 +20,9 @@ custom_parser.add_argument('--gate_ckpt', type=str, required=True)
 custom_parser.add_argument('--diagnose_confident_wrong', action='store_true',
                            help='Run only the DaWin confidence-wrong diagnostic '
                                 'and exit.')
+custom_parser.add_argument('--diagnose_embeddings', action='store_true',
+                           help='Run only the 192-dim embedding correlation '
+                                'diagnostic (Exp 18, Phase A) and exit.')
 custom_args, remaining_argv = custom_parser.parse_known_args()
 sys.argv = [sys.argv[0]] + remaining_argv
 
@@ -429,6 +432,290 @@ def run_confident_wrong_diagnostic(p_ce, p_la, p_bs, labels, cls_num_list,
     }
 
 
+# ═══════════════════════════════════════════════════════════════ #
+#  Embedding Correlation Diagnostic (Exp 18, Phase A)            #
+# ═══════════════════════════════════════════════════════════════ #
+
+def _per_sample_block_correlation(embeddings, block_size, num_blocks=3):
+    """Pairwise per-sample Pearson correlation between embedding blocks.
+
+    Same methodology as ``diagnose_feature_collinearity.py`` but operates on
+    arbitrary block sizes (64 for penultimate embeddings, 100 for probs).
+
+    Parameters
+    ----------
+    embeddings : np.ndarray, shape (N, D)
+        Concatenated per-expert blocks.
+    block_size : int
+        Dimension of each expert block (e.g. 64 for penultimate, 100 for probs).
+    num_blocks : int
+        Number of experts (3).
+
+    Returns
+    -------
+    dict of ``{(i,j): {'mean_corr': float, 'std_corr': float, ...}}``
+    """
+    N = embeddings.shape[0]
+    blocks = [embeddings[:, b*block_size:(b+1)*block_size] for b in range(num_blocks)]
+    results = {}
+    for i in range(num_blocks):
+        for j in range(i + 1, num_blocks):
+            corrs = np.zeros(N)
+            for s in range(N):
+                vi, vj = blocks[i][s], blocks[j][s]
+                if vi.std() > 1e-8 and vj.std() > 1e-8:
+                    corrs[s] = np.corrcoef(vi, vj)[0, 1]
+            results[(i, j)] = {
+                'mean_corr': float(np.mean(corrs)),
+                'std_corr': float(np.std(corrs)),
+                'min_corr': float(np.min(corrs)),
+                'max_corr': float(np.max(corrs)),
+                'pct_gt_09': float(np.mean(corrs > 0.9) * 100),
+                'pct_gt_095': float(np.mean(corrs > 0.95) * 100),
+            }
+    return results
+
+
+def _feature_covariance_analysis(embeddings):
+    """SVD-based analysis of feature covariance (effective rank, var explained).
+
+    Parameters
+    ----------
+    embeddings : np.ndarray, shape (N, D)
+
+    Returns
+    -------
+    dict with effective_rank, condition_number, var_explained_top5/10/20.
+    """
+    X = embeddings - embeddings.mean(axis=0, keepdims=True)
+    U, S, Vt = np.linalg.svd(X, full_matrices=False)
+    var_ex = S ** 2 / (S ** 2).sum()
+    eff_rank = (S.sum() ** 2) / (S ** 2).sum()
+    return {
+        'effective_rank': float(eff_rank),
+        'condition_number': float(S[0] / S[-1]) if S[-1] > 1e-10 else float('inf'),
+        'var_explained_top5': float(var_ex[:5].sum()),
+        'var_explained_top10': float(var_ex[:10].sum()),
+        'var_explained_top20': float(var_ex[:20].sum()),
+    }
+
+
+def _within_block_svd(embeddings, block_size, num_blocks=3):
+    """SVD within each embedding block to measure its intrinsic dimension."""
+    results = {}
+    for b in range(num_blocks):
+        block = embeddings[:, b*block_size:(b+1)*block_size]
+        X = block - block.mean(axis=0, keepdims=True)
+        U, S, Vt = np.linalg.svd(X, full_matrices=False)
+        var_ex = S ** 2 / (S ** 2).sum()
+        eff_rank = (S.sum() ** 2) / (S ** 2).sum()
+        results[f'Block{b}_effective_rank'] = float(eff_rank)
+        results[f'Block{b}_top5_var'] = float(var_ex[:5].sum())
+    return results
+
+
+def compute_embedding_correlation_diagnostic(model, loader, device,
+                                             cls_num_list, n_samples=500):
+    """Extract per-expert penultimate embeddings and probability features,
+    then compute cross-expert correlation metrics for both spaces.
+
+    This directly answers: are the 192-dim penultimate embeddings more diverse
+    (less correlated across experts) than the 316-dim probability features?
+
+    Parameters
+    ----------
+    model : ExpertEnsemble
+        Frozen expert ensemble (from ``imbalanceddl.utils.debug.models``).
+    loader : DataLoader
+        Test-set loader (any batch size).
+    device : torch.device
+    cls_num_list : list of int
+        Per-class training counts (for gate input construction).
+    n_samples : int
+        Max number of samples to process (for speed on CPU).
+
+    Returns
+    -------
+    dict with keys for both embedding-space and prob-space metrics,
+    plus a 'recommendation' string.
+    """
+    print("\n" + "=" * 80)
+    print("EMBEDDING CORRELATION DIAGNOSTIC (Exp 18, Phase A)")
+    print("=" * 80)
+    print("[INFO] Comparing 192-dim penultimate embeddings vs 316-dim")
+    print("[INFO] calibrated probability features for per-expert diversity.\n")
+
+    # Collect data
+    all_hidden = [[], [], []]   # 3 × 64-dim per-expert embeddings
+    all_probs = [[], [], []]    # 3 × 100-dim calibrated probabilities
+    sample_count = 0
+
+    for images, labels in loader:
+        if sample_count >= n_samples:
+            break
+        images = images.to(device)
+        batch_size = images.size(0)
+        # Use forward_with_hidden to get per-expert penultimate embeddings
+        logits_list, embeddings_316, hidden_list = model.forward_with_hidden(images)
+
+        # Calibrate probabilities (same recipe as the model's forward)
+        from imbalanceddl.utils.gate_features import calibrate_expert_probs
+        probs = calibrate_expert_probs(
+            logits_list, cls_num_list, model.la_tau,
+            T=1.0, per_expert_T=model.expert_T,
+        )
+
+        for i in range(3):
+            all_hidden[i].append(hidden_list[i].cpu().numpy())
+            all_probs[i].append(probs[i].cpu().numpy())
+        sample_count += batch_size
+
+    # Concatenate and trim
+    hidden = [np.concatenate(h, axis=0)[:n_samples] for h in all_hidden]
+    probs = [np.concatenate(p, axis=0)[:n_samples] for p in all_probs]
+    emb_192 = np.concatenate(hidden, axis=1)   # (N, 192)
+    emb_316 = np.concatenate(probs, axis=1)    # (N, 300) — no stats/freq here
+    # For fair comparison, also build the full 316-dim gate input
+    # (with L2 normalization + stats + freq features)
+    from imbalanceddl.utils.gate_features import build_gate_input
+    probs_t = [torch.from_numpy(p) for p in probs]
+    gate_input = build_gate_input(
+        probs_t, normalize_blocks=True,
+        cls_num_list=torch.tensor(cls_num_list, dtype=torch.float32),
+    ).numpy()  # (N, 316)
+
+    N = emb_192.shape[0]
+    print(f"  Samples: {N}")
+    print(f"  192-dim embedding space: {emb_192.shape[1]} dims")
+    print(f"  316-dim probability space: {gate_input.shape[1]} dims")
+    print()
+
+    # ── 1. Per-sample pairwise block correlations ──
+    print("-" * 75)
+    print("1. PER-SAMPLE PAIRWISE BLOCK CORRELATION")
+    print("-" * 75)
+
+    # 192-dim embeddings (3 × 64 blocks)
+    print("\n  192-dim penultimate embeddings (3 × 64-dim blocks):")
+    emb_corrs = _per_sample_block_correlation(emb_192, block_size=64)
+    expert_names = ['CE', 'LA', 'BS']
+    for (i, j), stats in emb_corrs.items():
+        print(f"    {expert_names[i]} vs {expert_names[j]}: "
+              f"mean r = {stats['mean_corr']:.4f} ± {stats['std_corr']:.4f}")
+
+    # 316-dim probabilities (3 × 100 blocks, L2-normalized)
+    print("\n  316-dim probability features (3 × 100-dim blocks, L2-normed):")
+    prob_corrs = _per_sample_block_correlation(gate_input, block_size=100)
+    for (i, j), stats in prob_corrs.items():
+        print(f"    {expert_names[i]} vs {expert_names[j]}: "
+              f"mean r = {stats['mean_corr']:.4f} ± {stats['std_corr']:.4f}")
+
+    # ── 2. Within-block effective rank ──
+    print("\n" + "-" * 75)
+    print("2. WITHIN-BLOCK EFFECTIVE RANK (SVD)")
+    print("-" * 75)
+    print("\n  192-dim embeddings:")
+    emb_wb = _within_block_svd(emb_192, block_size=64)
+    for k, v in emb_wb.items():
+        print(f"    {k}: {v:.2f}")
+
+    print("\n  316-dim probabilities:")
+    prob_wb = _within_block_svd(gate_input, block_size=100)
+    for k, v in prob_wb.items():
+        print(f"    {k}: {v:.2f}")
+
+    # ── 3. Full covariance analysis ──
+    print("\n" + "-" * 75)
+    print("3. FULL COVARIANCE ANALYSIS")
+    print("-" * 75)
+
+    print("\n  192-dim embedding space:")
+    emb_cov = _feature_covariance_analysis(emb_192)
+    print(f"    Effective rank: {emb_cov['effective_rank']:.2f} / {emb_192.shape[1]}")
+    print(f"    Condition number: {emb_cov['condition_number']:.2f}")
+    print(f"    Top 5 PCs explain: {emb_cov['var_explained_top5']*100:.1f}%")
+    print(f"    Top 10 PCs explain: {emb_cov['var_explained_top10']*100:.1f}%")
+    print(f"    Top 20 PCs explain: {emb_cov['var_explained_top20']*100:.1f}%")
+
+    print("\n  316-dim probability space (gate input):")
+    prob_cov = _feature_covariance_analysis(gate_input)
+    print(f"    Effective rank: {prob_cov['effective_rank']:.2f} / {gate_input.shape[1]}")
+    print(f"    Condition number: {prob_cov['condition_number']:.2f}")
+    print(f"    Top 5 PCs explain: {prob_cov['var_explained_top5']*100:.1f}%")
+    print(f"    Top 10 PCs explain: {prob_cov['var_explained_top10']*100:.1f}%")
+    print(f"    Top 20 PCs explain: {prob_cov['var_explained_top20']*100:.1f}%")
+
+    # ── 4. Head-to-head comparison ──
+    print("\n" + "=" * 75)
+    print("4. HEAD-TO-HEAD COMPARISON: EMBEDDINGS vs PROBABILITIES")
+    print("=" * 75)
+
+    emb_mean_corr = np.mean([s['mean_corr'] for s in emb_corrs.values()])
+    prob_mean_corr = np.mean([s['mean_corr'] for s in prob_corrs.values()])
+
+    print(f"\n  {'Metric':<45} | {'192-emb':<10} | {'316-prob':<10} | {'Delta':<10}")
+    print(f"  {'-'*77}")
+    print(f"  {'Mean pairwise block correlation':<45} | {emb_mean_corr:<10.4f} | "
+          f"{prob_mean_corr:<10.4f} | {emb_mean_corr - prob_mean_corr:<+10.4f}")
+    print(f"  {'Effective rank (full space)':<45} | {emb_cov['effective_rank']:<10.2f} | "
+          f"{prob_cov['effective_rank']:<10.2f} | "
+          f"{emb_cov['effective_rank'] - prob_cov['effective_rank']:<+10.2f}")
+    print(f"  {'Condition number':<45} | {emb_cov['condition_number']:<10.1f} | "
+          f"{prob_cov['condition_number']:<10.1f} | "
+          f"{emb_cov['condition_number'] - prob_cov['condition_number']:<+10.1f}")
+    print(f"  {'Top-5 PC variance explained (%)':<45} | "
+          f"{emb_cov['var_explained_top5']*100:<10.1f} | "
+          f"{prob_cov['var_explained_top5']*100:<10.1f} | "
+          f"{(emb_cov['var_explained_top5'] - prob_cov['var_explained_top5'])*100:<+10.1f}")
+    print(f"  {'Top-10 PC variance explained (%)':<45} | "
+          f"{emb_cov['var_explained_top10']*100:<10.1f} | "
+          f"{prob_cov['var_explained_top10']*100:<10.1f} | "
+          f"{(emb_cov['var_explained_top10'] - prob_cov['var_explained_top10'])*100:<+10.1f}")
+
+    # ── 5. Recommendation ──
+    print("\n" + "=" * 75)
+    print("5. RECOMMENDATION")
+    print("=" * 75)
+
+    if emb_mean_corr < 0.5:
+        rec = ("PASS — Penultimate feature routing is viable.\n"
+               f"  Mean embedding correlation = {emb_mean_corr:.4f} (< 0.5).\n"
+               "  The 192-dim embeddings are substantially more diverse than\n"
+               "  the 316-dim probability features. Proceed to Exp 19:\n"
+               "  implement Linear(192,3) penultimate feature routing.")
+        print(f"\n  ✅ {rec}")
+    elif emb_mean_corr < 0.6:
+        rec = ("BORDERLINE — Embeddings are somewhat more diverse.\n"
+               f"  Mean embedding correlation = {emb_mean_corr:.4f} (0.5–0.6).\n"
+               "  Penultimate routing may still help but gains will be modest.\n"
+               "  Proceed to Exp 19 but set expectations accordingly.")
+        print(f"\n  ⚠️  {rec}")
+    else:
+        rec = ("FAIL — Embeddings are as correlated as probabilities.\n"
+               f"  Mean embedding correlation = {emb_mean_corr:.4f} (≥ 0.6).\n"
+               "  The 192-dim embeddings share the same cross-expert\n"
+               "  correlation problem as the 316-dim probabilities.\n"
+               "  **Pivot to expert diversification strategies**\n"
+               "  (RIDE-style diversity losses, different backbone\n"
+               "  architectures, or non-parametric SADE routing).")
+        print(f"\n  ❌ {rec}")
+
+    # Show relative improvement
+    rel_improvement = (prob_mean_corr - emb_mean_corr) / prob_mean_corr * 100
+    print(f"\n  Relative improvement: correlation dropped by "
+          f"{rel_improvement:.1f}% (from {prob_mean_corr:.4f} to {emb_mean_corr:.4f}).")
+    print("=" * 75)
+
+    return {
+        'embedding_mean_corr': emb_mean_corr,
+        'prob_mean_corr': prob_mean_corr,
+        'embedding_cov': emb_cov,
+        'prob_cov': prob_cov,
+        'recommendation': rec,
+        'n_samples': N,
+    }
+
+
 def main():
     cfg = get_args()
     if cfg.dataset == 'cifar100':
@@ -597,6 +884,19 @@ def main():
     )
     if custom_args.diagnose_confident_wrong:
         print("\n[INFO] --diagnose_confident_wrong complete. Exiting.\n")
+        return
+
+    # 10. Embedding Correlation Diagnostic (Exp 18, Phase A)
+    # Verifies whether 192-dim penultimate embeddings are more diverse than
+    # the 316-dim probability features. This determines whether penultimate
+    # feature routing (#2) is viable.
+    if custom_args.diagnose_embeddings:
+        print("\n[INFO] Running in --diagnose_embeddings mode only.\n")
+    compute_embedding_correlation_diagnostic(
+        model, test_loader, device, cfg.cls_num_list, n_samples=500,
+    )
+    if custom_args.diagnose_embeddings:
+        print("\n[INFO] --diagnose_embeddings complete. Exiting.\n")
         return
 
 if __name__ == "__main__":

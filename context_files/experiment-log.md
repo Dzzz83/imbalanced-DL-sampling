@@ -49,7 +49,28 @@ section. Then update the FAILED APPROACHES or IDEAS tables if applicable.
 
 # EXPERIMENT HISTORY
 
-See `experiment-log.md` (root) for the full experiment history (Exp 10–16) with complete entries, diagnostic trace, and baseline tables.
+See `experiment-log.md` (root) for the full experiment history (Exp 10–17) with complete entries, diagnostic trace, and baseline tables.
+
+---
+
+### Experiment 17: DaWin Assumption Verification — Confidently-Wrong Diagnostic
+**Date:** 2025-07-22
+**Hypothesis:** DaWin confidence routing (routing by `softmax(conf_j / T̂)`) is safe for this ensemble because the most confident expert is usually correct.
+**Changes:** No training run. The `run_confident_wrong_diagnostic` function (added to `ultra_debug.py`) was executed on the existing epoch-82 checkpoint (MLP, logprob target, [1.5, 1.2, 1.5] temps).
+**Results:**
+- Confidently-wrong rate (overall): **57.96%** — the most confident expert is wrong more often than correct
+- By group: Head 30.00% | Mid 58.75% | **Tail 89.67%**
+- Avg conf when correct: 0.8464 | Avg conf when wrong: 0.6245
+- Most-confident expert identity: CE=27.6% (39.3% correct), LA=51.2% (45.4% correct), BS=21.1% (37.5% correct)
+- **On 81.6% of confidently-wrong samples, all three experts are wrong together** (3,784/4,637 samples)
+- DaWin simulation: best T̂ = 1.00 (tune bal acc 42.95%)
+- **DaWin test bal acc: 42.75% vs Uniform: 42.88% vs Gate MLP: 44.26%** — DaWin underperforms uniform
+- Expert individual bal acc: CE=38.94% | LA=40.70% | BS=39.35% | Uniform=43.61%
+- Uniform ensemble (43.61%) beats paper's reported uniform baseline (43.28%) — experts are well-trained
+- Oracle bal acc: 52.09% (confirming expert diversity exists but is hidden in features)
+**Outcome:** ❌ FAILED (DaWin assumption conclusively violated)
+**Root Cause / Why It Worked:** The most confident expert is wrong 58% of the time because all three experts share the same backbone and training data — their probability outputs are too correlated for confidence to be a reliable routing signal. On tail classes (89.67% confidently-wrong), no expert has learned reliable features (5–6 samples/class). The 81.6% "all experts wrong" rate reveals a hard ceiling: on ~48% of test samples, no expert knows the correct answer.
+**Next Step:** Abandon DaWin. Proceed to 192-dim embedding correlation check (Exp 18, Phase A) to determine viability of penultimate feature routing.
 
 ---
 
@@ -57,11 +78,12 @@ See `experiment-log.md` (root) for the full experiment history (Exp 10–16) wit
 
 | # | Approach | Root Cause of Failure | Exp # | Date |
 |---|----------|----------------------|-------|------|
-| 1 | Mini-MLP with BatchNorm on Raw Logits | Non-linear architecture did not fix the uniform weight distribution. The gate still acted as a peak-detector because raw logit magnitude spikes dominate the dot product math regardless of gate depth. | 10 | 2024-05-29 |
-| 2 | Probability Routing + Switch Load Balancing Loss | Switch loss successfully balanced routing weights (fixing BS starvation), but probability-space mixing caused the gate to collapse to uniform routing (~33% for all experts), failing to beat the baseline. | 11 | 2024-05-30 |
-| 3 | Mixture NLL in logit space + disagree_weight + kl_uniform=3.0 | Gradient `∂L/∂g_j = w_j · (p_mix(y) − p_j(y))` vanishes on tail samples (all `p_j(y)` tiny). Regularizers fight remaining signal. | 12 | 2025-07-15 |
-| 4 | Logprob target + linear router + balanced temps [1.5, 1.2, 1.5] | **SNR bottleneck** (refined from 'near-collinear' by Exp 16): 70% of total feature variance is shared across experts; residual routing signal too diluted for 1,125 training samples. | 14, 16 | 2025-07-22 |
-| 5 | Correctness targets (L2D) + linear router + balanced temps [1.5, 1.2, 1.5] | Isotonic calibrators on only ~625 tune samples produce near-uniform targets; gate temp=2.200; routing collapsed below uniform baseline. | 15 | 2025-07-18 |
+| 1 | Mini-MLP with BatchNorm on Raw Logits | Non-linear architecture did not fix the uniform weight distribution. | 10 | 2024-05-29 |
+| 2 | Probability Routing + Switch Load Balancing Loss | Switch loss balanced weights but probability-space mixing caused uniform routing collapse. | 11 | 2024-05-30 |
+| 3 | Mixture NLL in logit space + disagree_weight + kl_uniform=3.0 | Gradient vanishes on tail samples. Regularizers fight remaining signal. | 12 | 2025-07-15 |
+| 4 | Logprob target + linear router + balanced temps [1.5, 1.2, 1.5] | **SNR bottleneck**: 70% shared variance; routing signal too diluted for 1,125 samples. | 14, 16 | 2025-07-22 |
+| 5 | Correctness targets (L2D) + linear router + balanced temps [1.5, 1.2, 1.5] | Isotonic calibrators on 625 tune samples produce near-uniform targets; gate temp=2.200. | 15 | 2025-07-18 |
+| 6 | **DaWin confidence routing** (training-free, 3-dim) | Confidently-wrong rate = 57.96% (89.67% on tail). 81.6% of conf-wrong samples have all 3 experts wrong. DaWin (42.75%) < Uniform (42.88%). Assumption violated. | 17 | 2025-07-22 |
 
 ---
 
@@ -77,23 +99,21 @@ See `experiment-log.md` (root) for the full experiment history (Exp 10–16) wit
 
 # PLANNED EXPERIMENTS (Ranked by Priority)
 
-The following experiments are ordered by the decision tree from the ranked research report. Each must be executed sequentially.
+The following experiments are ordered after the completion of Exp 17 (DaWin — failed assumption). The next step is to verify whether penultimate feature routing is viable.
 
-| Order | Experiment | Strategy | Key Parameters | Verification Step | Expected Outcome & Next Action |
-|:-----:|:-----------|:---------|:---------------|:------------------|:------------------------------|
-| **1** | **Exp 17 — DaWin Baseline** | **DaWin confidence routing (training-free, 3-dim)** | `w_j = softmax(conf_j / T̂)`, `conf_j = max_k p_j(k\|x)`. Grid search T̂ on tune set. **0 params, 0 training.** | Post-hoc eval on existing checkpoint. Add DaWin column to `ultra_debug.py` (≈10 lines). Compare vs gate (44.26%) vs uniform (43.61%). | **If ≥ 44.26%:** DaWin is the answer. STOP. **If 44.0–44.25%:** Proceed to Exp 18. **If < 44.0%:** Skip to Exp 19. |
-| **2** | **Exp 18 — 3-Param Temperature Router** | **Per-expert temperature scalars** | `w_j = softmax(conf_j / exp(log_T_j))`. 3 learned params. Train with logprob KL loss. | Full training run. Compare bal acc against DaWin baseline. | **If > DaWin by ≥0.5 pp:** Calibration matters. **If ≈ DaWin:** Confidence captures full calibration. |
-| **3** | **Exp 19 — Penultimate Feature Routing** | **192-dim embeddings + Linear(192,3)** | Replace 316-dim probs with 3 × 64-dim embeddings. Linear router: 579 params. | **Phase A:** Diagnose 192-dim feature correlations first. | **If r < 0.5:** Proceed. **If r ≥ 0.5:** Fall back to DES or SADE. |
-| **4** | **Exp 20 — Stats-Only Logistic Router** | **13-dim stats + Linear(13,3)** | Keep 9 stats dims + 4 freq features. Linear router: 42 params. | Add `gate_input_mode: stats_only` config. Train and compare. | **If within 0.2 pp of 316-dim baseline:** SNR hypothesis confirmed. |
+| Order | Experiment | Strategy | Verification Step | Expected Outcome & Next Action |
+|:-----:|:-----------|:---------|:------------------|:------------------------------|
+| **1** | **Exp 18 — Embedding Correlation Check** | **Diagnose per-expert penultimate feature diversity (192-dim)** | Extract 3 × 64-dim hidden_list from `ExpertEnsemble.forward()`. Compute per-sample correlations, effective rank, variance decomposition. | **If r < 0.5:** Proceed to Exp 19. **If r ≥ 0.5:** Pivot to expert diversification. |
+| **2** | **Exp 19 — Penultimate Feature Routing** | **192-dim embeddings + Linear(192,3)** | Train linear router (579 params) on penultimate embeddings. Compare vs gate (44.26%) and uniform (43.61%). | **If > 44.26%:** Penultimate features help. **If ≈ 44.26%:** Diversity is the fundamental limit. |
+| **3** | **Exp 20 — Stats-Only Logistic Router** | **13-dim stats + Linear(13,3)** | Add `gate_input_mode: stats_only`. Train 42-param router. Compare vs 316-dim baseline. | **If within 0.2 pp:** SNR hypothesis confirmed. |
 
-### Fallback Options (Lower-Ranked Candidates, Only If Top-4 Fail)
+### Fallback Options
 
-| Candidate | When to Consider | Implementation Complexity |
-|:----------|:-----------------|:--------------------------|
-| **DaWin + Disagreement Mask** | If DaWin alone < 44.0% but disagreement signal is strong | Low |
-| **SADE Test-Time Optimization** | If all learned routers fail | High |
-| **DES Competence Routing** | If penultimate features have meaningful distance structure | Moderate |
-| **Meta-Learning Router** | Only if per-class oracle shows clear expert preferences (unlikely given Exp 13–16 data) | Very high |
+| Candidate | When to Consider |
+|:----------|:-----------------|
+| **SADE Test-Time Optimization** | If all learned routers fail |
+| **DES Competence Routing** | If penultimate features have meaningful distance structure |
+| **Expert Diversification** (RIDE-style losses) | If Exp 18 shows embeddings also correlated (r ≥ 0.5) |
 
 ---
 
