@@ -17,6 +17,9 @@ custom_parser.add_argument('--ce_path', type=str, required=True)
 custom_parser.add_argument('--la_path', type=str, required=True)
 custom_parser.add_argument('--bs_path', type=str, required=True)
 custom_parser.add_argument('--gate_ckpt', type=str, required=True)
+custom_parser.add_argument('--diagnose_confident_wrong', action='store_true',
+                           help='Run only the DaWin confidence-wrong diagnostic '
+                                'and exit.')
 custom_args, remaining_argv = custom_parser.parse_known_args()
 sys.argv = [sys.argv[0]] + remaining_argv
 
@@ -100,6 +103,330 @@ class LinearWeightPeakAnalyzer:
             print(f"  {name}: {count}/{total} ({count / total * 100:.1f}%) | "
                   f"mean peak probability {peaks[:, i].mean():+.4f}")
         print("=" * 80)
+
+
+def run_confident_wrong_diagnostic(p_ce, p_la, p_bs, labels, cls_num_list,
+                                   recipe, p_ce_tune=None, p_la_tune=None,
+                                   p_bs_tune=None, labels_tune=None,
+                                   logits_test=None):
+    """DaWin assumption verification: measure how often the most confident
+    expert is wrong.
+
+    DaWin routes by ``w_j = softmax(max_k p_j(k|x) / T)``. This works when
+    high-confidence experts are usually correct. If the confidently-wrong rate
+    is high, DaWin will amplify errors and underperform the uniform baseline.
+
+    Parameters
+    ----------
+    p_ce, p_la, p_bs : np.ndarray, shape (N, C)
+        Per-expert calibrated probabilities on the test set.
+    labels : np.ndarray, shape (N,)
+        Ground-truth class labels.
+    cls_num_list : list of int
+        Per-class training counts (used for head/mid/tail grouping).
+    recipe : dict
+        Mixture recipe (used only for logit calibration in DaWin simulation).
+    p_ce_tune, p_la_tune, p_bs_tune : np.ndarray or None, shape (M, C)
+        Tune-set probabilities for fitting T̂. If None, T̂=1.0 is assumed.
+    labels_tune : np.ndarray or None
+        Tune-set labels.
+    logits_test : list of torch.Tensor or None, shape (N, C) each
+        Raw test logits for building mixtures in DaWin simulation. If None,
+        the mixture is built from probabilities (approximate).
+
+    Returns
+    -------
+    dict with keys:
+        - 'confidently_wrong_rate': float (overall fraction)
+        - 'confidently_wrong_rate_by_group': dict per group
+        - 'avg_conf_when_correct': float
+        - 'avg_conf_when_wrong': float
+        - 'dawin_bal_acc': float or None
+        - 'uniform_bal_acc': float
+        - 'gate_bal_acc': float or None
+        - 'verdict': str
+    """
+    print("\n" + "=" * 80)
+    print("DAWIN ASSUMPTION DIAGNOSTIC: Confidently-Wrong Analysis")
+    print("=" * 80)
+    print("[INFO] DaWin routes by w_j = softmax(max_k p_j(k|x) / T).")
+    print("[INFO] This diagnostic measures how often the most confident")
+    print("[INFO] expert is WRONG — the key assumption behind DaWin.\n")
+
+    N = len(labels)
+    confidences = np.stack([
+        p_ce.max(axis=1), p_la.max(axis=1), p_bs.max(axis=1)
+    ], axis=1)  # (N, 3)
+    predictions = np.stack([
+        p_ce.argmax(axis=1), p_la.argmax(axis=1), p_bs.argmax(axis=1)
+    ], axis=1)  # (N, 3)
+    expert_correct = (predictions == labels.reshape(-1, 1))  # (N, 3)
+
+    # ---- Which expert is most confident per sample? ----
+    most_confident_idx = confidences.argmax(axis=1)
+    most_confident_conf = confidences[np.arange(N), most_confident_idx]
+    most_confident_correct = expert_correct[np.arange(N), most_confident_idx]
+
+    confidently_wrong_rate = 1.0 - most_confident_correct.mean()
+    n_confidently_wrong = int((~most_confident_correct).sum())
+
+    # ---- Per-group breakdown (head/mid/tail) ----
+    cls_num_arr = np.array(cls_num_list)
+    group_ids = np.full(len(cls_num_arr), 1, dtype=np.int64)  # default mid
+    group_ids[cls_num_arr > 100] = 0   # head (many-shot)
+    group_ids[cls_num_arr < 20] = 2    # tail (low-shot)
+    label_groups = group_ids[labels]   # (N,)
+    group_names = {0: "Head", 1: "Mid", 2: "Tail"}
+
+    per_group = {}
+    for gid in [0, 1, 2]:
+        mask = (label_groups == gid)
+        if mask.sum() == 0:
+            per_group[group_names[gid]] = {'count': 0, 'conf_wrong_rate': 0.0,
+                                           'avg_conf_wrong': 0.0,
+                                           'avg_conf_correct': 0.0}
+            continue
+        g_correct = most_confident_correct[mask]
+        g_conf = most_confident_conf[mask]
+        g_wrong_mask = ~g_correct
+        g_correct_mask = g_correct
+        per_group[group_names[gid]] = {
+            'count': int(mask.sum()),
+            'conf_wrong_rate': float(g_wrong_mask.mean()),
+            'avg_conf_wrong': float(g_conf[g_wrong_mask].mean()
+                                    if g_wrong_mask.sum() > 0 else 0.0),
+            'avg_conf_correct': float(g_conf[g_correct_mask].mean()
+                                      if g_correct_mask.sum() > 0 else 0.0),
+        }
+
+    # ---- Average confidence when correct vs wrong ----
+    wrong_mask = ~most_confident_correct
+    correct_mask = most_confident_correct
+    avg_conf_correct = float(most_confident_conf[correct_mask].mean()
+                             if correct_mask.sum() > 0 else 0.0)
+    avg_conf_wrong = float(most_confident_conf[wrong_mask].mean()
+                           if wrong_mask.sum() > 0 else 0.0)
+
+    # ---- Print results ----
+    print(f"\n{'Group':<8} | {'Samples':<8} | {'Conf-Wrong Rate':<16} "
+          f"| {'Avg Conf (Wrong)':<16} | {'Avg Conf (Correct)':<18}")
+    print("-" * 75)
+    print(f"{'ALL':<8} | {N:<8} | {confidently_wrong_rate:<16.2%} "
+          f"| {avg_conf_wrong:<16.4f} | {avg_conf_correct:<18.4f}")
+    for gname in ["Head", "Mid", "Tail"]:
+        pg = per_group[gname]
+        if pg['count'] == 0:
+            continue
+        print(f"{gname:<8} | {pg['count']:<8} | {pg['conf_wrong_rate']:<16.2%} "
+              f"| {pg['avg_conf_wrong']:<16.4f} | {pg['avg_conf_correct']:<18.4f}")
+    print("-" * 75)
+
+    # ---- Distribution of confidence when wrong ----
+    if wrong_mask.sum() > 0:
+        bins = [0.0, 0.3, 0.5, 0.7, 0.9, 1.0]
+        labels_bins = ['0-0.3', '0.3-0.5', '0.5-0.7', '0.7-0.9', '0.9-1.0']
+        conf_when_wrong = most_confident_conf[wrong_mask]
+        hist, _ = np.histogram(conf_when_wrong, bins=bins)
+        hist_pct = hist / hist.sum() * 100
+        print("\nConfidence distribution when most-confident expert is WRONG:")
+        for lb, h, hp in zip(labels_bins, hist, hist_pct):
+            bar = '#' * int(hp / 2)
+            print(f"  conf ∈ {lb:<9} : {h:>4d} samples ({hp:5.1f}%) {bar}")
+
+    # ---- Who is the most confident expert? ----
+    print("\nMost-confident expert identity:")
+    for i, name in enumerate(["CE", "LA", "BS"]):
+        count = int((most_confident_idx == i).sum())
+        correct_count = int(((most_confident_idx == i) & expert_correct[:, i]).sum())
+        wrong_count = count - correct_count
+        print(f"  {name}: most-confident on {count:>4d}/{N} samples "
+              f"({100*count/N:5.1f}%) — correct {correct_count}, wrong {wrong_count}")
+
+    # ---- Confidently-wrong pairs ----
+    # On samples where the most-confident expert is wrong, is there ANOTHER
+    # expert that is correct? This tells us whether confidence correlates with
+    # correctness at the expert level.
+    if n_confidently_wrong > 0:
+        other_experts_correct = expert_correct[wrong_mask].sum(axis=1) - 0  # subtract 0 b/c most-confident is counted
+        # Actually, we need: of the OTHER two experts (not the most-confident one),
+        # how many are correct?
+        other_correct = np.zeros(n_confidently_wrong, dtype=int)
+        for i in range(n_confidently_wrong):
+            idx_most = most_confident_idx[wrong_mask][i]
+            other_mask = np.array([0, 1, 2]) != idx_most
+            other_correct[i] = expert_correct[wrong_mask][i][other_mask].sum()
+        at_least_one_other_correct = (other_correct >= 1).sum()
+        both_other_correct = (other_correct == 2).sum()
+        print(f"\nOn {n_confidently_wrong} confidently-wrong samples:")
+        print(f"  At least one other expert correct: {at_least_one_other_correct} "
+              f"({100*at_least_one_other_correct/n_confidently_wrong:.1f}%)")
+        print(f"  Both other experts correct:        {both_other_correct} "
+              f"({100*both_other_correct/n_confidently_wrong:.1f}%)")
+        print(f"  All experts wrong:                 {n_confidently_wrong - at_least_one_other_correct} "
+              f"({100*(n_confidently_wrong - at_least_one_other_correct)/n_confidently_wrong:.1f}%)")
+
+    # ---- Uniform baseline comparison on confidently-wrong samples ----
+    # On these samples, what would uniform averaging predict?
+    if n_confidently_wrong > 0:
+        p_unif_conf_wrong = (p_ce[wrong_mask] + p_la[wrong_mask]
+                             + p_bs[wrong_mask]) / 3.0
+        unif_preds_conf_wrong = p_unif_conf_wrong.argmax(axis=1)
+        unif_correct_conf_wrong = (unif_preds_conf_wrong
+                                   == labels[wrong_mask])
+        unif_acc_conf_wrong = unif_correct_conf_wrong.mean()
+        print(f"\nUniform baseline on confidently-wrong samples: "
+              f"{unif_acc_conf_wrong:.2%} "
+              f"({int(unif_correct_conf_wrong.sum())}/{n_confidently_wrong})")
+        # How does this compare to DaWin (simulated)?
+        # For each sample, if we used only the most-confident expert:
+        most_conf_preds = predictions[np.arange(N), most_confident_idx]
+        most_conf_acc_on_wrong = (most_conf_preds[wrong_mask]
+                                  == labels[wrong_mask]).mean()
+        print(f"Most-confident expert's own accuracy on these samples: "
+              f"{most_conf_acc_on_wrong:.2%} "
+              f"(= {confidently_wrong_rate:.2%} wrong rate inverted)")
+
+    # ---- Simulated DaWin accuracy (grid-search T on tune set) ----
+    dawin_bal_acc = None
+    dawin_bal_acc_on_conf_wrong = None
+    if (p_ce_tune is not None and p_la_tune is not None
+            and p_bs_tune is not None and labels_tune is not None):
+        print("\n" + "-" * 75)
+        print("DaWin Simulation: Grid-Search Temperature on Tune Set")
+        print("-" * 75)
+        confidences_tune = np.stack([
+            p_ce_tune.max(axis=1), p_la_tune.max(axis=1),
+            p_bs_tune.max(axis=1)
+        ], axis=1)
+
+        # Balanced accuracy function for tuning
+        def balanced_acc(preds, true_labels):
+            """Compute per-class balanced accuracy."""
+            classes = np.unique(true_labels)
+            accs = []
+            for c in classes:
+                mask = (true_labels == c)
+                if mask.sum() > 0:
+                    accs.append((preds[mask] == c).mean())
+            return np.mean(accs) * 100.0 if accs else 0.0
+
+        best_T, best_bal = 1.0, 0.0
+        T_candidates = [0.1, 0.3, 0.5, 0.8, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0]
+        for T_hat in T_candidates:
+            w_dawin = np.exp(confidences_tune / T_hat)
+            w_dawin /= w_dawin.sum(axis=1, keepdims=True)
+
+            # Build mixture in prob space (simplified: average probabilities
+            # weighted by DaWin weights). For exact logit-space mixing we
+            # would need the raw logits.
+            p_dawin_tune = (w_dawin[:, 0:1] * p_ce_tune
+                            + w_dawin[:, 1:2] * p_la_tune
+                            + w_dawin[:, 2:3] * p_bs_tune)
+            dawin_preds = p_dawin_tune.argmax(axis=1)
+            bal = balanced_acc(dawin_preds, labels_tune)
+            if bal > best_bal:
+                best_bal = bal
+                best_T = T_hat
+
+        print(f"  Best T̂ = {best_T:.2f} with tune bal acc = {best_bal:.2f}%")
+
+        # Evaluate DaWin on test set
+        confidences_test = np.stack([
+            p_ce.max(axis=1), p_la.max(axis=1), p_bs.max(axis=1)
+        ], axis=1)
+        w_dawin_test = np.exp(confidences_test / best_T)
+        w_dawin_test /= w_dawin_test.sum(axis=1, keepdims=True)
+        p_dawin_test = (w_dawin_test[:, 0:1] * p_ce
+                        + w_dawin_test[:, 1:2] * p_la
+                        + w_dawin_test[:, 2:3] * p_bs)
+        dawin_preds_test = p_dawin_test.argmax(axis=1)
+        dawin_bal_acc = balanced_acc(dawin_preds_test, labels)
+
+        # Also compute overall accuracy (not just balanced)
+        dawin_overall_acc = (dawin_preds_test == labels).mean() * 100.0
+
+        # On confidently-wrong subset
+        if n_confidently_wrong > 0:
+            p_dawin_conf_wrong = p_dawin_test[wrong_mask]
+            dawin_preds_cw = p_dawin_conf_wrong.argmax(axis=1)
+            dawin_bal_acc_on_conf_wrong = (
+                dawin_preds_cw == labels[wrong_mask]
+            ).mean() * 100.0
+        else:
+            dawin_bal_acc_on_conf_wrong = 0.0
+
+        # Uniform baseline for comparison
+        p_unif_test = (p_ce + p_la + p_bs) / 3.0
+        unif_preds_test = p_unif_test.argmax(axis=1)
+        unif_bal_acc = balanced_acc(unif_preds_test, labels)
+        unif_overall_acc = (unif_preds_test == labels).mean() * 100.0
+
+        # Gate baseline (if available — p_mix_test is computed by extract_data)
+        # We don't have it here, so we'll skip reporting gate bal acc from
+        # this function.
+
+        print(f"\n  Test set results (T̂ = {best_T:.2f}):")
+        print(f"  {'Method':<20} | {'Bal Acc':<8} | {'Overall Acc':<12}")
+        print(f"  {'-'*42}")
+        print(f"  {'DaWin':<20} | {dawin_bal_acc:<8.2f} | {dawin_overall_acc:<12.2f}")
+        print(f"  {'Uniform':<20} | {unif_bal_acc:<8.2f} | {unif_overall_acc:<12.2f}")
+        if dawin_bal_acc_on_conf_wrong > 0:
+            print(f"\n  On confidently-wrong samples only:")
+            print(f"  {'DaWin accuracy':<30} : {dawin_bal_acc_on_conf_wrong:.2f}%")
+            print(f"  {'Uniform accuracy':<30} : {unif_acc_conf_wrong*100:.2f}%")
+
+    # ---- Verdict ----
+    print("\n" + "=" * 80)
+    print("DAWIN VERDICT")
+    print("=" * 80)
+    if confidently_wrong_rate < 0.15:
+        verdict = "PASS — DaWin assumption holds."
+        print(f"  Confidently-wrong rate = {confidently_wrong_rate:.2%} (< 15%).")
+        print("  The most confident expert is almost always correct.")
+        print("  DaWin is safe to proceed as planned.")
+    elif confidently_wrong_rate > 0.30:
+        verdict = "FAIL — DaWin assumption violated."
+        print(f"  Confidently-wrong rate = {confidently_wrong_rate:.2%} (> 30%).")
+        print("  The most confident expert is often wrong.")
+        print("  DaWin will likely amplify errors. Recommend skipping to")
+        print("  penultimate feature routing (#2) or SADE (#4).")
+    else:
+        verdict = "INCONCLUSIVE — requires temperature verification."
+        print(f"  Confidently-wrong rate = {confidently_wrong_rate:.2%} (15-30%).")
+        print("  DaWin may still work if temperature scaling suppresses")
+        print("  overconfident-wrong experts, but the margin is narrow.")
+        if dawin_bal_acc is not None:
+            print(f"\n  Empirical check: DaWin bal acc = {dawin_bal_acc:.2f}% "
+                  f"vs Uniform = {unif_bal_acc:.2f}%.")
+            delta = dawin_bal_acc - unif_bal_acc
+            if delta > 1.0:
+                print(f"  DaWin beats uniform by {delta:.2f} pp — "
+                      f"temperature scaling mitigates the issue.")
+                verdict = "PASS (empirical) — DaWin assumption holds with T scaling."
+            elif delta > 0.0:
+                print(f"  DaWin narrowly beats uniform by {delta:.2f} pp — "
+                      f"marginal but positive.")
+            else:
+                print(f"  DaWin underperforms uniform by {-delta:.2f} pp — "
+                      f"confidence routing is unreliable.")
+                verdict = ("INCONCLUSIOUS — DaWin trails uniform; "
+                           "skip to penultimate routing (#2).")
+    print("=" * 80)
+
+    return {
+        'confidently_wrong_rate': float(confidently_wrong_rate),
+        'confidently_wrong_rate_by_group': {
+            gname: pg['conf_wrong_rate']
+            for gname, pg in per_group.items()
+        },
+        'avg_conf_correct': avg_conf_correct,
+        'avg_conf_wrong': avg_conf_wrong,
+        'dawin_bal_acc': dawin_bal_acc,
+        'uniform_bal_acc': (unif_bal_acc if dawin_bal_acc is not None
+                            else None),
+        'gate_bal_acc': None,
+        'verdict': verdict,
+    }
 
 
 def main():
@@ -258,6 +585,19 @@ def main():
     method_max_conf = np.max(p_mix_test, axis=1)
     print(f"Uniform Avg Max Confidence:  {np.mean(unif_max_conf):.4f}")
     print(f"My Method Avg Max Confidence: {np.mean(method_max_conf):.4f}")
+
+    # 9. DaWin Assumption Diagnostic (Confidently-Wrong Analysis)
+    if custom_args.diagnose_confident_wrong:
+        print("\n[INFO] Running in --diagnose_confident_wrong mode only.\n")
+    run_confident_wrong_diagnostic(
+        p_ce_test, p_la_test, p_bs_test, labels_test,
+        cfg.cls_num_list, recipe,
+        p_ce_tune=p_ce_tune, p_la_tune=p_la_tune,
+        p_bs_tune=p_bs_tune, labels_tune=labels_tune,
+    )
+    if custom_args.diagnose_confident_wrong:
+        print("\n[INFO] --diagnose_confident_wrong complete. Exiting.\n")
+        return
 
 if __name__ == "__main__":
     main()

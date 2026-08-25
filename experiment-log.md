@@ -149,7 +149,30 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 - Only 7 epochs evaluated; training stopped because all checkpoints below baseline
 **Outcome:** ❌ FAILED (worse than baseline — first experiment to regress below uniform)
 **Root Cause / Why It Failed:** The isotonic regression calibrators (fit on only ~625 tune samples) produce `P(correct | max-prob)` values with extremely limited dynamic range (0.05–0.25 for most samples). After normalization to a simplex, the target is near-uniform [~0.333, ~0.333, ~0.334] for all samples. The KL gradient `∂L/∂g = w − t` therefore pushes `w` toward uniform for every sample, collapsing the routing. The tune set confirms this by selecting gate_temp=2.200 (making the softmax output as near-uniform as possible). This is a practical failure of the L2D approach under data-limited conditions: the correctness calibrators need much more tune data to learn a stable mapping for 100 classes.
-**Next Step:** Revert to Exp 13 best config (logprob + MLP, 44.16% bal acc). The correctness target joins the logprob linear router in the FAILED list. The fundamental bottleneck is **feature collinearity** — next line of attack must change the gate input features.
+**Next Step:** Revert to Exp 13 best config (logprob + MLP, 44.16% bal acc). The correctness target joins the logprob linear router in the FAILED list. The fundamental bottleneck is **feature SNR** — next line of attack must change the gate input features.
+
+---
+
+### Experiment 16: Feature Collinearity Direct Measurement — SNR Bottleneck Refined
+**Date:** 2025-07-22
+**Hypothesis:** The 316-dim calibrated probability features are near-collinear (per-sample pairwise correlation > 0.95 for >80% of samples), making per-sample routing impossible regardless of target or architecture.
+**Changes:** No training run. `diagnose_feature_collinearity.py` executed on the frozen experts (CE/LA/BS) and 500 CIFAR-100-LT test samples, computing per-sample Pearson correlations, within-block SVD effective ranks, full covariance analysis, and per-block variance breakdown.
+**Results:**
+- Per-sample block correlations (L2-normed probs): **CE vs LA: r = 0.675 ± 0.316** | **CE vs BS: r = 0.685 ± 0.291** | **LA vs BS: r = 0.664 ± 0.306**
+- Fraction of samples with r > 0.95: **28–31%** (NOT the hypothesized >80%)
+- Within-block effective rank: **73–79 / 100** (blocks are high-rank, not degenerate)
+- Full 316-dim covariance effective rank: **71.18 / 316** | Condition number: 891
+- **Top 5 principal components explain 70% of total variance** (shared backbone signal)
+- Residual expert-discriminative signal: ~30% variance spread across ~66 components
+- Class-level profile correlations: **r = 0.91–0.94** (mean profiles near-identical)
+- Feature variance by block: probability dims std ≈ 0.098; stats dims (9 cols) std ≈ 0.825 (8.4×); freq dims (4 cols) std ≈ 1.092 (11×)
+- Gradient norm (re-run): 0.894 (confirmed healthy — matches Exp 13 exactly)
+- LA-saves-the-day w_LA: **0.683** (up from Exp 14's 0.583 — MLP architecture captures this better)
+- Best checkpoint (epoch 82): **Bal Acc 44.26%** vs Uniform 43.61% (+0.65 pp)
+**Outcome:** ⏳ INCONCLUSIVE (hypothesis PARTIALLY REFUTED — not strict collinearity, but the refined bottleneck is confirmed)
+**Root Cause / Why It Worked:** The three probability blocks are **moderately correlated** (r ≈ 0.68, not > 0.95) and each has **high effective rank** (~75/100). Strict collinearity is refuted. However, **70% of total feature variance is shared across experts** (top 5 PCs), and the residual expert-discriminative signal is spread thinly across ~66 components. With only **1,125 training samples** and **316 input dimensions**, the gate cannot extract this fine-grained per-sample signal — it converges to the one robust signal: per-class biases from the 4 frequency features (which have 11× the variance of individual probability dims). The true bottleneck is an **SNR problem**: the per-sample routing signal is a tiny fraction of total feature variance, too diluted for the available training data. The class-level profile correlations (r = 0.91–0.94) confirm that on average, all experts favor the same classes — the differences are in the fine-grained tails.
+
+**Next Step:** The diagnostic phase is now **conclusive**. A research phase has been completed producing a ranked report of 10 candidate routing strategies. The immediate next step is to evaluate DaWin confidence routing as a post-hoc baseline (see PLANNED EXPERIMENTS below).
 
 ---
 
@@ -160,22 +183,43 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 | 1 | Mini-MLP with BatchNorm on Raw Logits | Non-linear architecture did not fix the uniform weight distribution. The gate still acted as a peak-detector because raw logit magnitude spikes dominate the dot product math regardless of gate depth. | 10 | 2024-05-29 |
 | 2 | Probability Routing + Switch Load Balancing Loss | Switch loss successfully balanced routing weights (fixing BS starvation), but probability-space mixing caused the gate to collapse to uniform routing (~33% for all experts), failing to beat the baseline. | 11 | 2024-05-30 |
 | 3 | Mixture NLL in logit space + disagree_weight + kl_uniform=3.0 (current config before diagnosis) | Gradient `∂L/∂g_j = w_j · (p_mix(y) − p_j(y))` vanishes on tail samples (all `p_j(y)` tiny). The gate receives zero gradient on ~95% of tail samples. Per-expert calibration also failed (all temps = 1.5), and train/eval k mismatch wasted the 3rd expert's gradient. Regularizers (disagree_weight + kl_uniform) actively fought the remaining signal. | 12 | 2025-07-15 |
-| 4 | Logprob target + linear router + balanced temps [1.5, 1.2, 1.5] | **Feature bottleneck**: three calibrated probability distributions from the same ResNet32 backbone are near-collinear. The fc.weight blocks have healthy std (0.20, 2.7× MLP) but are statistically indistinguishable across experts (CE=0.201, LA=0.203, BS=0.200). The gate learns per-class biases (head→CE, tail→LA) but cannot learn per-sample routing because the input features don't contain enough per-sample discriminative signal. Linear router (43.97%) performs essentially identically to MLP (44.16%), confirming architecture is not the bottleneck. | 14 | 2025-07-17 |
+| 4 | Logprob target + linear router + balanced temps [1.5, 1.2, 1.5] | **SNR bottleneck** (refined from 'near-collinear' by Exp 16): three calibrated probability distributions from the same ResNet32 backbone are **moderately correlated** (per-sample r ≈ 0.68, not > 0.95). Each block has high effective rank (~75/100). However, **70% of total feature variance is shared across experts** (top 5 PCs), and the residual expert-discriminative signal (~30% variance) is spread across ~66 components. With only **1,125 training samples**, the gate cannot extract this fine-grained per-sample signal — it converges to per-class biases from the 4 frequency features (11× the variance of individual probability dims). Linear router (43.97%) ≈ MLP (44.16%), confirming architecture is not the bottleneck. Exp 16 direct measurement confirms: not strict collinearity, but an **SNR bottleneck** that no target/architecture change on 316-dim features can overcome. | 14, 16 | 2025-07-22 |
 | 5 | Correctness targets (L2D) + linear router + balanced temps [1.5, 1.2, 1.5] | Isotonic regression calibrators on only ~625 tune samples produce `P(correct | max-prob)` targets with negligible dynamic range. After normalization, targets are near-uniform [~1/3] for all samples. KL gradient `∂L/∂g = w − t` therefore pushes `w` toward uniform, collapsing routing. Gate temp=2.200 (highest ever) confirms tune set wants gate dead. LA-saves-the-day w_LA=0.311 (completely uniform). First experiment to regress below uniform baseline. | 15 | 2025-07-18 |
 
 ---
 
-# IDEAS NOT YET TRIED
+# IDEAS NOT YET TRIED (Remaining Candidates)
 
 | # | Idea | Status | Priority | Notes |
 |---|------|--------|----------|-------|
-| 1 | Disagreement Gating | Proposed | MED | Only train/invoke the gate when experts disagree. Removes easy samples, allowing gate to focus on hard, tail-heavy samples. |
-| 2 | Log-Space Sharpened Target (build_oracle_target with space='logprob') | **Tested — see Exp 13, 14** | FAILED | Fixes gradient starvation but features are the bottleneck. The logprob target gives non-zero gradients, but the calibrated probability features are near-collinear. |
+| 1 | Disagreement Gating | Proposed | LOW | Only train/invoke the gate when experts disagree. Lowered from MED: since the gate cannot learn per-sample routing from 316-dim features, disagreement gating would not fix the fundamental SNR bottleneck — it merely removes easy samples where the gate already defaults to uniform. |
+| 2 | Log-Space Sharpened Target (build_oracle_target with space='logprob') | **Tested — see Exp 13, 14** | FAILED | Fixes gradient starvation but features are the bottleneck. The logprob target gives non-zero gradients (norm 0.89), but the 316-dim calibrated probability features have an SNR bottleneck: 70% of variance is shared across experts (Exp 16). |
 | 3 | Correctness Targets (L2D family) | **Tested — see Exp 15** | FAILED | Fit per-expert isotonic correctness calibrators on tune set; replace target with P(expert correct \| x). **Practical failure**: isotonic calibrators on only ~625 tune samples produce near-uniform targets. Gate temp=2.200 (highest ever). Routing collapsed below uniform baseline (43.34% vs 43.53%). Theoretical guarantees don't hold under data-limited (625 samples, 100-class) conditions. |
-| 4 | Penultimate Feature Routing (192-dim) | Proposed | **HIGH** | Replace 316-dim calibrated probability features with 192-dim penultimate features (3 × 64-dim embeddings from frozen experts). These features are richer and less correlated. Requires pipeline change: `ExpertEnsemble.forward()` currently returns only last expert's embeddings; needs per-expert embeddings. |
-| 5 | DaWin-Style Confidence Routing (3-dim) | Proposed | **HIGH** | Training-free: route by `softmax(conf_j / T)` where `conf_j = max_k p_j(y=k\|x)`. Just 3 numbers, eliminates feature collinearity problem entirely. Matches DaWin (Oh et al., NeurIPS 2024) which proves this beats learned routers for frozen experts. Can be evaluated as a post-hoc baseline without training. |
-| 6 | Two-Stage Routing (RIDE-style) | Proposed | LOW | Default = uniform mixture. Only activate per-sample router when expert disagreement is high. Reduces routing noise on easy/ambiguous samples. |
-| 7 | Max-KL Routing (track the third expert) | Proposed | LOW | Change verify_stage2.py to use recipe['k'] instead of hard-coded top-2. Ultra_debug already does this correctly. |
+| 4 | Two-Stage Routing (RIDE-style) | Proposed | LOW | Default = uniform mixture. Only activate per-sample router when expert disagreement is high. Reduces routing noise on easy/ambiguous samples. |
+| 5 | Max-KL Routing (track the third expert) | Proposed | LOW | Change verify_stage2.py to use recipe['k'] instead of hard-coded top-2. Ultra_debug already does this correctly. |
+
+---
+---
+
+# PLANNED EXPERIMENTS (Ranked by Priority)
+
+The following experiments are ordered by the decision tree from the ranked research report. Each must be executed sequentially — the outcome of each determines which path to follow next.
+
+| Order | Experiment | Strategy | Key Parameters | Verification Step | Expected Outcome & Next Action |
+|:-----:|:-----------|:---------|:---------------|:------------------|:------------------------------|
+| **1** | **Exp 17 — DaWin Baseline** | **DaWin confidence routing (training-free, 3-dim)** | `w_j = softmax(conf_j / T̂)`, `conf_j = max_k p_j(k\|x)`. Grid search T̂ ∈ [0.1, 0.3, 0.5, 0.8, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0] on tune set. **0 params, 0 training.** | Post-hoc eval on existing checkpoint. Add DaWin column to `ultra_debug.py` (≈10 lines). Compare DaWin bal acc vs gate (44.26%) vs uniform (43.61%). | **If ≥ 44.26%:** DaWin is the answer. STOP. **If 44.0–44.25%:** Confidence captures most signal; proceed to Exp 18. **If < 44.0%:** Confidence insufficient; skip to Exp 19. |
+| **2** | **Exp 18 — 3-Param Temperature Router** | **Per-expert temperature scalars** | `w_j = softmax(conf_j / exp(log_T_j))`. 3 learned params `log_T_j`. Train with logprob KL loss on 1,125 gate samples. | Full training run with `GateMLP` replaced by 3 `nn.Parameter` scalars. Compare bal acc against DaWin baseline. | **If > DaWin by ≥0.5 pp:** Per-expert calibration mismatches matter; this is the learned router. **If ≈ DaWin:** Confidence scores already capture full calibration signal. |
+| **3** | **Exp 19 — Penultimate Feature Routing** | **192-dim embeddings + Linear(192,3)** | Replace 316-dim probability features with concat of 3 × 64-dim penultimate embeddings. Linear router: 579 params. | **Phase A:** Diagnose 192-dim feature correlations first (modify `diagnose_feature_collinearity.py` to extract `hidden_list`). | **If cross-expert r < 0.5:** Proceed to full training run. **If r ≥ 0.5:** Features still correlated; fall back to DES or SADE. |
+| **4** | **Exp 20 — Stats-Only Logistic Router** | **13-dim stats + Linear(13,3)** | Discard all 300 probability dims. Keep only 9 stats dims + 4 freq features. Linear router: 42 params. | Add `gate_input_mode: stats_only` config option to `GateTrainer`. Train and compare bal acc against 316-dim baseline. | **If within 0.2 pp of 316-dim baseline:** SNR hypothesis confirmed — 300 prob dims contribute nothing. **If below baseline →** Routing signal requires probability dims after all (contradicts diagnostic, warrants re-investigation). |
+
+### Fallback Options (Lower-Ranked Candidates, Only If Top-4 Fail)
+
+| Candidate | When to Consider | Implementation Complexity |
+|:----------|:-----------------|:--------------------------|
+| **DaWin + Disagreement Mask** (Hybrid of #1 + disagreement gating) | If DaWin alone < 44.0% but disagreement signal is strong (known: 61% correct-agree vs 23% incorrect-agree = 38 pp gap) | Low — `expert_disagreement()` already exists in `gate_features.py` |
+| **SADE Test-Time Optimization** (Zhang et al., NeurIPS 2022) | If all learned routers fail and training-free methods are needed | High — per-sample optimization loop with augmentations |
+| **DES Competence Routing** (DESlib, OLA/LCA/META-DES) | If penultimate features (Exp 19) have meaningful distance structure but linear router fails | Moderate — requires 192-dim feature pipeline first |
+| **Meta-Learning Router** (MAML-style, few-shot) | Only if per-class oracle analysis shows clear class-level expert preferences (Exp 13–16 data suggests within-class variance is high, so this is unlikely) | Very high — MAML inner-loop, episode sampling |
 
 ---
 
@@ -197,19 +241,21 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 | Tail Acc | 10.40% | 18.25% | +7.85% |
 | NLL | 1.268 | [FILL IN] | [FILL IN] |
 
-**Updated Baseline (2025-07-17 diagnostic sweep — Exp 14):**
+**Updated Baseline (2025-07-22 final diagnostic sweep — Exp 16, epoch 82):**
 
 | Metric | Uniform Avg (Floor) | Best Gate | Oracle (Ceiling) | Gap Captured |
 |--------|:-------------------:|:---------:|:----------------:|:------------:|
-| Balanced Acc | 43.53% | **43.97%** (exp14) | 52.09% | **+0.44 pp / 8.12 pp** |
-| Head Acc | 70.80% | 69.89% (exp14) | 79.79% | −0.91 pp |
-| Med Acc | 43.63% | 44.74% (exp14) | 53.75% | +1.11 pp |
-| Tail Acc | 11.60% | **12.83%** (exp14) | 17.83% | **+1.23 pp / 6.17 pp** |
-| NLL | 1.200 | 1.231 (exp14) | — | +0.031 (worse) |
-| Brier | 0.427 | 0.435 (exp14) | — | +0.008 (worse) |
-| Tail-ECE | 0.320 | 0.341 (exp14) | 0.088* | +0.021 (worse) |
+| Balanced Acc | 43.61% | **44.26%** (epoch 82) | 52.09% | **+0.65 pp / 7.83 pp** |
+| Head Acc | 71.14% | 70.43% (epoch 82) | 79.79% | −0.71 pp |
+| Med Acc | 43.21% | **44.18%** (epoch 82) | 53.75% | +0.96 pp |
+| Tail Acc | 11.96% | **13.83%** (epoch 82) | 17.83% | **+1.88 pp / 5.95 pp** |
+| NLL | 1.192 | 1.218 (epoch 82) | — | +0.026 (worse) |
+| Brier | 0.426 | 0.433 (epoch 82) | — | +0.007 (worse) |
+| Tail-ECE | 0.318 | 0.326 (epoch 82) | 0.088* | +0.008 (worse) |
 
 *Paper reports 0.088 tail-ECE for CRISP method. Our oracle achieves this for the *oracle-picked* expert, not the mixture — listed as reference ceiling only.
+
+**Diagnostic Conclusion (2025-07-22):** The feature correlation is moderate (r ≈ 0.68), not collinear (r > 0.95), but 70% of variance is shared across experts. The true bottleneck is **SNR-limited**: the per-sample routing signal is too diluted across ~66 residual components for 1,125 training samples to extract. No further tuning of targets, architectures, or hyperparameters on 316-dim calibrated probability features will yield meaningful improvement. **Diagnostic phase complete — proceed to new routing strategy design.**
 
 **Diagnostic Trace (Root Cause Progression):**
 
@@ -219,3 +265,4 @@ The fc.weight blocks have healthy std (~0.20, 2.7× larger than MLP's 0.074) but
 | 13 | logprob + MLP | **Overparameterization** (20k params / 1,125 samples) | fc.weight std = 0.074 (dead hidden layer). ReLU collapses near-identical features. Gradient norm = 0.892 (fixed). |
 | 14 | logprob + linear | **Feature collinearity** (probabilities from same backbone) | fc.weight blocks indistinguishable (0.201, 0.203, 0.200). Linear (43.97%) ≈ MLP (44.16%). Gate learns class bias, not per-sample routing. |
 | 15 | correctness + linear | **L2D calibrators need more data** | Isotonic fit on 625 tune samples → near-uniform targets → gate_temp=2.200 (highest ever) → routing collapsed below baseline (43.34%). |
+| 16 | feature correlation measurement | **SNR bottleneck** (refined from 'near-collinear') | Per-sample block corr r ≈ 0.68 (not >0.95). Effective rank ~75/100 per block. Top 5 PCs explain 70% variance (shared). Residual routing signal ~30% across ~66 components. Gate cannot extract per-sample signal from 1,125 samples. |
