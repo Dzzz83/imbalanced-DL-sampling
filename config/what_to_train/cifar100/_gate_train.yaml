@@ -40,7 +40,7 @@ gate_batch_sizes: [128]
 gate_temperatures: [1.0]
 
 # --- Stage-2 post-mortem fixes (8/24) ---
-gate_target_mode: mix_nll     # mix_nll (recommended) | logprob | correctness
+gate_target_mode: logprob      # logprob (sharp log-space target, fixes tail gradient starvation) | mix_nll | correctness
 mix_space: logit              # logit (recommended, BalPoE) | prob
 gate_weight_floor: 0.0        # minimum per-expert mixture weight (0 = off)
 gate_norm_blocks: true        # L2-normalize each expert's prob block in gate input
@@ -57,15 +57,11 @@ routing_sparsity: 3
 # Gate dropout: the gate trains on only ~1.1k samples (10% of CIFAR-100-LT);
 # the config previously advertised gate_dropout but GateMLP never used it.
 gate_dropout: 0.1
-# Weight each sample's gate loss by expert disagreement (0 where all experts
-# agree and routing provably cannot change the prediction).
-gate_disagree_weight: true
-# KL(w || uniform) regularizer: deviate from uniform only with evidence.
-# REQUIRED when gate_disagree_weight is on (otherwise agree-sample weights
-# stay at random init -> NLL/calibration suffer). Round-2 run used 0.0 and
-# the fitted gate_temp still hit the soft edge (tune wants a softer gate) —
-# 3.0 internalizes that softening into training.
-gate_kl_uniform: 3.0
+# Disagree weighting and KL(uniform) regularizer: disabled for logprob mode.
+# The log-space sharpened target provides strong gradients on tail samples
+# naturally; these regularizers would fight that signal.
+gate_disagree_weight: false
+gate_kl_uniform: 0.0
 
 # --- Round-3 fixes (8/26): explicit head/tail signal for the gate ---
 # Class-frequency features (log-prior of each expert's predicted class + of

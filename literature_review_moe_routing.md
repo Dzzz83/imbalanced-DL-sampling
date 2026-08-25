@@ -569,3 +569,70 @@ is uniform because the signal is, not the init.
 26. Wei & Yi, 2025 — *Divide, Weight, and Route: Difficulty-Aware Optimization with Dynamic Expert Fusion for Long-Tailed Recognition* (PRCV) — https://ar5iv.labs.arxiv.org/html/2508.19630 (arXiv:2508.19630)
 27. DESlib — *Dynamic Ensemble Selection library* (KNORA, OLA/LCA competence measures) — https://deslib.readthedocs.io/
 28. LightGBM-MoE — *Advanced collapse notes for mixture-of-experts training* — https://github.com/kyo219/LightGBM-MoE/blob/master/docs/moe/advanced-collapse.md
+
+---
+
+## 9. Stage-2 Diagnosis Results (2025-07-15 Full Diagnostic Sweep)
+
+### 9.1 Diagnostic Outputs Collected
+
+Three diagnostic scripts were run on the best checkpoint (`gate_checkpoint_bs128_T1.0_epoch30.pth`):
+- **`verify_stage2.py`** — sweep over 14 gate checkpoints, metrics vs uniform baseline, top-2 evaluation
+- **`ultra_debug.py`** — comprehensive pipeline evaluation (tensor health, weight analysis, oracle diagnostic, per-class routing, LA-saves-the-day, expert agreement, calibration comparisons)
+- **`inspect_gate_gradients.py`** — gradient norm and weight statistics from a single backward pass
+
+All three use the same frozen expert set (CE/LA/BS from `experts_sweep_cifar100_calib`).
+
+### 9.2 Key Metrics (Test Set, 8,000 samples)
+
+| Metric | Uniform Baseline | Best Gate | Oracle | Gap Captured |
+|--------|:----------------:|:---------:|:------:|:------------:|
+| Balanced Acc | 43.35% | **43.59%** | 51.96% | **+0.24 pp / 8.61 pp** |
+| Head Acc | 70.69% | 70.29% | 79.68% | **−0.40 pp** |
+| Med Acc | 43.74% | 43.97% | 53.57% | +0.23 pp |
+| Tail Acc | 11.00% | **12.00%** | 17.75% | **+1.00 pp / 6.75 pp** |
+| NLL | 1.202 | **1.214** | — | +0.012 (worse) |
+| Brier | 0.427 | **0.430** | — | +0.003 (worse) |
+| Tail-ECE | 0.291 | **0.287** | 0.088 | −0.004 (same) |
+
+**Bottom line:** The gate captures ~2.8% of the available routing opportunity (0.24 pp out of 8.61 pp) on bal acc, and ~14.8% (1.00 pp out of 6.75 pp) on tail acc. Calibration metrics are essentially unchanged from the uniform ensemble.
+
+### 9.3 Routing Weight Distribution
+
+Across all 14 checkpoints, weights are statistically indistinguishable from uniform:
+- `w_CE: 0.326–0.346`
+- `w_LA: 0.332–0.370`
+- `w_BS: 0.291–0.329`
+
+The best checkpoint (epoch 30) has `[0.331, 0.364, 0.306]` — a slight LA bias and slight BS suppression, but the variation is within ±0.03 of uniform. The gate logs a **static per-class bias** rather than per-sample routing.
+
+### 9.4 The Two Populations
+
+**Population 1 — LA-saves-the-day (136 tail samples):** LA is the sole correct expert (CE & BS wrong). Average w_LA = 0.5464, and LA is in top-3 for 100% of these samples. The gate *can* specialize when the signal is unambiguous (LA's true-class probability is 0.3–0.87 vs tiny for CE/BS).
+
+**Population 2 — Everything else (7,864 samples):** The gate's weights are uniform. Even on the 2,344 remaining tail samples where LA is not the sole correct expert, the weights average ~0.33.
+
+**Interpretation:** The gate learns only where the gradient is non-zero. In mixture NLL, `∂L/∂g_j = w_j · (p_mix(y|x) − p_j(y|x))`. When all `p_j(y|x)` are tiny (tail samples where all experts are uncertain), the gradient is ~0. Population 1 has non-zero gradient because p_LA(y|x) is large enough. This gradient starvation is the primary bottleneck.
+
+### 9.5 Root Cause Verification
+
+The diagnostic data confirms **RC4** (gradient starvation from mixture NLL on tail samples) as the primary failure mode, not RC1 (soft-oracle KL flat target) as previously thought. Reason: the current checkpoint was trained with `target_mode='mix_nll'`, not `target_mode='logprob'`.
+
+| # | Hypothesis | Evidence | Status |
+|---|-----------|----------|--------|
+| H1 | Gradient starvation: `∂L/∂g ≈ 0` on tail samples for mixture NLL | Only 136/2480 tail samples have non-uniform routing; these are exactly the samples where one expert's `p_j(y|x)` is large | **CONFIRMED** |
+| H2 | Feature collinearity: fc layer has no block selectivity | All three 100-dim blocks have identical mean (≈0) and std (≈0.068) in fc.weight | **CONFIRMED** |
+| H3 | Protocol mismatch: k=3 training vs k=2 evaluation | Ultra_debug uses k=3 (per checkpoint recipe); verify_stage2.py hard-codes top-2 | **CONFIRMED** |
+| H4 | `expert_temps=[1.5, 1.5, 1.5]` nullifies per-expert calibration | Recipe shows equal temps; tune set too small to differentiate experts | **CONFIRMED** |
+
+### 9.6 Updated Recommendation Priority
+
+**P0 — Switch to logprob target (one config change).** Set `gate_target_mode: logprob` in the config. The `build_oracle_target` function with `space='logprob'` is already implemented (§2.5a). Log-space sharpening gives non-zero gradients on tail samples even when all `p_j(y|x)` are tiny. The gradient `∂L/∂g = w − t` with `t = softmax((log p - max log p)/τ)` is non-zero wherever experts disagree on the relative ranking, not just where one expert is confident.
+
+**P0 — Align train/eval mixture (verify_stage2.py change).** Make `verify_stage2.py` use the checkpoint's `recipe['k']` instead of hard-coded top-2. The ultra_debug already does this correctly.
+
+**P1 — Remove disagree_weight + kl_uniform for logprob target.** These regularizers fight the logprob gradient. Set `gate_disagree_weight: false` and `gate_kl_uniform: 0.0` when using logprob mode. The logprob target has intrinsic sharpness — it does not need external regularization to prevent uniform collapse.
+
+**P1 — Increase tune set for expert temp fitting.** The `expert_temps=[1.5, 1.5, 1.5]` result means the tune set (20% of val) is too small to differentiate the three experts. Increase to 50% of val (change test_size from 0.8 to 0.5 in `_split_dataset`).
+
+**P2 — Feature normalization.** Shrink the 316-dim input by normalizing per-expert blocks before feeding to the gate (LogitNorm-style L2-normalization is already done via `gate_norm_blocks: true`, but the statistics + agreement features are not normalized). This is second-order until P0/P1 are resolved.

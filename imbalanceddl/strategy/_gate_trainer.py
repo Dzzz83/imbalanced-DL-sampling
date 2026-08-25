@@ -292,7 +292,7 @@ class GateTrainer(BaseTrainer):
 
         val_indices = np.arange(len(val_targets))
         tune_idx, test_idx = train_test_split(
-            val_indices, test_size=0.8,
+            val_indices, test_size=0.5,
             stratify=val_targets, random_state=self.cfg.seed
         )
 
