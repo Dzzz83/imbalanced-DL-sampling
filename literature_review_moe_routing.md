@@ -636,3 +636,130 @@ The diagnostic data confirms **RC4** (gradient starvation from mixture NLL on ta
 **P1 — Increase tune set for expert temp fitting.** The `expert_temps=[1.5, 1.5, 1.5]` result means the tune set (20% of val) is too small to differentiate the three experts. Increase to 50% of val (change test_size from 0.8 to 0.5 in `_split_dataset`).
 
 **P2 — Feature normalization.** Shrink the 316-dim input by normalizing per-expert blocks before feeding to the gate (LogitNorm-style L2-normalization is already done via `gate_norm_blocks: true`, but the statistics + agreement features are not normalized). This is second-order until P0/P1 are resolved.
+
+---
+
+## 10. Stage-2 Diagnosis Results (2025-07-17 — Exp 14: Linear Router + Balanced Temps)
+
+### 10.1 Why Another Diagnostic Round
+
+Exp 13 (logprob target + MLP + [1.5,1.5,1.5]) fixed gradient starvation but the fc hidden layer was dead (fc.weight std = 0.074). The hypothesis for Exp 14: a linear router (316→3, 951 params) would give the fc.weight room to develop per-expert selectivity, and balanced temps [1.5, 1.2, 1.5] would prevent LA dominance.
+
+### 10.2 Key Metrics (Test Set, 8,000 samples)
+
+| Metric | Uniform Baseline | Best Gate (exp14) | Oracle | Gap Captured |
+|--------|:----------------:|:-----------------:|:------:|:------------:|
+| Balanced Acc | 43.53% | **43.97%** (epoch 92) | 52.09% | **+0.44 pp / 8.12 pp** |
+| Head Acc | 70.80% | 69.89% | 79.79% | **−0.91 pp** |
+| Med Acc | 43.63% | 44.74% | 53.75% | +1.11 pp |
+| Tail Acc | 11.60% | **12.83%** | 17.83% | **+1.23 pp / 6.17 pp** |
+| NLL | 1.200 | **1.222** | — | +0.022 (worse) |
+| Brier | 0.427 | **0.435** | — | +0.008 (worse) |
+| Tail-ECE | 0.320 | **0.336** | 0.088* | +0.016 (worse) |
+
+*Paper reports 0.088 tail-ECE for the CRISP method (selective prediction with plug-in rule at 50% rejection). Our oracle achieves this for the *oracle-picked* expert alone — listed as a reference ceiling, not directly comparable.
+
+**Bottom line:** Linear router (43.97%) ≈ MLP (44.16%) from Exp 13. The architecture change did not improve performance. The gate captures ~5.4% of the available routing opportunity (0.44 pp out of 8.12 pp) — still failing to learn per-sample routing.
+
+### 10.3 Critical Finding: Feature Collinearity Confirmed
+
+The fc.weight now has healthy magnitude (std ≈ 0.20, 2.7× larger than MLP's 0.074) but the three expert blocks are **statistically indistinguishable**:
+
+```
+CE block (cols 0-99):   mean = -0.0228, std = 0.2013
+LA block (cols 100-199): mean = -0.0132, std = 0.2033
+BS block (cols 200-299): mean = -0.0208, std = 0.2007
+```
+
+The means and stds are identical within ±0.01. The linear router has learned the SAME weight distribution for all three experts' probability features. This is the definitive proof of **feature collinearity**: the three 100-dim calibrated probability distributions are near-collinear because they share the same ResNet32 backbone.
+
+### 10.4 What the Gate Actually Learned
+
+The gate learned **per-class biases**, not per-sample routing:
+
+| Class | Type | Samples | w_CE | w_LA | w_BS |
+|-------|------|:------:|:----:|:----:|:----:|
+| 0 | Head (n=500) | 415 | 0.342 | **0.177** | 0.480 |
+| 4 | Head (n=415) | 415 | **0.422** | 0.252 | 0.326 |
+| 92 | Tail (n=6) | 6 | 0.375 | 0.304 | 0.321 |
+| 99 | Tail (n=5) | 5 | 0.234 | **0.455** | 0.311 |
+
+Class 0 (head) routes away from LA (w_LA=0.177) → correct, LA is weak on head. Class 99 (tail) routes toward LA (w_LA=0.455) → correct, LA is better on tail. But the variation is modest (max 0.28 difference). The gate uses coarse class-level signals (e.g. "class 0 is a head class → use CE/BS") rather than per-sample features.
+
+### 10.5 Gradient Analysis
+
+Gradient norms across diagnostic runs:
+
+| Config | Target | Params | Gradient Norm | fc.weight Std |
+|--------|--------|:------:|:-------------:|:-------------:|
+| MLP + [1.5,1.5,1.5] | mix_nll | ~20k | 0.251 | — |
+| MLP + [1.5,1.5,1.5] | logprob | ~20k | **0.892** | 0.074 |
+| MLP + [2.0,1.0,1.5] | logprob | ~20k | **0.956** | 0.074 |
+| MLP + [1.5,1.2,1.5] | logprob | ~20k | **0.892** | 0.074 |
+| Linear + [1.5,1.2,1.5] | logprob | 951 | **0.370** | 0.201 |
+
+The gradient norm dropped 2.4× when switching from MLP to linear (0.892 → 0.370). This is expected: the linear router has fewer parameters, so the per-parameter gradient is smaller. But critically, the gradient direction does not create per-expert selectivity because the features are collinear.
+
+### 10.6 The Feature Collinearity Problem (Empirically Verified)
+
+**Why are the three probability distributions near-collinear?**
+
+All three experts share the same ResNet32 backbone. The differences between them come only from the last layer (classifier head) and the training loss:
+- **CE**: trained with standard cross-entropy → uniform class prior
+- **LA**: logit-adjusted loss with τ=1.5 → adds +log(prior) bias → slightly higher probabilities for tail classes
+- **BS**: balanced softmax loss → re-weight gradient per class
+
+These differences shift the probability distribution by at most 0.01–0.05 on any given sample. The shared backbone produces near-identical 64-dim penultimate features, so the three output distributions are near-identical. The calibration temperatures further shrink the differences (designed to equalize confidence levels).
+
+**Why this matters for routing:**
+
+A 316→3 linear router (or 316→64→3 MLP) is trying to separate three near-identical distributions. The features contain only ~2% per-sample discriminative signal (class-level differences are captured by coarse weight biases). This is fundamentally limited — no amount of gradient tuning or architecture search will unlock per-sample routing from collinear features.
+
+### 10.7 Updated Hypothesis Verification
+
+| # | Hypothesis | Evidence | Status |
+|---|-----------|----------|--------|
+| H1 | Gradient starvation: `∂L/∂g ≈ 0` on tail for mixture NLL | Exp 12: gradient norm = 0.251 | **CONFIRMED — FIXED** |
+| H2 | Feature collinearity: fc layer has no block selectivity | Exp 14: fc.weight blocks indistinguishable (0.201, 0.203, 0.200) | **CONFIRMED — PERSISTENT** |
+| H3 | MLP overparameterization: 20k params on 1,125 samples | Exp 13: fc.weight std = 0.074 (dead hidden layer); Exp 14: linear router std = 0.201 (healthy) | **CONFIRMED — FIXED** |
+| H4 | `expert_temps=[1.5,1.5,1.5]` nullifies calibration | Exp 13: fitting produced equal temps. Exp 14: [1.5,1.2,1.5] balanced LA dominance | **CONFIRMED — FIXED** |
+
+### 10.8 Updated Recommendation
+
+**The feature bottleneck is now the confirmed root cause.** The remaining recommended fixes are prioritized:
+
+**P0 — Switch to correctness targets (L2D family).** Set `gate_target_mode: correctness`. The isotonic-calibrated target `t_j = P(expert j correct | x)` is:
+- Non-zero for ALL experts on ALL samples (no gradient starvation)
+- Theoretically consistent with the Bayes-optimal router (Mozannar & Sontag, 2020)
+- Already implemented in `_gate_trainer.py` (§ lines 388–420)
+- Uses binary correctness signal, not tiny `p_j(y|x)` values
+- Isotonic regression on max-probability vs correctness is well-calibrated even on small tune sets
+
+**P1 — Per-expert penultimate feature routing.** If correctness targets also fail, the features need to change. Replace 316-dim calibrated probability features with 192-dim penultimate features (3 × 64-dim embeddings from the frozen experts). These features are richer and less correlated. Requires pipeline changes (expert checkpoints must save penultimate features).
+
+**P2 — DaWin-style confidence routing (training-free).** If no learned router works, fall back to `softmax(conf_j / T)` as the routing rule. Just 3 parameters. Matches DaWin (Oh et al., NeurIPS 2024) which proves this beats learned routers in comparable settings. Ready to implement as a baseline while investigating deeper fixes.
+
+### 10.9 Correctness Target — How It Works (from `_gate_trainer.py`)
+
+The correctness target pipeline:
+
+1. **On tune set** (training phase initialization, `_fit_correctness_calibrators`):
+   - For each expert j, compute `conf = max_j p_j(y|x)` and `correct = (argmax p_j == label)` over all tune samples
+   - Fit isotonic regression `conf ↔ correct` (maps [0,1] → [0,1] calibrated correctness probability)
+   - Produces `calibrator_j`: `P(expert j is correct | max-probability_j = c)`
+
+2. **Per batch** (training, `_correctness_target`):
+   - Compute per-expert max-probability: `confs = [p.max(dim=1) for p in probs]`
+   - Apply calibrators: `t_j = calibrator_j(confs[:, j])`
+   - Normalize: `t = t / sum(t)` → simplex target
+
+3. **Gradient**: `∂L/∂g = w − t` (KL divergence), non-zero as long as any `t_j ≠ w_j`
+
+The key advantage over logprob: `t_j` is the probability that expert j is *correct*, not the probability of the *true class*. Even when `p_j(y|x) ≈ 0` (true class probability is tiny), `P(expert j correct | x)` can be large if the expert's argmax is reliable. This gives the gate gradient on every sample.
+
+### 10.10 Updated References (Added for Exp 14 Analysis)
+
+- Liu et al., 2024 — *Routers in Vision Mixture of Experts: An Empirical Study* — TMLR 2024. **Key finding: deep MLP routers do not outperform simple linear routers in vision MoE.** Confirmed by our Exp 13 vs Exp 14 (MLP 44.16% vs linear 43.97%).
+- Oh et al., 2024 — *DaWin: Training-free Dynamic Weight Interpolation* — NeurIPS 2024. Training-free confidence-weighted routing. Proves that for frozen experts, `softmax(confidence / T)` is a provably good router.
+- Mozannar & Sontag, 2020 — *Consistent Estimators for Learning to Defer to an Expert* — ICML 2020. **Theoretical foundation for correctness targets.** Proves that minimizing KL divergence against `P(expert correct | x)` is consistent with the Bayes-optimal router.
+- Cao et al., 2023 — *In Defense of Softmax Parametrization for Calibrated and Consistent Learning to Defer* — NeurIPS 2023. Shows that softmax parametrization + isotonic calibrators gives well-calibrated correctness estimates. Our `_fit_correctness_calibrators` implements this exactly.

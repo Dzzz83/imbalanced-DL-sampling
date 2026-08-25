@@ -15,14 +15,14 @@
 
 **Core Components:**
 - **ExpertEnsemble:** A wrapper module that loads 3 frozen ResNet32 models (trained with CE, LA, and BS losses respectively).
-- **GateMLP:** A routing network that takes expert outputs (e.g: embeddings, logits, or probabilities) and outputs 3 routing weights (for CE, LA, BS).
+- **GateMLP:** A routing network that takes expert outputs (calibrated probability features: 316-dim) and outputs 3 routing weights. **As of Exp 14**: supports `linear_router=True` (Linear(316,3), recommended — 951 params) and `linear_router=False` (MLP: BN→Linear(316,64)→ReLU→Linear(64,3), 20k params). Linear router matches the ~1,125-sample gate training set capacity.
 - **Strategy Trainers:** 
   - `ExpertsTrainer` (Stage 1): Trains individual models.
   - `GateTrainer` (Stage 2): Freezes the experts and trains the `GateMLP`.
 - **Loss Functions:** Custom implementations of `LogitAdjustedLoss` and `BalancedSoftmaxLoss` used in Stage 1.
 
 **Data Flow:** 
-`main.py` parses YAML config -> `ImbalancedDataset` creates imbalanced CIFAR-100 train/val sets (90/10 split) -> `build_trainer` initializes `GateTrainer` -> `GateTrainer._split_dataset` splits the 10% train data further for gate training -> Strategy trainer executes train/val loop -> Checkpoints saved to `checkpoint/gate_cifar100_new/` -> `ultra_debug.py` runs Stage 3 evaluation and debugging.
+`main.py` parses YAML config -> `ImbalancedDataset` creates imbalanced CIFAR-100 train/val sets (90/10 split) -> `build_trainer` initializes `GateTrainer` -> `GateTrainer._split_dataset` splits the 10% train data further for gate training (~1,125 samples) -> Strategy trainer executes train/val loop -> Checkpoints saved to `checkpoint/gate_cifar100_new/` -> `ultra_debug.py` runs Stage 3 evaluation and debugging.
 
 **Network Structure:**
 
@@ -31,7 +31,7 @@
 **Module: `imbalanceddl/strategy/`**
 - `base.py`: Defines `BaseTrainer` abstract class handling dataset parsing, dataloaders, logging, and standard metric computation.
 - `_experts.py`: Defines `ExpertsTrainer` for Stage 1.
-- `_gate_trainer.py`: Defines `ExpertEnsemble`, `GateMLP`, and `GateTrainer` for Stage 2. Freezes experts, trains a routing network, and evaluates Stage 3 plugin rules.
+- `_gate_trainer.py`: Defines `ExpertEnsemble`, `GateMLP` (supports linear_router flag), and `GateTrainer` for Stage 2. Freezes experts, trains a routing network, and evaluates Stage 3 plugin rules.
 - `build_trainer.py`: Factory function that instantiates the correct trainer based on the `strategy` parameter in the config.
 
 **Module: `imbalanceddl/loss/`**
