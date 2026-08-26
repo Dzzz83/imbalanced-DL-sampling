@@ -49,7 +49,29 @@ class ExpertEnsemble(nn.Module):
             self.experts.append(actual_model.to(device))
 
     @torch.no_grad()
-    def forward(self, x):
+    def forward(self, x, return_hidden=False):
+        """Forward pass through all experts.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input batch.
+        return_hidden : bool
+            If True, also return the per-expert penultimate hidden states
+            (list of 3 tensors, each (B, 64)).  This is needed for
+            gradient-sensitivity and feature-ablation diagnostics.
+
+        Returns
+        -------
+        logits_list : list of 3 tensors, each (B, C)
+            Raw expert logits.
+        embeddings : (B, D) tensor
+            Gate-input features (penultimate concatenation or
+            calibrated probabilities).
+        hidden_list : list of 3 tensors, each (B, 64), optional
+            Per-expert penultimate (pre-classifier) embeddings.
+            Only returned when ``return_hidden=True``.
+        """
         logits_list = []
         hidden_list = []
         for expert in self.experts:
@@ -78,6 +100,9 @@ class ExpertEnsemble(nn.Module):
                 probs, normalize_blocks=self.normalize_blocks,
                 cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
             )
+
+        if return_hidden:
+            return logits_list, embeddings, hidden_list
         return logits_list, embeddings
 
     @torch.no_grad()

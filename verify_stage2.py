@@ -26,7 +26,7 @@ from imbalanceddl.utils.gate_features import (
     calibrate_expert_probs, build_gate_input,
     build_mixture, uniform_weights,
 )
-from imbalanceddl.utils.debug.evaluation import recipe_from_checkpoint
+from imbalanceddl.utils.debug.extraction import recipe_from_checkpoint
 from torch.utils.data import DataLoader
 
 # ExpertEnsemble / GateMLP are imported from imbalanceddl.utils.debug.models,
@@ -112,7 +112,7 @@ def main():
 
     first_ckpt = torch.load(gate_files[0], map_location='cpu', weights_only=False)
     # Infer mode from the first checkpoint's weight shapes.
-    from imbalanceddl.utils.debug.evaluation import _infer_architecture
+    from imbalanceddl.utils.debug.extraction import _infer_architecture
     _mode, _freq, _linear, _dim = _infer_architecture(first_ckpt, cfg.num_classes)
     first_mode = _mode
 

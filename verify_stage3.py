@@ -23,7 +23,7 @@ from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.plugin_rule import define_groups_2, tune_plugin_for_rho, evaluate_plugin_for_rho
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
 from imbalanceddl.utils.gate_features import build_mixture
-from imbalanceddl.utils.debug.evaluation import recipe_from_checkpoint
+from imbalanceddl.utils.debug.extraction import recipe_from_checkpoint
 from torch.utils.data import DataLoader, Subset
 
 def chows_rule_risk_balanced(p_tune, labels_tune, p_test, labels_test, group_ids, rho, mode='bal'):

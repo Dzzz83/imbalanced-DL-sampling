@@ -1,3 +1,19 @@
+"""Debug utilities for gate routing diagnostics.
+
+This package provides a modular, OOP-based diagnostic framework for
+analysing why a learned gate router fails to outperform uniform
+averaging in long-tailed classification.
+
+Key components:
+- ``runner.PipelineOrchestrator`` — one-call entry point
+- ``extraction.DataExtractor`` — populates the ``DiagnosticData`` container
+- ``diagnostics.*`` — individual diagnostic classes
+- ``reporting.ReportGenerator`` — hierarchical report assembly
+"""
+
 from .models import ExpertEnsemble, GateMLP
-from .metrics import compute_chow_aurc, compute_all_metrics, print_uniform_comparison, print_method_vs_uniform_comparison, print_ce_comparison, print_final_method_comparison
-from .diagnostics import print_gate_feature_importance, print_expert_agreement, print_stage3_plugin_params, print_per_class_extreme_routing
+from .extraction import DataExtractor, extract_data, recipe_from_checkpoint, DiagnosticData
+from .reporting import ReportGenerator
+
+# Re-export diagnostics base
+from .diagnostics.base import DiagnosticBase, DiagnosticResult

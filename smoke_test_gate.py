@@ -337,7 +337,7 @@ def test_eval_recipe_path(tmp_root, tag='mix_nll_logit'):
     saved checkpoint: recipe_from_checkpoint -> model + gate -> extract_data
     -> mixture sanity (this exercises imbalanceddl.utils.debug.evaluation)."""
     print(f"\n[6] eval-script recipe path ({tag})")
-    from imbalanceddl.utils.debug.evaluation import extract_data, recipe_from_checkpoint
+    from imbalanceddl.utils.debug.extraction import extract_data, recipe_from_checkpoint
 
     ckpt_dir = os.path.join(tmp_root, tag)
     ckpt_files = [f for f in sorted(os.listdir(ckpt_dir)) if f.endswith('.pth')]
