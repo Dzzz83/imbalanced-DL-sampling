@@ -44,10 +44,19 @@ class PipelineOrchestrator:
     """Main orchestrator: parse → load → extract → diagnose → report."""
 
     def __init__(self):
-        self.custom_args = self._parse_custom_args()
+        # Parse custom args from sys.argv BEFORE get_args() sees them.
+        # Must mirror the old ultra_debug.py behaviour: parse_known_args
+        # strips --ce_path/--la_path/--bs_path/--gate_ckpt/--diagnose_*
+        # and leaves the rest for get_args().
+        self.custom_args, remaining_argv = self._parse_custom_args()
+        sys.argv = [sys.argv[0]] + remaining_argv
 
     def _parse_custom_args(self):
-        """Parse --ce_path, --la_path, --bs_path, --gate_ckpt."""
+        """Parse our custom arguments and return (args, remaining_argv).
+
+        These are stripped from sys.argv so that ``get_args()`` does not
+        choke on them.
+        """
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument("--ce_path", type=str, required=True)
         parser.add_argument("--la_path", type=str, required=True)
@@ -58,8 +67,7 @@ class PipelineOrchestrator:
         parser.add_argument("--diagnose_embeddings", action="store_true",
                             help="Run only embedding correlation diagnostic "
                                  "and exit.")
-        args, _ = parser.parse_known_args()
-        return args
+        return parser.parse_known_args()
 
     def run(self) -> list:
         """Execute the full diagnostic pipeline.
