@@ -35,9 +35,21 @@ class PenultimateRoutingSimulator(DiagnosticBase):
                 recommendation=None,
             )
 
-        # Train linear probe
+        # Train linear probe — predict oracle expert (0/1/2), not class label
+        def _oracle_targets(probs_ce, probs_la, probs_bs, labels):
+            N = len(labels)
+            true_probs = np.stack([
+                probs_ce[np.arange(N), labels],
+                probs_la[np.arange(N), labels],
+                probs_bs[np.arange(N), labels],
+            ], axis=1)
+            return np.argmax(true_probs, axis=1).astype(np.int64)
+
+        oracle_train = _oracle_targets(
+            d.p_ce_tune, d.p_la_tune, d.p_bs_tune, d.labels_tune)
+
         X_train = torch.from_numpy(d.emb_192_tune).float()
-        y_train = torch.from_numpy(d.labels_tune).long()
+        y_train = torch.from_numpy(oracle_train).long()
         X_test = torch.from_numpy(d.emb_192).float()
 
         probe = nn.Linear(192, 3)

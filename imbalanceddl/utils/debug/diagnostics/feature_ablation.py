@@ -172,12 +172,35 @@ class FeatureAblationRunner(DiagnosticBase):
 
     def _train_linear_probe_and_eval(self, X_train, y_train, X_test, y_test,
                                      input_dim, d, lr=0.01, epochs=50):
-        """Train a quick linear probe and evaluate on test set."""
+        """Train a quick linear probe and evaluate on test set.
+
+        The probe learns to predict the **oracle expert** (0/1/2) — the
+        expert with the highest true-class probability — NOT the class
+        label.  That is why ``y_train`` / ``y_test`` are converted to
+        oracle targets before training.
+        """
         import torch.optim as optim
+
+        # Convert class labels to oracle expert targets (0, 1, 2)
+        # using the tune-set probabilities.
+        def _to_oracle_targets(probs_ce, probs_la, probs_bs, labels):
+            N = len(labels)
+            true_probs = np.stack([
+                probs_ce[np.arange(N), labels],
+                probs_la[np.arange(N), labels],
+                probs_bs[np.arange(N), labels],
+            ], axis=1)  # (N, 3)
+            return np.argmax(true_probs, axis=1).astype(np.int64)
+
+        oracle_train = _to_oracle_targets(
+            d.p_ce_tune, d.p_la_tune, d.p_bs_tune, y_train)
+        oracle_test = _to_oracle_targets(
+            d.p_ce, d.p_la, d.p_bs, y_test)
+
         Xt = torch.from_numpy(X_train).float()
-        yt = torch.from_numpy(y_train).long()
+        yt = torch.from_numpy(oracle_train).long()
         Xe = torch.from_numpy(X_test).float()
-        ye = torch.from_numpy(y_test).long()
+        ye = torch.from_numpy(y_test).long()  # keep for bal-acc eval
 
         probe = nn.Linear(input_dim, 3)
         opt = optim.Adam(probe.parameters(), lr=lr)
