@@ -42,14 +42,15 @@ from imbalanceddl.utils.debug.diagnostics import print_stage3_plugin_params, pri
 
 
 class LinearWeightPeakAnalyzer:
-    """Diagnoses whether the gate acts as a naive probability peak-detector.
+    """Diagnoses whether the gate acts as a naive peak-detector.
 
     Two views into the router:
-    1. The GateMLP's first linear layer weight matrix (Linear(300, 64)),
-       split into the three 100-dim input blocks per expert: CE = input
-       cols 0-99, LA = 100-199, BS = 200-299. Near-uniform weights mean
-       the gate is tracking overall input magnitude; extreme weights on a
-       few classes mean it is overfitting to spurious per-class signals.
+    1. The GateMLP's first linear layer weight matrix split into the per-
+       expert input blocks. In penultimate mode each expert occupies 64
+       columns (embedding dim); in probability mode each expert occupies
+       C columns (class-probability dim). Near-uniform weights mean the
+       gate is tracking overall input magnitude; extreme weights on a few
+       features mean it is overfitting to spurious per-class signals.
     2. How often each expert owns the highest per-sample maximum
        probability ("peak") across the test set, which reveals whether an
        expert is starved simply because it rarely produces the largest
@@ -57,14 +58,37 @@ class LinearWeightPeakAnalyzer:
     """
 
     EXPERT_NAMES = ("CE", "LA", "BS")
-    EXPERT_BLOCKS = ((0, 100), (100, 200), (200, 300))
 
-    def __init__(self, gate, expert_probs):
-        # Mini-MLP fc layer: (hidden_dim, 300) = hidden units x logit inputs.
-        # The per-expert blocks live on the 300 input columns (CE 0-99, LA
-        # 100-199, BS 200-299), so the column slicing below is unchanged.
+    def __init__(self, gate, expert_probs, gate_input_mode='probability',
+                 num_classes=100):
         self.weight = gate.fc.weight.detach().cpu()
         self.expert_probs = expert_probs
+        self.gate_input_mode = gate_input_mode
+        self.num_classes = num_classes
+        # Determine per-expert block size from the actual weight shape.
+        in_features = self.weight.shape[1]
+        if gate_input_mode == 'penultimate':
+            # 3 experts × 64-dim penultimate embeddings = 192
+            block_size = in_features // 3  # typically 64
+            self._input_desc = (
+                f"3x{block_size} embeddings (penultimate mode)")
+        else:
+            # Probability mode: first 3*C columns are C-dim prob blocks
+            block_size = num_classes
+            extra = in_features - 3 * num_classes  # stats + agreements
+            self._input_desc = (
+                f"3x{num_classes} probs + {extra} stats/agree")
+        # Guard against empty slices when the tensor is smaller than expected.
+        if 3 * block_size > in_features:
+            # Fall back to splitting evenly if the assumed block size is
+            # larger than the actual feature count.
+            block_size = in_features // 3
+            self._input_desc += f" [fallback: {block_size}-dim blocks]"
+        self._block_size = block_size
+        self.EXPERT_BLOCKS = tuple(
+            (i * block_size, (i + 1) * block_size)
+            for i in range(3)
+        )
 
     def run(self):
         """Print both diagnostics of the gate's routing behaviour."""
@@ -76,20 +100,24 @@ class LinearWeightPeakAnalyzer:
         print("LINEAR WEIGHT & PEAK LOGIT ANALYSIS")
         print("=" * 80)
         print(f"GateMLP fc.weight shape: {tuple(self.weight.shape)} "
-              "(hidden units x D gate inputs: 3x100 probs + 9 conf-stats "
-              "+ 3 agreement)")
+              f"(hidden units x D gate inputs: {self._input_desc})")
         print(f"{'Expert':<6} | {'Input block':<12} | {'Mean':<10} | "
               f"{'Std':<10} | {'Min':<10} | {'Max':<10}")
         print("-" * 70)
         for name, (start, end) in zip(self.EXPERT_NAMES, self.EXPERT_BLOCKS):
             block = self.weight[:, start:end]
+            if block.numel() == 0:
+                print(f"{name:<6} | {start}-{end - 1:<9} | "
+                      f"{'EMPTY':>10} | {'EMPTY':>10} | "
+                      f"{'EMPTY':>10} | {'EMPTY':>10}")
+                continue
             print(f"{name:<6} | {start}-{end - 1:<9} | "
                   f"{block.mean():+.6f} | {block.std():.6f} | "
                   f"{block.min():+.6f} | {block.max():+.6f}")
         print("-" * 70)
-        print("[INFO] Uniform weights ~ tracking overall logit magnitude;")
+        print("[INFO] Uniform weights ~ tracking overall input magnitude;")
         print("[INFO] extreme per-class weights ~ overfitting to spurious "
-              "class signals.")
+              "feature signals.")
 
     def _print_peak_probability_frequency(self):
         peaks = torch.stack(
@@ -839,7 +867,11 @@ def main():
     # T-calibrated posteriors (as torch tensors) rather than raw logits.
     peak_probs = (torch.from_numpy(p_ce_test), torch.from_numpy(p_la_test),
                   torch.from_numpy(p_bs_test))
-    LinearWeightPeakAnalyzer(gate, peak_probs).run()
+    LinearWeightPeakAnalyzer(
+        gate, peak_probs,
+        gate_input_mode=recipe['gate_input_mode'],
+        num_classes=cfg.num_classes,
+    ).run()
 
     # 2. Metrics & Comparisons
     run_metric_comparisons(p_mix_tune, p_unif_tune, p_ce_tune, p_la_tune, p_mix_test, p_unif_test, p_ce_test, p_la_test, p_bs_test, l_ce_test, l_la_test, l_bs_test, labels_tune, labels_test, group_ids_2, cfg, train_dataset)
