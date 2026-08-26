@@ -80,17 +80,19 @@ class MisroutingPenaltyAnalyzer(DiagnosticBase):
         avg_conf_drop = float(conf_drop.mean())
         avg_true_drop = float(true_drop.mean())
 
-        # Per-group breakdown
+        # Per-group breakdown (on misrouted samples only)
         group_map = {0: "Head", 1: "Mid", 2: "Tail"}
         group_breakdown = {}
+        # Filter group_ids to the misrouted subspace for correct indexing
+        misrouted_group_ids = d.group_ids[om]
         for gid, gname in group_map.items():
-            mask = om & (d.group_ids == gid)
-            if mask.sum() == 0:
+            gm = misrouted_group_ids == gid
+            if gm.sum() == 0:
                 continue
             group_breakdown[gname] = {
-                "n": int(mask.sum()),
-                "catastrophic": int((acc_drop[mask]).sum()),
-                "avg_conf_drop": float(conf_drop[mask].mean()),
+                "n": int(gm.sum()),
+                "catastrophic": int(acc_drop[gm].sum()),
+                "avg_conf_drop": float(conf_drop[gm].mean()),
             }
 
         group_rows = [
