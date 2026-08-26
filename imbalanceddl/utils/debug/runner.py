@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader, Subset
 
 from imbalanceddl.utils.config import get_args
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
-from imbalanceddl.utils.plugin_rule import define_groups_2
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
 
 from .extraction import (

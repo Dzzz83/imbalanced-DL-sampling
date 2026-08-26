@@ -196,9 +196,9 @@ class DataExtractor:
         # --- Extract from tune loader ---
         tune_data = self._extract_from_loader(tune_loader)
 
-        # Build group ids
-        from imbalanceddl.utils.plugin_rule import define_groups_2
-        group_ids = define_groups_2(self.recipe["cls_num_list"])
+        # Build group ids (head=0, mid=1, tail=2) — 3-group definition
+        from imbalanceddl.utils.plugin_rule import define_groups
+        group_ids = define_groups(self.recipe["cls_num_list"], num_groups=3)
         label_group_ids = group_ids[test_data["labels"]]
 
         return DiagnosticData(

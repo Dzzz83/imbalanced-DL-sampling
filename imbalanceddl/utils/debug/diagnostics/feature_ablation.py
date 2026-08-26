@@ -60,9 +60,16 @@ class FeatureAblationRunner(DiagnosticBase):
         weight_floor = d.recipe.get("weight_floor", 0.0)
         gate_temp = d.recipe.get("gate_temp", 1.0)
 
+        gate_input_dim = d.gate.fc.weight.shape[1]  # expected input dim
+
         # Helper: eval gate with a given input tensor
         def eval_gate_with_input(gate_input):
             with torch.no_grad():
+                # Guard: the gate's weight matrix fixes the input dimension;
+                # if the provided features have a different dimension, we
+                # cannot pass them through this gate.
+                if gate_input.shape[-1] != gate_input_dim:
+                    return None, None
                 gl = d.gate(gate_input.to(d.device))
                 w = F.softmax(gl / gate_temp, dim=1)
                 # Move raw logits to the same device as weights
@@ -93,7 +100,8 @@ class FeatureAblationRunner(DiagnosticBase):
         # --- B) Probability features only ---
         if d.gate_input_probability is not None:
             bal, tail = eval_gate_with_input(d.gate_input_probability)
-            results["Probability Only (gate)"] = {"bal_acc": bal,
+            if bal is not None:
+                results["Probability Only (gate)"] = {"bal_acc": bal,
                                                   "tail_acc": tail}
 
         # --- C) Full (baseline) ---
