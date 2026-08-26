@@ -192,13 +192,13 @@ class TemperatureSweeper(DiagnosticBase):
             )
             preds = p_mix.argmax(dim=1).numpy()
             bal = np.mean([
-                np.mean(preds[d.labels.numpy() == c] == c)
+                np.mean(preds[d.labels == c] == c)
                 for c in range(preds.max() + 1)
-                if (d.labels.numpy() == c).sum() > 0
+                if (d.labels == c).sum() > 0
             ]) * 100
             tail_mask = d.group_ids == 2
             tail_acc = (np.mean(preds[tail_mask]
-                                == d.labels.numpy()[tail_mask]) * 100
+                                == d.labels[tail_mask]) * 100
                         if tail_mask.sum() > 0 else 0.0)
             configs.append((f"T={gate_temp}", f"{bal:.2f}%", f"{tail_acc:.2f}%"))
 
