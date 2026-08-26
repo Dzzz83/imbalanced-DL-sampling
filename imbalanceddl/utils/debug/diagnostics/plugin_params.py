@@ -48,9 +48,6 @@ class Stage3PluginAnalyzer(DiagnosticBase):
             tables=[{"headers": ["Mode", "α Head", "α Tail", "μ Head",
                                   "μ Tail"],
                      "rows": rows}],
-            verdict="WARN" if tail_alpha_near_zero else "INFO",
-            recommendation=("Tail alpha near 0 means selective prediction "
-                            "rejects most tail samples. "
-                            "Stage 3 can improve overall risk at the cost "
-                            "of coverage."),
+            verdict=None,
+            recommendation=None,
         )

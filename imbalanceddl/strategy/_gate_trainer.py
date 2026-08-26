@@ -243,11 +243,22 @@ class GateTrainer(BaseTrainer):
             ),
             num_experts=3,
             dropout=self.gate_dropout,
-            # Safety net: penultimate mode MUST use linear router
-            # (MLP overparameterizes the 579-param task by 22×).
+            # penultimate mode defaults to linear_router=True
             linear_router=getattr(cfg, 'gate_linear_router',
                                   self.gate_input_mode == 'penultimate'),
         ).to(self.device)
+
+        n_params = sum(p.numel() for p in self.gate.parameters())
+        n_train = len(self.gate_dataset)
+        self.logger.info(
+            f"[DATA] gate_input_mode={self.gate_input_mode} "
+            f"linear_router={self.gate.linear_router} "
+            f"gate_params={n_params} "
+            f"gate_train_samples={n_train} "
+            f"params_per_sample={n_params/max(n_train,1):.4f} "
+            f"gate_lr={self.cfg.gate_lr:.6f} "
+            f"gate_weight_decay={self.cfg.gate_weight_decay:.6f}"
+        )
 
         self.gate_epochs = cfg.gate_epochs
         self.eval_interval = getattr(cfg, 'eval_interval', 1)
@@ -509,13 +520,10 @@ class GateTrainer(BaseTrainer):
                 if bal > best_bal:
                     best_bal, best_Tg = bal, Tg
             gate_temp = best_Tg
-            if gate_temp >= GATE_TEMP_GRID[-1]:
-                self.logger.warning(
-                    "[WARN] Fitted gate_temp at grid edge (softest allowed). "
-                    "The tune set prefers the gate as close to uniform as "
-                    "possible — routing decisions may be net-negative noise. "
-                    "Consider gate_kl_uniform / gate_disagree_weight / k=3."
-                )
+            self.logger.info(
+                f"[DATA] fitted_gate_temp={gate_temp:.3f} "
+                f"gate_temp_grid_max={GATE_TEMP_GRID[-1]:.1f}"
+            )
         else:
             gate_temp = 1.0
 
@@ -706,8 +714,15 @@ class GateTrainer(BaseTrainer):
                     target_dist[i] = (target_expert == i).float().mean()
                 self.logger.info(f"Target Expert Distribution: CE={target_dist[0]:.3f} | LA={target_dist[1]:.3f} | BS={target_dist[2]:.3f}")
 
-                grad_norm_fc = self.gate.fc.weight.grad.norm().item() if self.gate.fc.weight.grad is not None else 0.0
-                self.logger.info(f"Gradient Norms -> FC (Linear Router): {grad_norm_fc:.6f}")
+                grad = self.gate.fc.weight.grad
+                if grad is not None:
+                    n_zero = (grad == 0).float().mean().item()
+                    self.logger.info(
+                        f"[DATA] fc.weight.grad "
+                        f"shape={'x'.join(str(s) for s in grad.shape)} "
+                        f"zero_frac={n_zero:.4f} "
+                        f"norm={grad.norm().item():.6f}"
+                    )
                 self.logger.info("="*80 + "\n")
 
             optimizer.step()
@@ -775,8 +790,12 @@ class GateTrainer(BaseTrainer):
                     print(f"  Epoch {epoch+1}/{self.gate_epochs}: train_loss={train_loss:.4f}, train_mix_acc={train_mix_acc:.2f}%, val_mixture_acc={val_mixture_acc:.2f}%, oracle_match={val_oracle_match:.2f}%")
                     if (epoch + 1) % 10 == 0 or epoch == 0:
                         gap = train_mix_acc - val_mixture_acc
-                        flag = "  <-- overfitting" if gap > 3.0 else ""
-                        self.logger.info(f"    train-vs-val mixture acc gap: {gap:+.2f} pp{flag}")
+                        self.logger.info(
+                            f"[DATA] epoch={epoch+1} "
+                            f"train_mix_acc={train_mix_acc:.2f} "
+                            f"val_mix_acc={val_mixture_acc:.2f} "
+                            f"gap={gap:+.2f}"
+                        )
 
                     if val_mixture_acc > best_val_acc:
                         best_val_acc = val_mixture_acc

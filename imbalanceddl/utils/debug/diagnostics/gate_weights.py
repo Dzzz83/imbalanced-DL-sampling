@@ -91,13 +91,6 @@ class GateWeightAnalyzer(DiagnosticBase):
                    f"(σ≈{prev_stats[1]:.4f}). "
                    f"Weight entropy = {entropy:.4f} "
                    f"(max possible = {float(np.log(3)):.4f}).")
-        if all_similar:
-            verdict = "FAIL"
-            rec = ("Gate does NOT differentiate between expert input blocks. "
-                   "Weights are essentially identical across experts.")
-        else:
-            verdict = "PASS"
-            rec = None
 
         return DiagnosticResult(
             title="Gate Weight & Peak Analysis",
@@ -110,6 +103,6 @@ class GateWeightAnalyzer(DiagnosticBase):
                 {"headers": ["Expert", "Peak Freq", "Pct", "Mean Peak Prob"],
                  "rows": peak_rows},
             ],
-            verdict=verdict,
-            recommendation=rec,
+            verdict=None,
+            recommendation=None,
         )

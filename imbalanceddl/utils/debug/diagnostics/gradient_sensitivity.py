@@ -31,9 +31,8 @@ class GradientSensitivityAnalyzer(DiagnosticBase):
                 summary="Per-expert hidden states not available. "
                         "Skipping gradient sensitivity analysis.",
                 metrics={},
-                verdict="N/A",
-                recommendation=("Re-run with penultimate-mode gate checkpoint "
-                                "or enable hidden state collection."),
+                verdict=None,
+                recommendation=None,
             )
 
         # Take a single batch — move to the gate's device first
@@ -79,15 +78,6 @@ class GradientSensitivityAnalyzer(DiagnosticBase):
             if avg_sensitivity[name] < 0.1 * max_sens
         ]
 
-        if blind_blocks:
-            verdict = "FAIL"
-            rec = (f"Gate is BLIND to {blind_blocks}: "
-                   f"gradient sensitivity near-zero. "
-                   f"Gate cannot utilize these experts' features.")
-        else:
-            verdict = "PASS"
-            rec = "Gate receives gradient signals from all three experts."
-
         return DiagnosticResult(
             title="Gradient Sensitivity / Input Saliency",
             summary=(f"Mean |∂logit/∂input| per expert block: "
@@ -97,6 +87,6 @@ class GradientSensitivityAnalyzer(DiagnosticBase):
                      for n, s in avg_sensitivity.items()},
             tables=[{"headers": ["Expert Block", "Mean |Grad|"],
                      "rows": rows}],
-            verdict=verdict,
-            recommendation=rec,
+            verdict=None,
+            recommendation=None,
         )

@@ -117,13 +117,6 @@ class OracleGapAnalyzer(DiagnosticBase):
                 {"headers": ["Expert", "Oracle Choices"],
                  "rows": [(n, str(c)) for n, c in expert_counts.items()]},
             ],
-            verdict=("FAIL" if total_gap > 5.0
-                     else "WARN" if total_gap > 2.0
-                     else "PASS"),
-            recommendation=(
-                f"Oracle gap = {total_gap:.1f} pp. "
-                f"Headroom ratio = {headroom_ratio:.1f}%. "
-                "A large gap means the gate is far from optimal. "
-                "A small gap means limited routing headroom — "
-                "experts lack complementarity."),
+            verdict=None,
+            recommendation=None,
         )

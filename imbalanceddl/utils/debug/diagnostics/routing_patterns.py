@@ -103,7 +103,6 @@ class RoutingPatternAnalyzer(DiagnosticBase):
                  "rows": group_acc_rows},
                 {"headers": ["Group", "Entropy"], "rows": entropy_rows},
             ],
-            verdict="FAIL" if abs(avg_w[0] - 1 / 3) < 0.02 else "PASS",
-            recommendation=("Weights are near-uniform. "
-                            "Gate is not learning meaningful routing."),
+            verdict=None,
+            recommendation=None,
         )

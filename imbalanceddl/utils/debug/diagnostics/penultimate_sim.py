@@ -31,7 +31,7 @@ class PenultimateRoutingSimulator(DiagnosticBase):
                 summary="Penultimate embeddings not available. "
                         "Run with penultimate-mode gate.",
                 metrics={},
-                verdict="N/A",
+    verdict=None,
                 recommendation=None,
             )
 
@@ -119,11 +119,6 @@ class PenultimateRoutingSimulator(DiagnosticBase):
                          ("Delta", f"{delta_bal:+.2f}pp",
                           f"{delta_tail:+.2f}pp"),
                      ]}],
-            verdict=("PASS" if delta_bal > 1.0
-                     else "WARN" if delta_bal > 0.0
-                     else "FAIL"),
-            recommendation=(
-                f"Linear(192,3) {'beats' if delta_bal > 0 else 'does not beat'} "
-                f"uniform by {abs(delta_bal):.2f} pp. "
-                "This is the most promising routing architecture to try next."),
+            verdict=None,
+            recommendation=None,
         )

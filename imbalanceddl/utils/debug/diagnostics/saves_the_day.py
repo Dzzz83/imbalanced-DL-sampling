@@ -32,10 +32,8 @@ class SavesTheDayAnalyzer(DiagnosticBase):
                 title="LA 'Saves the Day' Analysis",
                 summary="No tail samples found where LA was the sole correct expert.",
                 metrics={},
-                verdict="WARN",
-                recommendation=("LA is never the sole correct expert on tail. "
-                                "Either LA is not better than CE/BS on tail, "
-                                "or tail samples are too scarce."),
+                verdict=None,
+                recommendation=None,
             )
 
         avg_w = np.mean(d.w[saves_idx], axis=0)
@@ -81,10 +79,6 @@ class SavesTheDayAnalyzer(DiagnosticBase):
                      ("Avg true prob BS", f"{avg_true_prob[2]:.4f}"),
                  ]},
             ],
-            verdict=("FAIL" if avg_w[1] < 0.40 else "WARN" if avg_w[1] < 0.50
-                     else "PASS"),
-            recommendation=(
-                f"LA gets {avg_w[1]:.2f} avg weight when it is the ONLY correct "
-                f"expert. CE (wrong) still gets {avg_w[0]:.2f}. "
-                "The gate cannot reliably identify LA's unique competence."),
+            verdict=None,
+            recommendation=None,
         )

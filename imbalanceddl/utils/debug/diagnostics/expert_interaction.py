@@ -68,10 +68,6 @@ class ExpertAgreementTracker(DiagnosticBase):
                 {"headers": ["# Experts Correct", "Samples"],
                  "rows": [[k, str(v)] for k, v in overlap_counts.items()]},
             ],
-            verdict=("FAIL" if agree_incorrect < 0.3
-                     else "PASS" if agree_incorrect > 0.5
-                     else "WARN"),
-            recommendation=(
-                "Low incorrect agreement → gate fails to pick the correct expert, "
-                "not that experts share blind spots."),
+            verdict=None,
+            recommendation=None,
         )

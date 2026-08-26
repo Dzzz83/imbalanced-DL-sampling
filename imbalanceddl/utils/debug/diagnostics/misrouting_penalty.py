@@ -57,7 +57,7 @@ class MisroutingPenaltyAnalyzer(DiagnosticBase):
                 summary="Gate always picks the oracle expert. No misrouting.",
                 metrics={"n_misrouted": 0, "misrouting_rate": 0.0},
                 tables=[],
-                verdict="PASS",
+    verdict=None,
                 recommendation=None,
             )
 
@@ -123,10 +123,6 @@ class MisroutingPenaltyAnalyzer(DiagnosticBase):
                              "Avg Conf Drop"],
                  "rows": group_rows},
             ],
-            verdict=("FAIL" if catastrophic / max(n_misrouted, 1) > 0.3
-                     else "WARN" if catastrophic > 0 else "PASS"),
-            recommendation=(
-                f"{catastrophic}/{n_misrouted} misroutes are catastrophic "
-                f"({catastrophic / max(n_misrouted, 1) * 100:.1f}%). "
-                "High catastrophic rate → gate makes expensive mistakes."),
+            verdict=None,
+            recommendation=None,
         )

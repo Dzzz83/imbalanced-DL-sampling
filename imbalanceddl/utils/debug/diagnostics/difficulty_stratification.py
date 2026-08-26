@@ -55,7 +55,7 @@ class DifficultyStratificationAnalyzer(DiagnosticBase):
                 title="Sample-Difficulty Stratification",
                 summary="No stratification possible.",
                 metrics={},
-                verdict="N/A",
+    verdict=None,
                 recommendation=None,
             )
 
@@ -67,7 +67,6 @@ class DifficultyStratificationAnalyzer(DiagnosticBase):
             tables=[{"headers": ["Stratum", "Samples", "Gate Acc",
                                  "Unif Acc", "Delta", "Gate W Entropy"],
                      "rows": rows}],
-            verdict="WARN",
-            recommendation=("Gate does not outperform uniform at any "
-                            "difficulty level — failure is systemic."),
+            verdict=None,
+            recommendation=None,
         )

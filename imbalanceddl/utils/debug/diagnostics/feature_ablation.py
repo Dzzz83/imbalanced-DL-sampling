@@ -40,7 +40,7 @@ class FeatureAblationRunner(DiagnosticBase):
                 summary=("Penultimate features not available. "
                          "Run with penultimate-mode gate checkpoint."),
                 metrics={},
-                verdict="N/A",
+    verdict=None,
                 recommendation=None,
             )
 
@@ -145,18 +145,6 @@ class FeatureAblationRunner(DiagnosticBase):
         best_bal = results[best_config]["bal_acc"]
         baseline_bal = results.get("Full (baseline)", {}).get("bal_acc", 0)
 
-        if best_config != "Full (baseline)" and best_bal > baseline_bal + 0.5:
-            verdict = "WARN"
-            rec = (f"Best config = {best_config} ({best_bal:.2f}%), "
-                   f"beating baseline ({baseline_bal:.2f}%). "
-                   "Feature choice matters — consider switching to "
-                   f"{best_config}.")
-        else:
-            verdict = "FAIL"
-            rec = ("No feature configuration beats the baseline. "
-                   "The problem is not feature choice — it's deeper "
-                   "(training signal, expert diversity, or architecture).")
-
         return DiagnosticResult(
             title="Gate Input Feature Ablation",
             summary=f"Best config: {best_config} ({best_bal:.2f}%). "
@@ -166,8 +154,8 @@ class FeatureAblationRunner(DiagnosticBase):
                      for k, v in results.items()},
             tables=[{"headers": ["Config", "Bal Acc", "Tail Acc"],
                      "rows": rows}],
-            verdict=verdict,
-            recommendation=rec,
+            verdict=None,
+            recommendation=None,
         )
 
     def _train_linear_probe_and_eval(self, X_train, y_train, X_test, y_test,

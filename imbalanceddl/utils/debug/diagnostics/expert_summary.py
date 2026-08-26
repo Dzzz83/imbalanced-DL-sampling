@@ -54,19 +54,6 @@ class ExpertPerformanceSummary(DiagnosticBase):
                     "NLL", "Tail ECE"]
         all_rows = rows + [delta_row]
 
-        # Verdict
-        if m_gate["bal_acc"] > m_unif["bal_acc"] + 0.5:
-            verdict = "PASS"
-            rec = "Routing improves over uniform. Proceed to hyperparameter tuning."
-        elif m_gate["bal_acc"] > m_unif["bal_acc"]:
-            verdict = "WARN"
-            rec = ("Routing marginally beats uniform (Δ < 0.5 pp). "
-                   "Investigate tail gain vs head loss.")
-        else:
-            verdict = "FAIL"
-            rec = ("Routing does NOT improve over uniform. "
-                   "See Sections 3–6 for root causes.")
-
         best_str = " ◆ Best expert: " + ", ".join(
             f"{k}={v[0]}" for k, v in best_per_group.items()
         )
@@ -86,8 +73,8 @@ class ExpertPerformanceSummary(DiagnosticBase):
                 "delta_tail_acc": m_gate["low"] - m_unif["low"],
             },
             tables=[{"headers": headers, "rows": all_rows}],
-            verdict=verdict,
-            recommendation=rec,
+    verdict=None,
+    recommendation=None,
         )
 
     @staticmethod

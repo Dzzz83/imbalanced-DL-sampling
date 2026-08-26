@@ -48,15 +48,6 @@ class LogitScaleAndActivationChecker(DiagnosticBase):
                    f"Gate activations {'collapsed' if collapsed else 'healthy'} "
                    f"(max|act| = {gl_max_abs:.4f}).")
 
-        verdict = "PASS"
-        rec = None
-        if not scale_healthy:
-            verdict = "WARN"
-            rec = "Logit scales differ by >2x — consider per-expert temperature scaling."
-        if collapsed:
-            verdict = "FAIL"
-            rec = "Gate activations collapsed to zero — routing impossible."
-
         return DiagnosticResult(
             title="Logit Scale & Gate Activation Health",
             summary=summary,
@@ -75,6 +66,6 @@ class LogitScaleAndActivationChecker(DiagnosticBase):
                 {"headers": headers_g,
                  "rows": rows},
             ],
-            verdict=verdict,
-            recommendation=rec,
+            verdict=None,
+            recommendation=None,
         )

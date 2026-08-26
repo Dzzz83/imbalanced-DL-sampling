@@ -125,20 +125,6 @@ class FeatureCorrelationAnalyzer(DiagnosticBase):
              f"{prob_cov['var_explained_top10']*100:.1f}%"),
         ]
 
-        # 3. Recommendation
-        if emb_mean_corr < 0.5:
-            rec = ("Penultimate feature routing is viable. "
-                   "Embeddings are diverse (r < 0.5), unlike probabilities.")
-            verdict = "PASS"
-        elif emb_mean_corr < 0.6:
-            rec = ("Penultimate routing may help modestly "
-                   "(r = {emb_mean_corr:.3f}, borderline).")
-            verdict = "WARN"
-        else:
-            rec = ("Embeddings are as correlated as probabilities. "
-                   "Need expert diversification (RIDE-style).")
-            verdict = "FAIL"
-
         return DiagnosticResult(
             title="Feature Correlation Analysis",
             summary=(f"Mean pairwise block correlation: "
@@ -156,8 +142,8 @@ class FeatureCorrelationAnalyzer(DiagnosticBase):
                 {"headers": ["Metric", "Embedding Space", "Probability Space"],
                  "rows": cov_rows},
             ],
-            verdict=verdict,
-            recommendation=rec,
+    verdict=None,
+    recommendation=None,
         )
 
     def _extract_embeddings_subset(self, d, n_samples=500):

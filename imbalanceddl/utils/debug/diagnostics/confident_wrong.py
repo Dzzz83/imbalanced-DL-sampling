@@ -80,19 +80,6 @@ class ConfidentlyWrongAnalyzer(DiagnosticBase):
         # DaWin simulation (grid-search temperature on tune set)
         dawin_result = self._simulate_dawin(d)
 
-        # Verdict
-        if confidently_wrong_rate < 0.15:
-            verdict = "PASS"
-            rec = "DaWin assumption holds. Confident expert is usually correct."
-        elif confidently_wrong_rate > 0.30:
-            verdict = "FAIL"
-            rec = ("DaWin assumption VIOLATED. Confidence routing will "
-                   "amplify errors, especially on tail classes.")
-        else:
-            verdict = "WARN"
-            rec = ("DaWin assumption borderline. Temperature scaling may "
-                   "help, but margin is narrow.")
-
         return DiagnosticResult(
             title="Confidently-Wrong (DaWin) Analysis",
             summary=(f"Overall confidently-wrong rate = "
@@ -113,8 +100,8 @@ class ConfidentlyWrongAnalyzer(DiagnosticBase):
                              "Avg Conf (Wrong)"],
                  "rows": group_rows},
             ],
-            verdict=verdict,
-            recommendation=rec,
+            verdict=None,
+            recommendation=None,
         )
 
     def _simulate_dawin(self, d):
@@ -213,7 +200,6 @@ class TemperatureSweeper(DiagnosticBase):
                 {"headers": ["Config", "Bal Acc", "Tail Acc"],
                  "rows": rows},
             ],
-            verdict="WARN",
-            recommendation=("No temperature unlocks routing improvement. "
-                            "Issue is structural, not hyperparameter."),
+            verdict=None,
+            recommendation=None,
         )
