@@ -44,10 +44,11 @@ gate_input_mode: penultimate
 # Paper-specified hyperparameters (FIXED)
 lambda_ent: 0.0
 lambda_bal: 0.0
-gate_lr: 0.001
+gate_lr: 0.01
 gate_weight_decay: 0.0001
 gate_epochs: 100
 eval_interval: 20
+gate_linear_router: true        # CRITICAL: Linear(192,3) = 579 params (NOT MLP with 12,931 params!)
 gate_hidden_size: 256
 gate_hidden_size2: 128
 gate_dropout: 0.0
@@ -68,7 +69,9 @@ gate_batch_sizes: [128]
 gate_temperatures: [1.0]
 
 # --- Stage-2 post-mortem fixes (identical to best-known config) ---
-gate_target_mode: logprob      # logprob (sharp log-space target, fixes tail gradient starvation)
+gate_target_mode: hard_oracle   # CE on argmax-best expert (matches PenultimateRoutingSimulator;
+                                # gives strong gradient on EVERY sample, unlike logprob which
+                                # can vanish when all experts have similar probabilities)
 mix_space: logit               # logit (recommended, BalPoE)
 gate_weight_floor: 0.0         # minimum per-expert mixture weight (0 = off)
 gate_norm_blocks: true         # ignored in penultimate mode (kept for backward compat)

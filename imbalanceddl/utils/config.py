@@ -164,11 +164,12 @@ def get_args():
 
     # Stage-2 post-mortem fixes (8/24): supervision + protocol consistency
     parser.add_argument('--gate_target_mode', default='mix_nll', type=str,
-                        choices=['mix_nll', 'logprob', 'correctness'],
+                        choices=['mix_nll', 'logprob', 'correctness', 'hard_oracle'],
                         help='Gate training target: mix_nll (mixture NLL of the final '
                              'mixture; recommended), logprob (soft-oracle KL with '
                              'log-space sharpening), correctness (L2D-style calibrated '
-                             'P(expert correct) targets)')
+                             'P(expert correct) targets), hard_oracle (CE on argmax-best '
+                             'expert; matches PenultimateRoutingSimulator)')
     parser.add_argument('--mix_space', default='logit', type=str, choices=['logit', 'prob'],
                         help='Mixture space used by the single shared recipe: logit '
                              '(product-of-experts, BalPoE; recommended) or prob')

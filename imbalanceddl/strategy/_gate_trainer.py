@@ -243,15 +243,23 @@ class GateTrainer(BaseTrainer):
             ),
             num_experts=3,
             dropout=self.gate_dropout,
-            linear_router=getattr(cfg, 'gate_linear_router', False),
+            # Safety net: penultimate mode MUST use linear router
+            # (MLP overparameterizes the 579-param task by 22×).
+            linear_router=getattr(cfg, 'gate_linear_router',
+                                  self.gate_input_mode == 'penultimate'),
         ).to(self.device)
 
         self.gate_epochs = cfg.gate_epochs
         self.eval_interval = getattr(cfg, 'eval_interval', 1)
         self.best_gate_acc = 0.0
 
-        # Cache the tune set's raw expert logits once (validation + all
+        # Cache the tune set's raw expert logits ONCE (validation + all
         # calibration fitting reuse them; the gate is re-applied each epoch).
+        # IMPORTANT: this caches RAW logits (before temperature scaling), which
+        # are independent of expert_T.  The recalibration happens on-the-fly in
+        # _tune_calibrated() using the fitted expert_T (set below).  So this
+        # MUST run before _fit_expert_temperatures, which needs the cached
+        # raw logits to search for optimal per-expert temperatures.
         self._cache_tune_logits()
 
         # Per-expert temperatures (calibration for mixing, BalPoE-style).
@@ -626,6 +634,14 @@ class GateTrainer(BaseTrainer):
                 per_sample = F.nll_loss(
                     torch.log(p_mix.clamp_min(1e-12)), labels, reduction='none'
                 )
+            elif self.target_mode == 'hard_oracle':
+                # Direct CE on the argmax-best expert (matches the successful
+                # PenultimateRoutingSimulator probe).  Gives a strong,
+                # non-zero gradient on EVERY sample, including tail classes
+                # where all three experts have tiny probabilities — the
+                # argmax still picks one, so the gradient never vanishes.
+                loss = F.cross_entropy(gate_logits, target_expert)
+                per_sample = None  # not used per-sample below
             elif self.target_mode == 'logprob':
                 # Soft-oracle KL with log-space sharpened target (RC1 fix):
                 # tail samples get a decisive target even when all p_i(y) are
@@ -649,15 +665,16 @@ class GateTrainer(BaseTrainer):
             # weight choices with zero accuracy benefit (verified: the tune
             # set preferred gate_temp=3.0, i.e. as close to uniform as the
             # grid allowed).
-            if self.disagree_weight:
+            if self.disagree_weight and per_sample is not None:
                 disagree = expert_disagreement(probs)
                 per_sample = per_sample * disagree.float()
-            loss = per_sample.mean()
+            if per_sample is not None:
+                loss = per_sample.mean()
 
             # Round-2: KL(w || uniform) — deviate from uniform only where the
             # mixture gradient consistently beats the pull. Soft version of
             # RIDE's "default = collective, add experts only when uncertain".
-            if self.kl_uniform > 0.0:
+            if self.kl_uniform > 0.0 and self.target_mode != 'hard_oracle':
                 kl_u = (
                     weights
                     * (torch.log(weights.clamp_min(1e-12)) + math.log(3))
