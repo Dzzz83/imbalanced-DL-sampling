@@ -90,7 +90,7 @@ class GateWeightAnalyzer(DiagnosticBase):
                    f"{'near-identical' if all_similar else 'different'} "
                    f"(σ≈{prev_stats[1]:.4f}). "
                    f"Weight entropy = {entropy:.4f} "
-                   f"(max possible = {(3).__float__().log():.4f}).")
+                   f"(max possible = {float(np.log(3)):.4f}).")
         if all_similar:
             verdict = "FAIL"
             rec = ("Gate does NOT differentiate between expert input blocks. "

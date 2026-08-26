@@ -91,7 +91,7 @@ class RoutingPatternAnalyzer(DiagnosticBase):
                      f"LA={avg_w[1]:.3f}, BS={avg_w[2]:.3f} "
                      f"(uniform baseline: 0.333 each). "
                      f"Weight entropy = {entropy_all.mean():.4f} "
-                     f"(max = {(3).__float__().log():.4f})."),
+                     f"(max = {float(np.log(3)):.4f})."),
             metrics={
                 "avg_w_ce": float(avg_w[0]),
                 "avg_w_la": float(avg_w[1]),
