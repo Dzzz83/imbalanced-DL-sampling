@@ -94,7 +94,10 @@ gate_freq_features: false
 
 # Point to the directory where _experts_train_90.yaml saved the checkpoints
 expert_ckpt_dir: checkpoint/experts_sweep_cifar100_calib
-gate_split_ratio: 0.9      # 10% gate split
+# The gate now trains on ALL training data (experts are frozen, no data
+# leakage).  The 90/10 split previously reserved 90% for 'expert training'
+# which is unused in Stage 2 — that wasted 90% of the data.
+# gate_split_ratio is no longer needed.
 
 # Backbone training hyperparameters (ignored by gate, but required by config parser)
 epochs: 256

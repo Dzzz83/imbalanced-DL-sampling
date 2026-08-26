@@ -232,7 +232,6 @@ class GateTrainer(BaseTrainer):
         self.model.eval()
         self.logger.info("[INFO] Expert ensemble loaded and frozen.")
 
-        self.gate_split_ratio = getattr(cfg, 'gate_split_ratio', 0.9)
         self._split_dataset()
 
         self.gate = GateMLP(
@@ -301,25 +300,23 @@ class GateTrainer(BaseTrainer):
     # Dataset splits (unchanged)                                          #
     # ------------------------------------------------------------------ #
     def _split_dataset(self):
+        """Use ALL training data for gate training (experts are frozen, so
+        there is no data leakage concern).  Previously this method reserved
+        90% for 'expert training' which is unused in Stage 2."""
         if isinstance(self.train_dataset, Subset):
             all_targets = np.array(self.train_dataset.dataset.targets)
             targets = all_targets[self.train_dataset.indices]
         else:
             targets = np.array(self.train_dataset.targets)
 
-        indices = np.arange(len(targets))
-        train_idx, gate_idx = train_test_split(
-            indices, test_size=1 - self.gate_split_ratio,
-            stratify=targets, random_state=self.cfg.seed
-        )
-        self.gate_dataset = Subset(self.train_dataset, gate_idx)
+        # Full training set — no 90/10 split.
+        self.gate_dataset = self.train_dataset
 
         # Inverse-class-frequency sampling: give every class equal expected
         # coverage so Head/Tail classes are seen equally during gate training.
-        gate_targets = targets[gate_idx]
-        class_counts = np.bincount(gate_targets, minlength=self.cfg.num_classes).astype(np.float64)
+        class_counts = np.bincount(targets, minlength=self.cfg.num_classes).astype(np.float64)
         class_weights = 1.0 / (class_counts + 1e-8)
-        sample_weights = class_weights[gate_targets]
+        sample_weights = class_weights[targets]
         self.gate_sampler = WeightedRandomSampler(
             weights=sample_weights,
             num_samples=len(sample_weights),
@@ -333,6 +330,12 @@ class GateTrainer(BaseTrainer):
             sampler=self.gate_sampler,
             num_workers=self.cfg.workers,
             pin_memory=True
+        )
+
+        tail_count = (targets >= 70).sum()
+        self.logger.info(
+            f"[DATA] gate_train_full_set={len(self.gate_dataset)} "
+            f"tail_samples_in_train={tail_count}"
         )
 
         if isinstance(self.val_dataset, Subset):
