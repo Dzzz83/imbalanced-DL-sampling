@@ -131,7 +131,7 @@ class FeatureAblationRunner(DiagnosticBase):
         if d.gate_input_probability_tune is not None and len(d.gate_input_probability_tune) > 0:
             bal_probe, tail_probe = self._train_linear_probe_and_eval(
                 d.gate_input_probability_tune, d.labels_tune,
-                d.gate_input_probability.numpy(), d.labels,
+                d.gate_input_probability, d.labels,
                 input_dim=d.gate_input_probability.shape[1], d=d,
             )
             results["Linear(316,3) probe"] = {"bal_acc": bal_probe,

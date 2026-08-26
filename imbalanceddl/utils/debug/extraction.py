@@ -153,7 +153,7 @@ class DiagnosticData:
 
     # --- Gate input feature variants (for ablation) [new] ---
     gate_input_penultimate: Optional[torch.Tensor] = None   # (N, 192)
-    gate_input_probability: Optional[torch.Tensor] = None   # (N, 312/316)
+    gate_input_probability: Optional[np.ndarray] = None     # (N, 312/316)
 
     # --- Model objects ---
     model: Any = None
@@ -356,7 +356,7 @@ class DataExtractor:
                               if self.recipe.get("freq_features", False)
                               else None),
             )
-            result["gate_input_probability"] = prob_gate_input.cpu()
+            result["gate_input_probability"] = prob_gate_input.cpu().numpy()
 
         return result
 
