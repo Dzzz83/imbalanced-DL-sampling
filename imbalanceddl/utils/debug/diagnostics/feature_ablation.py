@@ -108,12 +108,12 @@ class FeatureAblationRunner(DiagnosticBase):
         # This is the standard p_mix; compute from existing data
         preds = d.p_mix.argmax(axis=1)
         bal_full = np.mean([
-            np.mean(preds[d.labels.numpy() == c] == c)
+            np.mean(preds[d.labels == c] == c)
             for c in range(int(preds.max()) + 1)
-            if (d.labels.numpy() == c).sum() > 0
+            if (d.labels == c).sum() > 0
         ]) * 100
         tail_mask = d.group_ids == 2
-        tail_full = (np.mean(preds[tail_mask] == d.labels.numpy()[tail_mask]) * 100
+        tail_full = (np.mean(preds[tail_mask] == d.labels[tail_mask]) * 100
                      if tail_mask.sum() > 0 else 0.0)
         results["Full (baseline)"] = {"bal_acc": bal_full, "tail_acc": tail_full}
 
