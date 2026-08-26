@@ -72,7 +72,7 @@ class FeatureAblationRunner(DiagnosticBase):
                     T=T, per_expert_T=expert_temps,
                     k=k, space=space, weight_floor=weight_floor,
                     mix_temperature=1.0,
-                ).numpy()
+                ).cpu().numpy()
                 preds = pm.argmax(axis=1)
                 bal = np.mean([
                     np.mean(preds[d.labels.numpy() == c] == c)
