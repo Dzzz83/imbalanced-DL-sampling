@@ -11,10 +11,12 @@ from imbalanceddl.utils.gate_features import (
 
 class ExpertEnsemble(nn.Module):
     def __init__(self, cfg, device, ckpt_paths, expert_T=None,
-                 normalize_blocks=True, freq_features=False):
+                 normalize_blocks=True, freq_features=False,
+                 gate_input_mode='probability'):
         super().__init__()
         self.cfg = cfg
         self.device = device
+        self.gate_input_mode = gate_input_mode
         # la_tau: prefer the config value (as the trainer does); fall back to
         # parsing the LA checkpoint filename (as ultra_debug.py does).
         self.la_tau = getattr(cfg, 'la_tau', None)
@@ -49,22 +51,33 @@ class ExpertEnsemble(nn.Module):
     @torch.no_grad()
     def forward(self, x):
         logits_list = []
+        hidden_list = []
         for expert in self.experts:
-            logits, _ = expert(x)
+            logits, hidden = expert(x)
             logits_list.append(logits)
-        # Probability-space routing: build the exact same calibrated-
-        # probability + confidence/agreement feature vector the trainer-side
-        # ExpertEnsemble produces (per-expert temperatures + block
-        # normalization + optional class-frequency features), so the gate is
-        # evaluated on the representation it was trained on.
-        probs = calibrate_expert_probs(
-            logits_list, self.cfg.cls_num_list, self.la_tau,
-            T=1.0, per_expert_T=self.expert_T,
-        )
-        embeddings = build_gate_input(
-            probs, normalize_blocks=self.normalize_blocks,
-            cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
-        )
+            hidden_list.append(hidden)
+
+        if self.gate_input_mode == 'penultimate':
+            # Penultimate feature routing (Exp 19): concatenate the three
+            # 64-dim per-expert backbone features directly. No calibration,
+            # temperature scaling, or L2 normalization is needed — the raw
+            # embeddings preserve cross-expert diversity (r ≈ 0.02) that the
+            # softmax step in the probability pipeline destroys (r ≈ 0.68).
+            embeddings = torch.cat(hidden_list, dim=1)  # (B, 192)
+        else:
+            # Probability-space routing: build the exact same calibrated-
+            # probability + confidence/agreement feature vector the trainer-side
+            # ExpertEnsemble produces (per-expert temperatures + block
+            # normalization + optional class-frequency features), so the gate is
+            # evaluated on the representation it was trained on.
+            probs = calibrate_expert_probs(
+                logits_list, self.cfg.cls_num_list, self.la_tau,
+                T=1.0, per_expert_T=self.expert_T,
+            )
+            embeddings = build_gate_input(
+                probs, normalize_blocks=self.normalize_blocks,
+                cls_num_list=self.cfg.cls_num_list if self.freq_features else None,
+            )
         return logits_list, embeddings
 
     @torch.no_grad()

@@ -4,7 +4,7 @@ import numpy as np
 from imbalanceddl.utils.metrics import shot_acc
 from imbalanceddl.utils.plugin_rule import define_groups_2, compute_aurc_metrics
 from imbalanceddl.utils.gate_features import (
-    calibrate_expert_probs, build_mixture, uniform_weights,
+    calibrate_expert_probs, build_mixture, uniform_weights, gate_input_dim,
 )
 from .metrics import compute_chow_aurc, compute_all_metrics
 from .metrics import print_uniform_comparison, print_method_vs_uniform_comparison, print_ce_comparison, print_final_method_comparison
@@ -12,29 +12,53 @@ from .diagnostics import print_expert_agreement, print_stage3_plugin_params, pri
 
 
 def _infer_architecture(gate_ckpt, num_classes=100):
-    """Infer freq_features flag and linear_router from checkpoint weight shapes.
+    """Infer gate_input_mode, freq_features, linear_router, and input_dim
+    from checkpoint weight shapes.
 
     This is more reliable than reading metadata, which may be missing from
     checkpoints saved before the metadata field was added (or stale).
+
+    Returns
+    -------
+    gate_input_mode : str
+        ``'penultimate'`` (192-dim embeddings) or ``'probability'``.
+    freq_features : bool
+        Whether class-frequency features are used (probability mode only).
+    linear_router : bool
+        Whether the gate is a single linear layer (no BatchNorm).
+    input_dim : int
+        The gate input dimension (192, 312, or 316).
     """
     sd = gate_ckpt['gate_state_dict']
     fc_w = sd['fc.weight']                     # (out_features, in_features)
     in_features = fc_w.shape[1]
     has_bn = any(k.startswith('bn.') for k in sd)
 
-    # Input dimension: 316 → freq_features=True, 312 → freq_features=False.
-    if in_features >= 316:
-        inferred_freq = True
-    elif in_features >= 312:
+    # Detect penultimate mode by input dimension (192 = 3 × 64-dim
+    # ResNet32 embeddings).
+    if in_features == 192:
+        gate_input_mode = 'penultimate'
         inferred_freq = False
+        inferred_input_dim = 192
+    elif in_features >= 316:
+        gate_input_mode = 'probability'
+        inferred_freq = True
+        inferred_input_dim = gate_input_dim(num_classes, freq_features=True)
+    elif in_features >= 312:
+        gate_input_mode = 'probability'
+        inferred_freq = False
+        inferred_input_dim = gate_input_dim(num_classes, freq_features=False)
     else:
-        # Unknown dimension — fall back to metadata default.
+        # Unknown dimension — fall back to metadata defaults.
+        gate_input_mode = gate_ckpt.get('gate_input_mode', 'probability')
         inferred_freq = gate_ckpt.get('freq_features', False)
+        inferred_input_dim = gate_input_dim(num_classes,
+                                            freq_features=inferred_freq)
 
     # Linear router: MLP has BatchNorm; linear router does not.
     inferred_linear_router = not has_bn
 
-    return inferred_freq, inferred_linear_router
+    return gate_input_mode, inferred_freq, inferred_linear_router, inferred_input_dim
 
 
 def recipe_from_checkpoint(gate_ckpt, cfg, la_tau=None, T=None):
@@ -44,12 +68,14 @@ def recipe_from_checkpoint(gate_ckpt, cfg, la_tau=None, T=None):
     ``build_mixture``) so evaluation matches training (RC2 fix). Keys that
     predate the metadata get safe defaults.
 
-    ``freq_features`` and ``linear_router`` are **inferred from the checkpoint
-    weight shapes** rather than read from metadata, making the recipe robust
-    to checkpoints saved before these metadata fields existed.
+    ``gate_input_mode``, ``freq_features``, ``linear_router``, and ``input_dim``
+    are **inferred from the checkpoint weight shapes** rather than read from
+    metadata, making the recipe robust to checkpoints saved before these
+    metadata fields existed.
     """
     expert_temps = list(gate_ckpt.get('expert_temps', [1.0, 1.0, 1.0]))
-    inferred_freq, inferred_linear = _infer_architecture(
+    (inferred_mode, inferred_freq,
+     inferred_linear, inferred_dim) = _infer_architecture(
         gate_ckpt, cfg.num_classes
     )
     return {
@@ -62,8 +88,10 @@ def recipe_from_checkpoint(gate_ckpt, cfg, la_tau=None, T=None):
         'gate_temp': gate_ckpt.get('gate_temp', 1.0),
         'mix_temp': gate_ckpt.get('mix_temp', 1.0),
         'norm_blocks': gate_ckpt.get('norm_blocks', True),
+        'gate_input_mode': inferred_mode,
         'freq_features': inferred_freq,
         'linear_router': inferred_linear,
+        'input_dim': inferred_dim,
         'cls_num_list': list(cfg.cls_num_list),
     }
 

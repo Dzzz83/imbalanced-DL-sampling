@@ -22,7 +22,7 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.plugin_rule import define_groups_2, tune_plugin_for_rho, evaluate_plugin_for_rho
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
-from imbalanceddl.utils.gate_features import gate_input_dim, build_mixture
+from imbalanceddl.utils.gate_features import build_mixture
 from imbalanceddl.utils.debug.evaluation import recipe_from_checkpoint
 from torch.utils.data import DataLoader, Subset
 
@@ -105,12 +105,12 @@ def main():
     model = ExpertEnsemble(cfg, device, ckpt_paths,
                            expert_T=expert_temps,
                            normalize_blocks=recipe['norm_blocks'],
-                           freq_features=recipe['freq_features']).to(device)
+                           freq_features=recipe['freq_features'],
+                           gate_input_mode=recipe['gate_input_mode']).to(device)
 
-    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes,
-                                            freq_features=recipe['freq_features']),
+    gate = GateMLP(input_dim=recipe['input_dim'],
                    num_experts=3,
-                   linear_router=recipe.get('linear_router', False)).to(device)
+                   linear_router=recipe['linear_router']).to(device)
     try:
         gate.load_state_dict(gate_ckpt['gate_state_dict'])
     except RuntimeError as e:

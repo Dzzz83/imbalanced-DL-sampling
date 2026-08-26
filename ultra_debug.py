@@ -32,7 +32,6 @@ from imbalanceddl.utils.config import get_args
 from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.plugin_rule import define_groups_2
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
-from imbalanceddl.utils.gate_features import gate_input_dim
 from imbalanceddl.utils.debug.evaluation import (
     extract_data, run_metric_comparisons, run_temperature_comparison,
     run_saves_the_day_checks, recipe_from_checkpoint,
@@ -766,12 +765,12 @@ def main():
     model = ExpertEnsemble(cfg, device, ckpt_paths,
                            expert_T=recipe['expert_temps'],
                            normalize_blocks=recipe['norm_blocks'],
-                           freq_features=recipe['freq_features']).to(device)
+                           freq_features=recipe['freq_features'],
+                           gate_input_mode=recipe['gate_input_mode']).to(device)
 
-    gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes,
-                                            freq_features=recipe['freq_features']),
+    gate = GateMLP(input_dim=recipe['input_dim'],
                    num_experts=3,
-                   linear_router=recipe.get('linear_router', False)).to(device)
+                   linear_router=recipe['linear_router']).to(device)
     print(f"[INFO] Loading Gate from {custom_args.gate_ckpt}")
 
     try:

@@ -74,7 +74,15 @@ class GateGradientInspector:
         # Infer architecture from weight shapes (robust to missing metadata).
         _sd = gate_ckpt['gate_state_dict']
         _in_features = _sd['fc.weight'].shape[1]
-        self.freq_features = (_in_features >= 316)
+        if _in_features == 192:
+            self.gate_input_mode = 'penultimate'
+            self.freq_features = False
+            self.gate_input_dim = 192
+        else:
+            self.gate_input_mode = 'probability'
+            self.freq_features = (_in_features >= 316)
+            self.gate_input_dim = gate_input_dim(cfg.num_classes,
+                                                  freq_features=self.freq_features)
         self.linear_router = not any(k.startswith('bn.') for k in _sd)
         self.calibrators = None  # fitted from a loader when target is correctness
 
@@ -82,16 +90,17 @@ class GateGradientInspector:
             cfg, device, {'CE': ce_path, 'LA': la_path, 'BS': bs_path},
             expert_T=self.expert_T, normalize_blocks=self.norm_blocks,
             freq_features=self.freq_features,
+            gate_input_mode=self.gate_input_mode,
         )
-        self.gate = GateMLP(input_dim=gate_input_dim(cfg.num_classes,
-                                                     freq_features=self.freq_features),
+        self.gate = GateMLP(input_dim=self.gate_input_dim,
                             num_experts=3,
                             linear_router=self.linear_router).to(device)
         try:
             self.gate.load_state_dict(gate_ckpt['gate_state_dict'])
         except RuntimeError as e:
             print(f"[ERROR] Gate architecture mismatch.\n"
-                  f"  Inferred: freq_features={self.freq_features}, "
+                  f"  Inferred: mode={self.gate_input_mode} "
+                  f"freq_features={self.freq_features} "
                   f"linear_router={self.linear_router}\n"
                   f"  GateMLP input_dim={self.gate._input_dim}\n"
                   f"  Checkpoint fc.weight shape: "

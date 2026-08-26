@@ -23,7 +23,7 @@ from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.utils.metrics import shot_acc
 from imbalanceddl.utils.debug.models import ExpertEnsemble, GateMLP
 from imbalanceddl.utils.gate_features import (
-    gate_input_dim, calibrate_expert_probs, build_gate_input,
+    calibrate_expert_probs, build_gate_input,
     build_mixture, uniform_weights,
 )
 from imbalanceddl.utils.debug.evaluation import recipe_from_checkpoint
@@ -101,27 +101,58 @@ def main():
     ckpt_paths = {'CE': custom_args.ce_path, 'LA': custom_args.la_path, 'BS': custom_args.bs_path}
     model = ExpertEnsemble(cfg, device, ckpt_paths).to(device)
 
-    print("\n[INFO] Caching raw expert logits on test set...")
-    all_logits = [[], [], []]
-    all_labels = []
-
-    with torch.no_grad():
-        for images, labels in val_loader:
-            images = images.to(device)
-            logits_list, _ = model(images)
-            for i in range(3):
-                all_logits[i].append(logits_list[i].cpu())
-            all_labels.append(labels)
-
-    all_logits = [torch.cat(l, dim=0) for l in all_logits]
-    labels = torch.cat(all_labels, dim=0).numpy()
-
+    # Peek at the first checkpoint to determine which gate input mode its
+    # checkpoints use (probability vs penultimate).
     gate_files = sorted(glob.glob(os.path.join(custom_args.gate_dir, "*.pth")))
     if not gate_files:
         print(f"[ERROR] No checkpoints found in {custom_args.gate_dir}")
         sys.exit(1)
-
     print(f"[INFO] Found {len(gate_files)} gate checkpoints to evaluate.")
+
+    first_ckpt = torch.load(gate_files[0], map_location='cpu', weights_only=False)
+    from imbalanceddl.utils.debug.evaluation import _infer_architecture
+    _mode, _freq, _linear, _dim = _infer_architecture(first_ckpt, cfg.num_classes)
+    first_mode = _mode
+
+    if first_mode == 'penultimate':
+        # Penultimate mode: cache hidden states + logits once.
+        print(f"\n[INFO] Detected penultimate-mode checkpoints "
+              f"(input_dim={_dim}). Caching hidden states and logits...")
+        all_logits = [[], [], []]
+        all_hidden = [[], [], []]
+        all_labels = []
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images = images.to(device)
+                logits_list, _, hidden_list = model.forward_with_hidden(images)
+                for i in range(3):
+                    all_logits[i].append(logits_list[i].cpu())
+                    all_hidden[i].append(hidden_list[i].cpu())
+                all_labels.append(labels)
+        all_logits = [torch.cat(l, dim=0) for l in all_logits]
+        all_hidden = [torch.cat(h, dim=0) for h in all_hidden]
+        labels = torch.cat(all_labels, dim=0).numpy()
+        cached_embeddings = torch.cat(all_hidden, dim=1)  # (N, 192)
+        cached_logits = all_logits
+        print(f"[INFO] Cached {labels.shape[0]} samples with "
+              f"{cached_embeddings.size(1)}-dim penultimate embeddings.")
+    else:
+        # Probability mode: cache raw logits only.
+        print("\n[INFO] Caching raw expert logits on test set...")
+        all_logits = [[], [], []]
+        all_labels = []
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images = images.to(device)
+                logits_list, _ = model(images)
+                for i in range(3):
+                    all_logits[i].append(logits_list[i].cpu())
+                all_labels.append(labels)
+        all_logits = [torch.cat(l, dim=0) for l in all_logits]
+        labels = torch.cat(all_labels, dim=0).numpy()
+        cached_logits = all_logits
+        cached_embeddings = None
+        print(f"[INFO] Cached {labels.shape[0]} samples with raw logits.")
 
     la_tau = 1.5
     match_tau = re.search(r't([\d\.]+)', os.path.basename(custom_args.la_path))
@@ -167,20 +198,19 @@ def main():
         gate_temp = recipe['gate_temp']
         mix_temp = recipe['mix_temp']
 
-        # Gate input dim depends on the checkpoint's freq_features flag
-        # (round-3: 316 vs 312 dims) — build per checkpoint.
+        # Gate input dim is inferred from checkpoint weight shapes.
         gate = GateMLP(
-            input_dim=gate_input_dim(cfg.num_classes,
-                                     freq_features=recipe['freq_features']),
+            input_dim=recipe['input_dim'],
             num_experts=3,
-            linear_router=recipe.get('linear_router', False),
+            linear_router=recipe['linear_router'],
         ).to(device)
         try:
             gate.load_state_dict(ckpt['gate_state_dict'])
         except RuntimeError as e:
             print(f"[WARNING] Skipping checkpoint {fname} due to architecture "
                   f"mismatch.\n"
-                  f"  Recipe: freq_features={recipe['freq_features']}, "
+                  f"  Recipe mode={recipe['gate_input_mode']} "
+                  f"freq_features={recipe['freq_features']} "
                   f"linear_router={recipe['linear_router']}\n"
                   f"  GateMLP input_dim={gate._input_dim}\n"
                   f"  Checkpoint fc.weight shape: "
@@ -190,16 +220,19 @@ def main():
         gate.eval()
 
         with torch.no_grad():
-            # Gate embeddings depend on the checkpoint's per-expert temps and
-            # block-normalization, so build them per checkpoint from raw logits.
-            probs = calibrate_expert_probs(
-                all_logits, cfg.cls_num_list, la_tau, T=1.0,
-                per_expert_T=expert_temps,
-            )
-            embeddings = build_gate_input(
-                probs, normalize_blocks=recipe['norm_blocks'],
-                cls_num_list=cfg.cls_num_list if recipe['freq_features'] else None,
-            )
+            if recipe['gate_input_mode'] == 'penultimate':
+                # Penultimate mode: use the pre-cached 192-dim embeddings.
+                embeddings = cached_embeddings
+            else:
+                # Probability mode: build gate embeddings from cached logits.
+                probs = calibrate_expert_probs(
+                    cached_logits, cfg.cls_num_list, la_tau, T=1.0,
+                    per_expert_T=expert_temps,
+                )
+                embeddings = build_gate_input(
+                    probs, normalize_blocks=recipe['norm_blocks'],
+                    cls_num_list=cfg.cls_num_list if recipe['freq_features'] else None,
+                )
 
             gate_logits = gate(embeddings.to(device))
             weights = F.softmax(gate_logits / gate_temp, dim=1)
