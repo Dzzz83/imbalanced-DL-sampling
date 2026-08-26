@@ -134,8 +134,8 @@ class DiagnosticData:
     labels: np.ndarray               # (N,)
     labels_tune: np.ndarray          # (M,)
     group_ids: np.ndarray            # (N,)  head=0, mid=1, tail=2 (test)
-    group_ids_tune: Optional[np.ndarray] = None  # (M,)  tune group ids
     cls_num_list: list
+    group_ids_tune: Optional[np.ndarray] = None  # (M,)  tune group ids
     num_classes: int = 100
     cfg: Any = None
     recipe: dict = field(default_factory=dict)
