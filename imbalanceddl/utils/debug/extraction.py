@@ -134,6 +134,7 @@ class DiagnosticData:
     labels: np.ndarray               # (N,)
     labels_tune: np.ndarray          # (M,)
     group_ids: np.ndarray            # (N,)  head=0, mid=1, tail=2 (test)
+    cls_group_ids: np.ndarray        # (C,)  per-class group assignment
     cls_num_list: list
     group_ids_tune: Optional[np.ndarray] = None  # (M,)  tune group ids
     num_classes: int = 100
@@ -241,6 +242,7 @@ class DataExtractor:
                 "gate_input_probability"),
             # Metadata
             group_ids=label_group_ids,
+            cls_group_ids=group_ids,
             group_ids_tune=group_ids[tune_data["labels"]],
             cls_num_list=self.recipe["cls_num_list"],
             num_classes=test_data.get("num_classes", 100),

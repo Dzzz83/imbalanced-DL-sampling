@@ -10,18 +10,18 @@ class Stage3PluginAnalyzer(DiagnosticBase):
     These reveal whether selective prediction could salvage tail accuracy."""
 
     name = "Stage 3 Plugin Parameters"
-    depends_on = ["p_mix_tune", "labels_tune", "group_ids_tune",
+    depends_on = ["p_mix_tune", "labels_tune", "cls_group_ids",
                   "cls_num_list", "cfg"]
 
     def run(self) -> DiagnosticResult:
         d = self.data
 
         alpha_bal, mu_bal = tune_plugin_for_rho(
-            d.p_mix_tune, d.labels_tune, d.group_ids_tune,
+            d.p_mix_tune, d.labels_tune, d.cls_group_ids,
             rho=0.5, mode="bal", cls_num_list=d.cls_num_list
         )
         alpha_wst, mu_wst = tune_plugin_for_rho(
-            d.p_mix_tune, d.labels_tune, d.group_ids_tune,
+            d.p_mix_tune, d.labels_tune, d.cls_group_ids,
             rho=0.5, mode="worst", cls_num_list=d.cls_num_list
         )
 
