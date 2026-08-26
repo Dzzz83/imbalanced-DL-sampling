@@ -36,12 +36,12 @@ class GradientSensitivityAnalyzer(DiagnosticBase):
                                 "or enable hidden state collection."),
             )
 
-        # Take a single batch
+        # Take a single batch — move to the gate's device first
         batch_size = 128
         N = min(batch_size, d.hidden_ce.shape[0])
         hidden = torch.cat([
             d.hidden_ce[:N], d.hidden_la[:N], d.hidden_bs[:N]
-        ], dim=1)  # (N, 192)
+        ], dim=1).to(d.device)  # (N, 192), move to gate's device
         hidden.requires_grad_(True)
 
         # Forward through gate

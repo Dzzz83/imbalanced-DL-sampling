@@ -65,8 +65,10 @@ class FeatureAblationRunner(DiagnosticBase):
             with torch.no_grad():
                 gl = d.gate(gate_input.to(d.device))
                 w = F.softmax(gl / gate_temp, dim=1)
+                # Move raw logits to the same device as weights
+                raw_logits_dev = [r.to(d.device) for r in raw_logits]
                 pm = build_mixture(
-                    raw_logits, w, cls_list, la_tau,
+                    raw_logits_dev, w, cls_list, la_tau,
                     T=T, per_expert_T=expert_temps,
                     k=k, space=space, weight_floor=weight_floor,
                     mix_temperature=1.0,
